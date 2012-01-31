@@ -50,9 +50,12 @@ In order to update or upgrade to the latest drupal, you'll need to re-pull
 and re-push.
 
 Pull from upstream:
+
     cd drupal/
     git pull -s recursive -X theirs upstream master
+
 Push the new changes upstream
+
     git push
 
 
