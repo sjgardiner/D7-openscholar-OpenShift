@@ -16,11 +16,11 @@ Create an account at http://openshift.redhat.com/
 
 Create a php-5.3 application
 
-    rhc-create-app -a drupal -t php-5.3
+    rhc app create -a drupal -t php-5.3
 
 Add MySQL support to your application
 
-    rhc-ctl-app -a drupal -e add-mysql-5.1
+    rhc app cartridge add -a drupal -c mysql-5.1
 
 Add this upstream drupal repo
 
