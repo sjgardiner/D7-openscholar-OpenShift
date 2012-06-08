@@ -88,6 +88,39 @@ deplist.txt
 A list of pears to install, line by line on the server.  This will happen when
 the user git pushes.
 
+Security Considerations
+-----------------------
+This repository contains configuration files with security related variables.
+
+Since this is a shared repository, any applications derived from it will share those variables, thus reducing the security of your application.
+
+You should follow the directions below and push your updated files to OpenShift immediately.
+
+### Procedure
+
+The following table lists files and variables that should be changed.
+
+These values can be replaced by using the following script (as defined in `php/includes/bootstrap.inc`)
+
+```php
+function drupal_hash_base64($data) {
+  $hash = base64_encode(hash('sha256', $data, TRUE));
+  // Modify the hash so it's safe to use in URLs.
+  return strtr($hash, array('+' => '-', '/' => '_', '=' => ''));
+}
+```
+
+<table>
+  <tr>
+    <th>File</th>
+    <th>Variable</th>
+  </tr>
+  <tr>
+    <td>php/sites/default/settings.php</td> 
+    <td>$drupal_hash_salt</td>
+  </tr>
+</table>
+
 
 Additional information
 ----------------------
