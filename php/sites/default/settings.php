@@ -223,7 +223,26 @@ $update_free_access = FALSE;
  *   $drupal_hash_salt = file_get_contents('/home/example/salt.txt');
  *
  */
-$drupal_hash_salt = 'LQUO4OA2XkTLYCXvGqD39wD0yEiuK-bnjR0DgF-GaKI';
+
+// This is where we define the OpenShift specific secure variable functions
+require_once(DRUPAL_ROOT . '/includes/openshift.inc');
+
+// Specify default variables to regenerate
+$_default_keys = array(
+  'drupal_hash_salt' => 'LQUO4OA2XkTLYCXvGqD39wD0yEiuK-bnjR0DgF-GaKI'
+);
+
+// This function gets called by openshift_secure and passes an array
+function make_secure_key($args) {
+  $hash = $args['hash'];
+  return drupal_hash_base64(substr($hash,0,55));
+}
+
+// Generate OpenShift secure keys (or return defaults if not on OpenShift)
+$array = openshift_secure($_default_keys,'make_secure_key');
+
+// Set drupal_hash_salt to the secure value
+$drupal_hash_salt = $array['drupal_hash_salt'];
 
 /**
  * Base URL (optional).
