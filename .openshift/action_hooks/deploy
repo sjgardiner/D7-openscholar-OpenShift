@@ -40,13 +40,18 @@ then
     exit 5
 fi
 
+if [ -z "$OPENSHIFT_DB_PORT" ]
+then
+    exit 6
+fi
+
 # Confirm database exists, if not create it
-if ! /usr/bin/mysql -u "$OPENSHIFT_DB_USERNAME" --password="$OPENSHIFT_DB_PASSWORD" -h "$OPENSHIFT_DB_HOST" -e "select * from actions;" "$OPENSHIFT_APP_NAME" > /dev/null 2>&1
+if ! /usr/bin/mysql -u "$OPENSHIFT_DB_USERNAME" --password="$OPENSHIFT_DB_PASSWORD" -h "$OPENSHIFT_DB_HOST" -P "$OPENSHIFT_DB_PORT" -e "select * from actions;" "$OPENSHIFT_APP_NAME" > /dev/null 2>&1
 then
     echo
     echo "Database schema not found, importing 'drupal.sql' schema."
     echo
-    /usr/bin/mysql -u "$OPENSHIFT_DB_USERNAME" --password="$OPENSHIFT_DB_PASSWORD" -h "$OPENSHIFT_DB_HOST" "$OPENSHIFT_APP_NAME" < "$OPENSHIFT_REPO_DIR/.openshift/action_hooks/drupal.sql"
+    /usr/bin/mysql -u "$OPENSHIFT_DB_USERNAME" --password="$OPENSHIFT_DB_PASSWORD" -h "$OPENSHIFT_DB_HOST" -P "$OPENSHIFT_DB_PORT" "$OPENSHIFT_APP_NAME" < "$OPENSHIFT_REPO_DIR/.openshift/action_hooks/drupal.sql"
     echo
     echo "done."
     echo "=================================================="
