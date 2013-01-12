@@ -1,0 +1,165 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ */
+
+include_once ('os_image_gallery.features.inc');
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_image_gallery_os_app_info() {
+  $apps = array();
+
+  $apps['os_image_gallery'] = array(
+    'path' => 'galleries',
+  	'nodetypes' => array(
+  	  'media_gallery',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Implements hook_contextual_links_view_alter
+ *
+ * OS and media_gallery both add contextuals.  Clean that up.
+ */
+function os_image_gallery_contextual_links_view_alter(&$element, $items) {
+  if (isset($element['#contextual_links']['media_gallery'])) {
+    unset($element['#links']['media-gallery-edit']);
+    unset($element['#links']['file-delete']);
+  }
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_image_gallery_vsite_og_node_type_info() {
+  return array(
+    'media_gallery' => 'group content',
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Removes block option from media_gallery node edit.  OS blocks are managed by layout CP.  This shouldn't be exception.
+ */
+function os_image_gallery_form_media_gallery_node_form_alter(&$form, &$form_state) {
+  $form['block']['#type'] = 'hidden';
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * Makes sure that os_image_gallery alters the media_gallery form after media_gallery, but before vsite
+ */
+function os_image_gallery_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_alter' && isset($implementations['media_gallery'], $implementations['os_image_gallery'])) {
+    $os_image_gallery = $implementations['os_image_gallery'];
+    unset($implementations['os_image_gallery']);
+    $implementations['os_image_gallery'] = $os_image_gallery;
+
+    if (isset($implementations['vsite'])) {
+      $vsite = $implementations['vsite'];
+      unset($implementations['vsite']);
+      $implementations['vsite'] = $vsite;
+    }
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function os_image_gallery_node_view($node, $view_mode) {
+  if ($node->type !== 'media_gallery') {
+    return;
+  }
+
+  // Invokes media_gallery_view(), since this feature "owns" the media_gallery
+  // node type.
+  media_gallery_view($node, $view_mode);
+
+  //Update link title so users know they can upload more than just images
+  if ($node->content['add_media_link']['select']['#title'] == t('Add New Image')) {
+    $node->content['add_media_link']['select']['#title'] = t('Add New Media');
+  }
+
+
+  // Attaches custom CSS to this node view page.
+  $node->content['os_image_gallery'] = array(
+    '#attached' => array(
+      'css' => array(
+        'type' => 'file',
+        'data' => drupal_get_path('module', 'os_image_gallery') . '/os_image_gallery.css',
+      ),
+    ),
+  );
+
+  // Gets the fids of images on this page
+  if (isset($node->media_gallery_media) && count($node->media_gallery_media[LANGUAGE_NONE])) {
+    $keep_fids = array();
+    foreach ($node->media_gallery_media[LANGUAGE_NONE] as $media) {
+      $keep_fids[] = $media['fid'];
+    }
+
+    // Removes the rest
+    foreach ($node->content['media_gallery_media'] as $delta => $media) {
+      if (is_numeric($delta) && !in_array($media['#file']->fid, $keep_fids)) {
+        unset($node->content['media_gallery_media'][$delta]);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function os_image_gallery_form_alter(&$form, &$form_state, $form_id) {
+  if (strpos($form_id, 'media_edit_') === 0) {
+    // media_edit_1
+    $form_id;
+    $form['fieldset'] = array(
+      '#title' => t('Image Settings'),
+      '#type' => 'fieldset',
+      '#collapsed' => TRUE,
+      '#collapsible' => TRUE,
+    );
+
+    foreach (array('media_description', ) as $elem) {
+      if (isset($form[$elem])) {
+        $form['fieldset'][$elem] = $form[$elem];
+        unset($form[$elem]);
+      }
+    }
+
+    //make an image instead of a link
+    $form['preview']['#theme'] = 'media_admin_thumbnail';
+  }
+}
+
+/**
+ * Implements hook_file_delete
+ *
+ * When an image is deleted, remove it from media_gallery nodes first.
+ */
+function os_image_gallery_file_delete($file) {
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'node')
+    ->fieldCondition('media_gallery_media', 'fid', $file->fid, '=');
+  $result = $query->execute();
+
+  if (isset($result['node'])) {
+    $nids = array_keys($result['node']);
+    $nodes = entity_load('node', $nids);
+    foreach ($nodes as $node) {
+      media_gallery_remove_item_from_gallery($node, $file);
+    }
+  }
+}
+

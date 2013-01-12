@@ -1,0 +1,16 @@
+<?php
+// $Id$
+
+
+/**
+ * Perform install-time configurations for events
+ */
+function os_events_install() {
+
+  //Don't store the 'last_viewed' date, This is annoying
+  variable_set('calendar_track_date', 0);
+
+  //Use colorbox for the calendar
+  variable_set('calendar_add_colorbox', 1);
+}
+

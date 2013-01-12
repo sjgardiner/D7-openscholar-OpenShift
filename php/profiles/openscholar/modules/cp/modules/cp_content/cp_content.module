@@ -1,0 +1,21 @@
+<?php
+/**
+ * @file
+ * Code for the cp_content feature.
+ */
+
+include_once 'cp_content.features.inc';
+
+function cp_content_menu() {
+  $items = array();
+
+  $items['cp/content/add'] = array(
+    'page callback' => 'cp_content_add_page',
+    'title' => 'Add New Content',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => 'spaces_access_admin',
+    'file' => 'cp_content.pages.inc',
+  );
+
+  return $items;
+}

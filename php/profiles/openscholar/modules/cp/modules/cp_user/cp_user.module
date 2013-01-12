@@ -1,0 +1,241 @@
+<?php
+
+/**
+ * @file
+ * OpenScholar User Management UI.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function cp_user_menu(){
+  $items = array();
+
+  $items['cp/users'] = array(
+    'title' => 'Manage Members',
+    'description' => 'Find and manage site members.',
+    'page callback' => 'cp_user_admin',
+    'access callback' => 'cp_user_admin_access',
+    'file' => 'cp_user.pages.inc',
+    'weight' => 50,
+    'menu_name' => 'cp',
+  );
+
+  $items['cp/users/add'] = array(
+    'title' => 'Add User to Site',
+    'page arguments' => array('add'),
+    'access callback' => 'cp_user_admin_access',
+    'file' => 'cp_user.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['cp/users/delete_membership/%user_id'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Group Membership',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cp_user_remove_membership_confirm', 3),
+    'access callback' => 'cp_user_admin_access',
+    'file' => 'cp_user.pages.inc',
+  );
+
+  $items['cp/users/create_admin/%user_id'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Group Membership',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cp_user_make_admin_confirm', 3),
+    'access callback' => 'cp_user_admin_access',
+    'file' => 'cp_user.pages.inc',
+  );
+
+  $items['cp/users/remove_admin/%user_id'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Group Membership',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cp_user_remove_admin_confirm', 3),
+    'access callback' => 'cp_user_admin_access',
+    'file' => 'cp_user.pages.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Menu access; Return TRUE if user can access user admin page.
+ */
+function cp_user_admin_access() {
+  return user_access('administer users') && spaces_get_space();
+}
+
+/**
+ * Implements hook_admin_paths().
+ */
+function cp_user_admin_paths() {
+  $paths = array(
+    'cp/users/create_admin/*' => TRUE,
+    'cp/users/remove_admin/*' => TRUE,
+    'cp/users/delete_membership/*' => TRUE,
+    'cp/users/add' => TRUE,
+  );
+
+  return $paths;
+}
+
+/**
+ * Page callback; CP user admin delegator.
+ *
+ * @param $op
+ *   The operation needed. Defaults to "members".
+ */
+function cp_user_admin($op = 'members') {
+  $vsite = spaces_get_space();
+  switch ($op) {
+    case 'add':
+      module_load_include('inc', 'og_ui', 'og_ui.admin');
+      $build['user_add'] = drupal_get_form('og_ui_add_users', 'node', $vsite->id);
+      // Move up the user_register_form from "create" as we're removing that option.
+      // Both forms should display and be controlled by jQuery to hide one or the other depending
+      // on the action the user wants to take.
+      $build['user_register'] = drupal_get_form('user_register_form');
+      break;
+    case 'members':
+    default:
+      $build = cp_user_user_management_page($vsite->id);
+  }
+  return $build;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Change the title and set default values for adding user to group.
+ */
+function cp_user_form_og_ui_add_users_alter(&$form, $form_state) {
+  $node = node_load($form['gid']['#value']);
+  $form['og_user']['#title'] = t('Add an existing user to %label', array('%label' => $node->title));
+
+  // Create and add a link for the user to click on to create a new user.
+  $ajax_link = '<a href="javascript:void(0)" id="new-user-link">' . t('Add a new user') . '</a>';
+  // Added the link onto the form as just text and set the weight higher to bump it down the add user form.
+  $form['og_user']['name']['#description'] = t('Type in a persons username to search for their account.');
+  $form['og_user']['link_text'] = array(
+    '#type' => 'item',
+    '#markup' => t('If you can\'t find their account, click "!create_new" to create a new account.',
+        array('!create_new' => $ajax_link)),
+    '#weight' => 2,
+  );
+  // Attach the custom js file to control the toggle of the two forms.
+  $form['og_user']['#attached'] = array('js' => array(drupal_get_path('module', 'cp_user') . '/cp_user.js'));
+
+  $form['og_user']['state'] = array(
+    '#type' => 'value',
+    '#value' => OG_STATE_ACTIVE,
+  );
+  $form['og_user']['field_name'] = array(
+    '#type' => 'value',
+    '#value' => 'og_user_node',
+  );
+
+  // Add a secondary submit function that redirects the users out of the
+  // admin overlay
+  $form['#submit'][] = 'cp_user_og_ui_add_users_submit';
+}
+
+/**
+ * Submit handler; redirect the user back to the /cp/users page
+ * after submitting the add user.
+ */
+function cp_user_og_ui_add_users_submit(&$form, &$form_state){
+
+  $state = $form_state['values']['state'];
+  $account = user_load_by_name($form_state['values']['name']);
+
+  if($state){
+    $og_roles = og_roles('node', false, $form_state['values']['gid']);
+    $vsite_user_role = array_search('vsite user', $og_roles);
+
+    // Grant them the vsite user role
+    og_role_grant('node', $form_state['values']['gid'], $account->uid, $vsite_user_role);
+  }
+
+  $form_state['redirect'] = 'cp/users';
+}
+
+/**
+ * Implements hook_field_access().
+ */
+function cp_user_field_access($op, $field, $entity_type, $entity, $account) {
+  $field_names = array(
+    OG_MEMBERSHIP_REQUEST_FIELD,
+    'field_message',
+  );
+
+  if ($op == 'edit' && in_array($field['field_name'], $field_names)) {
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Altering the user_register_form to add a secondary submit function
+ * that will also add a user to the site
+ */
+function cp_user_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  // The only time we want to alter this form is when the user is in their "cp",
+  // other than that the form should not get altered.
+  $item = menu_get_item();
+
+  if (strpos($item['path'], 'cp') === 0) {
+    // Create a hidden field to control our JS
+    $form['switch'] = array(
+      '#title' => t('switch'),
+      '#default_value' => 1,
+      '#type' => 'hidden',
+      '#attributes' => array('id'=>'switch'),
+    );
+
+    // Add a secondary submit function that also submits the user add
+    // function.
+    $form['#submit'][] = 'cp_user_user_register_submit';
+    // Remove the 'status' and 'role' elements from the form.
+    $form['account']['status']['#access'] = FALSE;
+    $form['account']['roles']['#access'] = FALSE;
+    // Change the submit button text to let the user know they will also
+    // be adding to their site as well as creating the user, in one step.
+    $form['actions']['submit']['#value'] = t('Create and Add User');
+  }
+}
+
+/**
+ * Submit handler; Add the newly created user to the current site.
+ */
+function cp_user_user_register_submit($form, &$form_state) {
+  $space = spaces_get_space();
+  if(!empty($form_state['user']->uid)) {
+    og_group('node', $space->id, array('entity' => $form_state['user']->uid));
+    // drupal_set_message to inform the user has been added to the group.
+    drupal_set_message(t('!user has been added to the website: !website',array('!user'=>$form_state['user']->name, '!website'=>$space->group->title)));
+    // Redirect the user after they add/create someone.
+    $form_state['redirect'] = 'cp/users';
+  }
+}
+
+/**
+ * Implements hook_load().
+ *
+ * Return the loaded user from the passed user ID, or FALSE if no user
+ * exists.
+ */
+function user_id_load($user_id) {
+  $account = user_load($user_id);
+  return $account ? $account : FALSE;
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter();
+ */
+function cp_user_form_cp_settings_form_alter(&$form, &$form_state) {
+  if(isset($form['admin-menu'])) {
+	$form['admin-menu']['#access'] = FALSE;
+  }
+}

@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * Update for Google Analytics.
+ *
+ * This update will migrate the Google Analytics in the spaces_settings table into the space_overrides table
+ */
+function os_ga_update_7001(&$sandbox) {
+
+	if (!db_table_exists('spaces_overrides')) {
+    throw new DrupalUpdateException(t('Spaces Overrdide table does not exist, aborting till spaces updates are run.'));
+    return $res;
+	}
+
+	//variable_set('os_ga_google_analytics_id', variable_get('os_ga_global_id', ''));
+	//variable_del('os_ga_global_id');
+
+  if (db_table_exists('spaces_settings')) {
+    $result = db_query("SELECT * FROM {spaces_settings} WHERE id = 'generic'");
+  	//while ($row = db_fetch_object($result)) {
+
+    foreach($result as $row) {
+      $value = unserialize($row->value);
+
+      // db_query("INSERT INTO {spaces_overrides} VALUES ('%s', '%s', 'variable', 'os_ga_google_analytics_id', '%s')", $row->type, $row->sid, serialize($value['google_analytics_id']));
+      // updated for Drupal 7 - new methond of inserting.
+		  $gaInsert = db_insert('spaces_overrides')
+  			->fields(array(
+    			'type' => $row->type,
+    			'id' => $row->sid,
+    			'object_type' => 'variable',
+    			'object_id' => 'os_ga_google_analytics_id',
+    			'value' => serialize($value['google_analytics_id'])
+  			))
+  			->execute();
+  	}
+  	return t('Google Analytics settings successfully migrated.');
+	}
+}

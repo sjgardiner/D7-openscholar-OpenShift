@@ -1,0 +1,17 @@
+diff --git a/link.migrate.inc b/link.migrate.inc
+index e1f8ada..298ed1a 100644
+--- a/link.migrate.inc
++++ b/link.migrate.inc
+@@ -55,4 +55,12 @@ class MigrateLinkFieldHandler extends MigrateFieldHandler {
+ 
+     return isset($return) ? $return : NULL;
+   }
++
++  public function fields($migration = NULL) {
++    $fields = array(
++      'title' => t('Field: Link Title'),
++      'attributes' => t('Field: Link Attributes'),
++    );
++    return $fields;
++  }
+ }

@@ -1,0 +1,57 @@
+<?php
+
+/**
+ * Vsite public access field.
+ */
+define('VSITE_ACCESS_FIELD', 'group_access');
+
+/**
+ * Implements hook_views_api().
+ */
+function vsite_access_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'vsite_access'),
+  );
+}
+
+
+/**
+ * Implements hook_node_access().
+ */
+function vsite_access_node_access($node, $op, $account) {
+  $type = is_string($node) ? $node : (is_array($node) ? $node['type'] : $node->type);
+
+  if ($op != 'view' || !($vsite = spaces_get_space())) {
+    // If we are trying to create content outside a group and do not have permission to do so
+    if ($op == 'create' && og_is_group_content_type('node', $type) && !user_access('create ' . $type . ' content', $account)) {
+      return NODE_ACCESS_DENY;
+    }
+
+    // Do nothing
+    return;
+  }
+
+  // We are in a vsite
+  if (og_is_group_content_type('node', $type) && !vsite_access_user_access($vsite->group,$account)) {
+    return NODE_ACCESS_DENY;
+  }
+}
+
+function vsite_access_user_access($group, $account = NULL){
+  global $user;
+  $account = isset($account) ? $account : $user;
+
+  $wrapper = entity_metadata_wrapper('node', $group);
+
+  if(!empty($wrapper->{VSITE_ACCESS_FIELD}) && $wrapper->{VSITE_ACCESS_FIELD}->value()){
+    // Private group.
+    if(!user_access('administer group') && !og_is_member('node', $group->nid,'user',$account)){
+      // They are not a member, deny access
+      return false;
+    }
+  }
+
+  // This is a public site, or they have access
+  return true;
+}

@@ -1,0 +1,117 @@
+name = OpenScholar
+description = Install OpenScholar
+core = 7.15
+files[] = openscholar.profile
+files[] = openscholar.install
+files[] = tests/openscholar.test
+
+; Core
+dependencies[] = color
+dependencies[] = comment
+dependencies[] = contextual
+dependencies[] = filter
+dependencies[] = help
+dependencies[] = image
+dependencies[] = list
+dependencies[] = menu
+dependencies[] = number
+dependencies[] = options
+dependencies[] = path
+dependencies[] = taxonomy
+dependencies[] = search
+dependencies[] = shortcut
+dependencies[] = toolbar
+dependencies[] = overlay
+dependencies[] = file
+dependencies[] = rdf
+dependencies[] = dblog
+
+; Contrib - core
+dependencies[] = ctools
+dependencies[] = context
+dependencies[] = features
+dependencies[] = boxes
+dependencies[] = views
+dependencies[] = strongarm
+dependencies[] = date
+dependencies[] = entity
+dependencies[] = token
+dependencies[] = pathauto
+dependencies[] = biblio
+dependencies[] = advanced_help
+
+; media / files / wysiwyg
+dependencies[] = imagefield_crop
+dependencies[] = jcarousel
+dependencies[] = media
+dependencies[] = oembed
+dependencies[] = file_entity
+dependencies[] = wysiwyg
+dependencies[] = wysiwyg_filter
+dependencies[] = media_internet
+dependencies[] = media_oembed
+
+; media custom
+dependencies[] = media_embed
+
+; performance
+dependencies[] = entitycache
+
+; web services
+dependencies[] = restws
+
+; boxes
+dependencies[] = views_slideshow_cycle
+
+; OS
+dependencies[] = os
+dependencies[] = os_help
+dependencies[] = os_files
+dependencies[] = os_files_private
+dependencies[] = os_books
+dependencies[] = os_boxes
+dependencies[] = os_wysiwyg
+dependencies[] = os_search_db
+dependencies[] = os_shields
+dependencies[] = os_comments
+dependencies[] = os_taxonomy
+dependencies[] = os_ga
+dependencies[] = os_tasks
+
+; Control Panel
+dependencies[] = cp
+dependencies[] = cp_appearance
+dependencies[] = cp_layout
+dependencies[] = cp_menu
+dependencies[] = cp_user
+dependencies[] = cp_content
+dependencies[] = cp_toolbar
+
+; Features
+dependencies[] = os_links
+dependencies[] = os_news
+dependencies[] = os_image_gallery
+dependencies[] = os_publications
+dependencies[] = os_pages
+dependencies[] = os_events
+dependencies[] = os_reader
+dependencies[] = os_blog
+dependencies[] = os_classes
+dependencies[] = os_presentations
+dependencies[] = os_software
+dependencies[] = os_dataverse
+dependencies[] = os_booklets
+dependencies[] = os_profiles
+dependencies[] = os_taxonomy
+dependencies[] = os_biocv
+
+; other
+dependencies[] = diff
+dependencies[] = twitter_pull
+dependencies[] = nice_menus
+dependencies[] = shorten
+dependencies[] = respondjs
+
+files[] = openscholar.profile
+
+

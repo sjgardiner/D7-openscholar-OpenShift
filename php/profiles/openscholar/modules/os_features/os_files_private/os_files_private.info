@@ -1,0 +1,9 @@
+name = Private Files
+description = Manage private files with restricted access.
+core = 7.x
+package = Features
+dependencies[] = context
+features[ctools][] = context:context:3
+features[features_api][] = api:1
+spaces[types][] = og
+spaces[types][] = site

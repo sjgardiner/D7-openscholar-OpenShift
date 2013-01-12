@@ -1,0 +1,237 @@
+<?php
+
+/**
+ * Implementation of hook_block_info()
+ *
+ */
+function os_stats_block_info() {
+	$blocks['os_stats'] = array(
+		'info' => t('OpenScholar Stats'),
+	);
+	return $blocks;
+}// end function
+
+/**
+ * Implementation of hook_block_view()
+ *
+ */
+function os_stats_block_view($delta='') {
+	$block = array();
+	switch ($delta) {
+		case 'os_stats':
+			$block['title'] = t('OpenScholar Stats');
+			$block['content'] = os_stats_content();
+			break;
+	}// end switgh
+	return $block;
+}
+
+/**
+ * Implementation of hook_block_configure()
+ *
+ */
+function os_stats_block_configure($delta='') {
+	$form = array();
+	$tablerows = array();
+	if($delta == 'os_stats'){
+		$form['os_stats_cache_expiration'] = array(
+   			'#type' => 'textfield',
+  			'#title' => 'OpenScholar Statistics cache expiration (in seconds)',
+  			'#default_value' => variable_get('os_stats_cache_expiration', 3600*24),
+  		);
+  		$form['os_stats_select'] = array(
+  			'#type' => 'fieldset',
+  			'#title' => 'Choose statistics to display',
+  			'#collapsible' => TRUE,
+  			'#collapsed' => FALSE,
+  		);
+  		$stats = _os_stats();
+  		$enabled = unserialize(variable_get('os_stats_enabled', FALSE));
+
+  		foreach($stats as $stat => $def) {
+  			$form['os_stats_select']['os_stat_'.$stat] = array(
+  			//$form['os_stats_select']['os_stats_'.$stat] = array(
+  				'#type' => 'checkbox',
+  				'#title' => $def['description'],
+  				'#default_value' => (isset($enabled[$stat])) ? $enabled[$stat] : TRUE,
+  			);
+  		}//end for each
+	}// enf if
+
+	return $form;
+
+}// end function
+
+/**
+ * Implementation of hook_block_save()
+ *
+ */
+function os_stats_block_save($delta='',$edit = array()) {
+	if ($delta == 'os_stats') {
+  		variable_set('os_stats_cache_expiration', (int)$edit['os_stats_cache_expiration']);
+
+  		$enabled_stats = array();
+  		foreach(_os_stats() as $stat => $def) {
+  			//variable_set('os_stats_stat_'.$stat, (bool)$edit['os_stats_stat_'.$stat]);
+  			$enabled[$stat] = (bool)$edit['os_stat_' . $stat];
+  		}// end foreach
+
+  		variable_set('os_stats_enabled', serialize($enabled));
+  		cache_clear_all('os_stats_data', 'cache');
+	}// end if
+}// end function
+
+/**
+ * Custom HTML Block
+ *
+ */
+function os_stats_content() {
+	$data = array();
+
+	//check cache
+	if ($cache = cache_get('os_stats_data')) {
+	  	if ($cache->expire < time()) {
+	    	cache_clear_all('os_stats_data', 'cache'); //clear the expired data.  still using it for this run though.
+	  	}// end if
+		$data = unserialize($cache->data);
+	} else {
+  		$stats = _os_stats();
+  		function _stats_weight($a, $b) {
+  	  		return ($a['weight'] > $b['weight']);
+  		}// end if
+  		uasort($stats, '_stats_weight');
+  		$enabled = unserialize(variable_get('os_stats_enabled', FALSE));
+
+  		foreach($stats as $stat => $def) {
+  	  		//$args = (isset($def['query_args']) && is_array($def['query_args'])) ? $def['query_args'] : array();
+  			if (!empty($enabled[$stat]) || !isset($enabled[$stat])) {
+  	 		 	// if the query has an array, assign it
+ 				if((!empty($def['query_args'])) && (!empty($def['query_args_type']))) {
+ 					$type = $def['query_args_type'];
+ 					$queryArray = $def['query_args'];
+ 					// new query
+ 					$result = db_query($def['query'], array($type => $queryArray))->fetchField();
+ 				}else {
+ 					$result = db_query($def['query'])->fetchField();
+ 				}// end if
+  	 		  	if($result) {
+  	    			// apply optional callback.  necessary for file size labels.
+  	  				if (isset($def['callback']) && function_exists($def['callback'])) {
+    					$result = $def['callback']($result);
+    				}// end if
+
+    				$data[$def['title']] = $result;
+  	 		  	}// end if
+  	  		}// end if
+  		}// end foreach
+  		cache_set('os_stats_data', serialize($data), 'cache', time() + variable_get('os_stats_cache_expiration', 24*3600));
+	}// end if
+
+	return _theme_os_stats_item_dt($data);
+}// end function
+
+/**
+ * Function to check to make sure the tables exist we
+ * want to pull stats from
+ *
+ */
+function os_stats_check_table($table) {
+	if(db_table_exists($table)) {
+		return true;
+	}else {
+		return false;
+	}
+}
+
+/**
+ * function to list stat, title, description, query, [callback] for stats to display
+ *
+ */
+function _os_stats() {
+  	$content_type = variable_get('scholar_content_type', 'vsite');
+  	$group_types = og_get_all_group_bundle();
+  	$group_types = array_keys($group_types['node']);
+  	if (empty($group_types)) {
+  	  $group_types = array('personal');
+  	}
+
+  	$statsArray = array();
+
+	if(os_stats_check_table('node')==true) {
+		$statsArray['Publications'] = array(
+			'title' => t('Publications'),
+			'description' => t('Biblio publications'),
+			'query' => 	'SELECT COUNT(nid) FROM {node} WHERE type=\'biblio\'',
+			'weight' => 20
+		);
+		$statsArray['Vsites'] = array(
+			'title' => t('Websites'),
+			'description' => t('Virtual sites in this OS installation'),
+		  	'query' => 'SELECT COUNT(nid) FROM {node} WHERE type IN (:typeVal) ',
+		  	//'query_args' => array(variable_get('scholar_content_type', 'vsite')),
+		    'query_args' => $group_types,
+			'query_args_type' => ':typeVal',
+		  	'weight' => 0
+		);
+		$statsArray['Nodes'] = array(
+			'title' => t('Posts'),
+			'description' => t('Drupal nodes'),
+			'query' => 'SELECT COUNT(nid) FROM {node}',
+			'weight' => 10,
+		);
+	}
+	if(os_stats_check_table('files')==true) {
+		$statsArray['Files'] = array(
+			'title' => t('Uploaded Files'),
+			'description' => t('Files uploaded by users'),
+			'query' => 'SELECT COUNT(fid) FROM {files}',
+			'weight' => 30,
+		);
+		$statsArray['Filesize'] = array(
+			'title' => t('Total uploaded'),
+			'description' => t('Size of all files uploaded by users'),
+			'query' => 'SELECT SUM(filesize) FROM {files}',
+			'callback' => '_os_stats_file_units',
+		  	'weight' => -10,
+			//should the callback be in a specific file so it doesn't have to load all the time?
+		);
+	}
+	if(os_stats_check_table('users')==true) {
+		$statsArray['Users'] = array(
+		  	'title' => t('Users'),
+		  	'description' => t('User accounts'),
+		  	'query' => 'SELECT COUNT(uid) FROM {users}',
+			'weight' => -10,
+		);
+	}
+	return $statsArray;
+}// end function
+
+/**
+ *  function to convert bytes to biggest unit of file types, appends abbreviation
+ *
+ **/
+function _os_stats_file_units($fs) {
+	$units = array('b', 'kb', 'mb' ,'gb', 'tb', 'pb');
+	$c = 0;
+	while ($fs >= 1024 && $c < sizeof($units)-1)  {
+		$c++;
+		$fs = $fs/1024.0;
+	}
+	return round($fs, 1) . $units[$c];
+}// end function
+
+/**
+ * @function _theme_item_dt
+ * function that returns definition list from an associative array
+ */
+function _theme_os_stats_item_dt($data) {
+  	$out = '<dl>';
+  	foreach ($data as $dt => $dd) {
+    	$out .= '  <dt>' . $dt . ':</dt>';
+    	$out .= '    <dd>' . $dd . '</dd>';
+  	}// end foreach
+  	$out .= '</dl>';
+
+  	return $out;
+}// end function

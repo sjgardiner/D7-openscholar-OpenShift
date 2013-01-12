@@ -1,0 +1,209 @@
+/* Site Info */
+
+#boxes-box-site_info,
+#boxes-box-site_info a {  
+font-family: 'Georgia,serif';
+color:#161616;
+}
+
+#boxes-box-site_info p a  {  
+display:none;
+}
+
+#boxes-box-site_info h1 {font-size: 30px;font-weight: normal;margin:70px 0 -50px 0; line-height: 10px;}
+
+#boxes-box-site_info h2 {font-size: 24px;font-weight: normal;font-style: italic;}
+
+/* Calendar Overrides */
+.calendar-calendar {margin-top:-20px;}
+
+
+.view .date-nav-wrapper .date-prev,
+.view .date-nav-wrapper .date-next {
+    background: none;
+    border-radius: 0;
+    float: none;
+    font-size: 12px;
+    left: auto;
+    padding: 5px 0;
+    position: absolute;
+    right: 60px;
+    text-align: right;
+    top: 0;
+    width: auto;
+    z-index: 1;
+}
+
+.block-views .view .date-nav-wrapper .date-prev {
+    left: 60px;
+
+}
+
+.view .date-nav-wrapper .date-prev a,
+.view .date-nav-wrapper .date-next a  {
+    float: left;
+    overflow: hidden;
+    text-indent: -9999px;
+    font-size:0;   
+}
+
+
+.view-os-events ul li {
+    border-bottom: none;
+}
+
+
+
+.calendar-calendar td {
+    text-align: center;
+    height:35px;
+}
+
+.calendar-calendar th.days {
+    font-size:12px;
+}
+
+.calendar-calendar tr td.today, .calendar-calendar tr.odd td.today, .calendar-calendar tr.even td.today {
+    background-color: #FFF !important;
+    border:1px solid #ccc;
+}
+
+table td.mini a {
+    font-weight: bold;
+}
+
+table .mini-day-on a {
+    text-decoration: none;
+}
+
+
+
+/* Tabs Overrides */
+
+.block-boxes-os_boxes_tabs .ui-widget {
+    margin-top:25px;
+}
+
+.ui-tabs .ui-tabs-panel {
+    background-image: none;
+    border-left: 1px solid #CCCCCC;
+    border-right: 1px solid #CCCCCC;
+    border-bottom: 1px solid #CCCCCC;
+    margin-top: 1px;
+    padding: 10px;
+}
+
+
+.ui-tabs .ui-corner-top {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.ui-tabs .ui-tabs-nav li,
+.ui-tabs .ui-tabs-nav li.ui-tabs-selected {
+  margin: 0;
+  padding: 10px 15px 10px 0;
+}
+
+.ui-corner-bottom {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+
+/* Slideshow Classic Frontpage */
+
+.slideshow {
+	position:relative;
+	color:#FFF;
+	clear:both;
+}
+
+.slideshow.classic .text-and-controls {
+	background: url('../images/slideshow_tileBgtransparency.png') repeat-y;
+    width:400px;
+	min-height:100px;
+	position:absolute;
+	top:40px;
+	left:40px;
+	padding:25px 0 0 25px;
+}
+
+.slideshow.classic .text-and-controls .title {
+	font-family: 'Georgia,serif';
+    font-size: 34px;
+    line-height: 40px;
+    text-shadow: 0 1px 1px #333;
+}
+
+.slideshow.classic .text-and-controls .controls {
+	margin:30px 0 20px;
+    
+}
+
+.slideshow.classic .text-and-controls a.prev,
+.slideshow.classic .text-and-controls a.next
+ {
+	overflow: hidden;
+    text-indent: -99999999px;
+    background: url("../images/hwpi_basesprite.png") no-repeat 0 0;
+    width:28px;
+    height:28px;
+    font-size: 0;
+    display:inline-block;
+    line-height: 0;
+}
+
+.slideshow.classic .text-and-controls a.next {
+  background: url("../images/hwpi_basesprite.png") no-repeat 0 -30px;	
+ }
+ 
+.slideshow.classic .text-and-controls .pager a
+ {
+	overflow: hidden;
+    text-indent: -99999999px;
+    background: url("../images/hwpi_basesprite.png") no-repeat 0 -93px;
+    width:20px;
+    height:28px;
+    font-size: 0;
+    display:inline-block;
+    line-height: 0;
+}
+
+.slideshow.classic .text-and-controls .pager a.active {
+background: url("../images/hwpi_basesprite.png") no-repeat 0 -122px;
+
+}
+
+/* Slideshow Classic Subsite */
+
+
+.slideshow.classic.subsite .text-and-controls {
+	background: none repeat scroll 0 0 #4384C4;
+    min-height: 100px;
+    padding: 25px 0 5px 25px;
+    position: relative;
+    top:-7px;
+    left:0;
+    width:96%;
+    clear:both;
+}
+
+.slideshow.classic.subsite .text-and-controls a.prev, 
+.slideshow.classic.subsite .text-and-controls a.next {
+    background: url("../images/hwpi_basesprite.png") no-repeat scroll 0 -150px transparent;
+}
+
+.slideshow.classic.subsite .text-and-controls a.next {
+  background: url("../images/hwpi_basesprite.png") no-repeat 0 -179px;	
+ }
+
+.slideshow.classic.subsite .text-and-controls .pager a {
+    background: url("../images/hwpi_basesprite.png") no-repeat scroll -29px -150px transparent;
+
+}
+
+.slideshow.classic.subsite .text-and-controls .pager a.active {
+    background: url("../images/hwpi_basesprite.png") no-repeat scroll -29px -179px transparent;
+}
+

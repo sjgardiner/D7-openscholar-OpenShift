@@ -1,0 +1,206 @@
+<?php
+
+include_once ('os_search_solr.features.inc');
+
+/**
+ * Implements hook_block_info().
+ */
+function os_search_solr_block_info(){
+  $blocks = array();
+
+  $blocks['site-search'] = array(
+      'info' => t('Site Search'),
+      'weight' => '10',
+      //'cache' => DRUPAL_CACHE_CUSTOM
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * Generate a block with a promotional link to openscholar.harvard.edu and
+ * all os menu blocks.
+ */
+function os_search_solr_block_view($delta = ''){
+  $block = array();
+  switch ($delta) {
+    case 'site-search' :
+      $block['subject'] = NULL;
+      $block['content'] = drupal_get_form('search_block_form');
+      return $block;
+
+    default:
+    break;
+  }
+}
+
+/**
+ * hook os_widget
+ *
+ * Exposes blocks as OpenScholar widgets.
+ */
+function os_search_solr_os_widget(){
+  $items = array();
+
+  // Displays site search box
+  $items['os_search_solr-site-search'] = array(
+      'module' => 'os_search_solr',
+      'delta' => 'site-search',
+      'weight' => '-10',
+      'info' => 'Site Search'
+  );
+
+  return $items;
+}
+
+/**
+ * Alter the query after it's prepared and cached.
+ *
+ * @param object $query
+ *   An object implementing DrupalSolrQueryInterface. No need for &.
+ */
+function os_search_solr_apachesolr_query_alter($query) {
+
+  if (!variable_get('os_search_solr_query_multisites',FALSE)) {
+    // Limit searches to just this OpenScholar install in shared indexes
+    $query->addFilter('hash', apachesolr_site_hash());
+  }
+
+  if(module_exists('vsite') && ($vsite = spaces_get_space())){
+    // I only want to see items in this site
+    $query->addFilter("sm_og_group_ref", $vsite->group_type.":".$vsite->id);
+  }
+}
+
+/**
+ * Function to return the searcher name for facetapi.
+ */
+function os_search_solr_get_searcher_name() {
+  $searcher_name = '';
+  if(module_exists('facetapi')) {
+	// Get the searcher info.
+    $searcher_array = facetapi_get_searcher_info();
+    // First element is the default.
+    $search = array_shift($searcher_array);
+    if(array_key_exists('name', $search)) {
+      $searcher_name = $search['name'];
+    }
+  }
+
+  return $searcher_name;
+}
+
+/**
+ * Implements hook_block_view_alter().
+ * Alter the titles of the Solr blocks.
+ */
+function os_search_solr_block_view_alter(&$data,$block) {
+
+  if (module_exists('facetapi')) {
+    // Gets delta map
+    $map = facetapi_get_delta_map();
+
+    if(isset($map) && is_array($map)) {
+      $searcher_name = os_search_solr_get_searcher_name();
+
+      // Alter the title for Filter by Post Type.
+      $string_bundle = facetapi_build_delta($searcher_name, 'block', 'bundle');
+      $delta_bundle = array_search($string_bundle, $map);
+
+      if($block->module == 'facetapi' && $block->delta == $delta_bundle) {
+
+      	$data['title'] = 'Filter by Post Type';
+      }
+
+      // Alter the title for Filter by Site.
+      $string_og = facetapi_build_delta($searcher_name, 'block', 'sm_og_group_ref');
+      $delta_og = array_search($string_og, $map);
+
+      if($block->module == 'facetapi' && $block->delta == $delta_og) {
+      	$data['title'] = 'Filter By Site';
+      }
+
+    }
+  }
+}
+
+/**
+ * Implements hook_apachesolr_exclude().
+ * Exclude items from the search index.
+ */
+function os_search_solr_apachesolr_exclude($entity_id, $entity_type, $row, $env_id) {
+
+  if(!module_exists('og') || $entity_type != 'node' || !og_is_group_content_type($entity_type, $row->bundle)){
+    return FALSE;
+  }
+
+  $entity = entity_load($entity_type, array($entity_id));
+  $entity = $entity ? reset($entity) : FALSE;
+
+  if (empty($entity)) {
+    // If the object failed to load, just stop.
+    return FALSE;
+  }
+
+  if ($groups = og_get_entity_groups($entity_type, $entity)) {
+    if(count($groups['node'])){
+      //Just check the first group
+      $gid = current($groups['node']);
+      $group = entity_load('node', array($gid));
+      $group = $group ? reset($group) : FALSE;
+      if(module_exists('vsite_access') && !empty($wrapper->{VSITE_ACCESS_FIELD}) && $wrapper->{VSITE_ACCESS_FIELD}->value()){
+        // Private group.
+        return TRUE;
+      }
+
+      $map = features_get_component_map('node');
+      $feature = !empty($map[$row->bundle]) ? reset($map[$row->bundle]) : NULL;
+
+      if($feature){
+
+        $result = db_query("
+	          SELECT value
+	          FROM {spaces_overrides}
+	          WHERE type = :type
+	            AND id = :id
+	            AND object_type = :otype
+	            AND object_id = :oid
+			      LIMIT 1",
+          array(
+            ':type' => 'og',
+            ':id' => $gid,
+            ':otype' => 'variable',
+            ':oid' => 'spaces_features'
+          ));
+
+        foreach ($result as $row) {
+          $features = unserialize($row->value);
+          if(empty($features[$feature])){
+            //Private feature exclude
+            return TRUE;
+          }
+        }
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_apachesolr_process_results().
+ * Remove the user and date from the search results.
+ */
+function os_search_solr_apachesolr_process_results(&$arg) {
+  if(count($arg) == 0) {
+    return;
+  }
+
+  // Remove the user and date from the results.
+  for($i = 0, $l = count($arg); $i < $l; $i++) {
+  	$arg[$i]['user'] = '';
+  	$arg[$i]['date'] = '';
+  }
+}

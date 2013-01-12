@@ -1,0 +1,263 @@
+<?php
+// $Id$
+
+include_once ('os_comments.features.inc');
+
+/**
+ * @file
+ * OS Comments module file.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter() for cp_app_settings_form.
+ *
+ * Check if this is a feature form and add comment settings if the feature
+ * provides a node.
+ */
+function os_comments_form_cp_app_settings_form_alter(&$form, &$form_state, $form_id) {
+
+  // Gets the array of node types for this feature.
+  $info = features_get_features($form['#feature']);
+  // Only continues if this feature provides a node type.
+  if (!isset($info->info['features']['node']) || empty($info->info['features']['node'])) {
+    return;
+  }
+  $node_types = $info->info['features']['node'];
+
+  foreach ($node_types as $key => $type) {
+    $node_types[$key] = 'comment_sources_' . $type;
+  }
+
+  $form['comment_settings'] = array(
+    '#type' => 'fieldset',
+    '#id' => "comment_settings",
+    '#title' => t('Comment Settings'),
+    '#weight' => 0,
+  );
+
+  // Includes the admin form inc file.
+  module_load_include('admin.inc', 'comment_sources');
+  $form["comment_settings"] += drupal_retrieve_form('comment_sources_admin_settings_form', $form_state);
+
+  // Initializes the actions button container.
+  if (!isset($form['actions'])) {
+    $form['actions'] = array();
+  }
+
+  // Moves the system setting form buttons
+  $form['actions'] = array_merge($form["comment_settings"]['actions'], $form['actions']);
+  unset($form["comment_settings"]['actions']);
+
+  foreach (element_children($form["comment_settings"]) as $child) {
+
+  	if (strpos($child, 'comment_sources_') === 0 && !in_array($child, $node_types)) {
+  	  $form["comment_settings"][$child]['#access'] = FALSE;
+  	}
+  }
+  // Uses a secondary validator.
+  $form['#validate'][] = 'os_comments_cp_app_settings_form_validate';
+  // Uses default comment_sources submit handler
+  $form['#submit'][] = 'comment_sources_save_admin_form';
+}
+
+/**
+ * Validation callback; checks that user has disqus shortname if using discus.
+ *
+ * @see os_comments_form_cp_app_settings_form_alter()
+ */
+function os_comments_cp_app_settings_form_validate($form, &$form_state) {
+  // Gets the node types for this feature.
+  $info = features_get_features($form['#feature']);
+  $node_types = $info->info['features']['node'];
+
+  if (!empty($node_types)) {
+    $vsite = vsite_get_vsite();
+    foreach ($node_types as $key => $type) {
+      $node_types[$key] = 'comment_sources_' . $type;
+
+      if ($form_state['values'][$node_types[$key]] == 'disqus') {
+        // Checks for the disqus variable
+        if ($vsite) {
+          $disqus = $vsite->controllers->variable->get('disqus_domain', 'space');
+          $cp_url = $vsite->get_absolute_url() . "/cp/settings";
+        }
+        else {
+          $disqus = variable_get('disqus_domain', '');
+          $cp_url = "/cp/settings";
+        }
+        // Prevents form submit if there's no value for Disqus shortname.
+        if (empty($disqus)) {
+          form_set_error('comment_sources_announcement', t('You have not yet set your disqus shortname, please do so <a href="' . $cp_url . '">here in your Control Panel: Settings</a> before continuing.'));
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_comment_sources_alter().
+ */
+function os_comments_comment_sources_alter(&$sources) {
+  // Uses alternate save functions if we have vsite enabled
+  if (module_exists('vsite')) {
+    foreach ($sources as $source => $info) {
+      $vsite_save_function = "os_comments_{$source}_save_vsite";
+      if (function_exists($vsite_save_function)) {
+        $sources[$source]['save_function'] = $vsite_save_function;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_fb_social_default_presets_alter().
+ *
+ * @param array $presets
+ */
+function os_comments_fb_social_default_presets_alter(&$presets) {
+
+  // Only alters multi-tenant presets
+  if (!module_exists('vsite')) {
+    return;
+  }
+
+  // Applies custom node types
+  foreach ($presets as $name => $preset) {
+    if (variable_get("fb_social_{$name}_nodetypes", FALSE) !== FALSE) {
+      $presets[$name]->settings['node_types']['types'] = variable_get("fb_social_{$name}_nodetypes", FALSE);
+    }
+  }
+}
+
+/**
+ * Save functions for sources in multi-tenant
+ */
+
+/**
+ * Saves the Disqus node types comment settings
+ */
+function os_comments_disqus_save_vsite($comment_node_types) {
+  $vsite = vsite_get_vsite();
+  if (!$vsite) {
+    return FALSE;
+  }
+
+  $vsite->controllers->variable->set('disqus_nodetypes', $comment_node_types);
+}
+
+/**
+ * Saves the Facebook node type comments settings
+ */
+function os_comments_fb_social_save_vsite($comment_node_types, $preset_name = '') {
+  $vsite = vsite_get_vsite();
+  if (!$vsite) {
+    return FALSE;
+  }
+
+  // Saves node types in a variable used to alter the fb_social preset
+  $vsite->controllers->variable->set("fb_social_{$preset_name}_nodetypes", $comment_node_types);
+}
+
+/**
+ * Enables "Drupal comments" for these node types, disables for all other types.
+ *
+ * Note: We do not have an option to set the default comment to be 'hidden'
+ *
+ * @param array $comment_node_types
+ *   Array containing all node types with Drupal comments enabled, including the
+ *   newly added type to enable comments on if the user is enabling Drupal
+ *   comments for a type.
+ */
+function os_comments_comment_save_vsite($comment_node_types) {
+  $vsite = vsite_get_vsite();
+  if (!$vsite) {
+    return FALSE;
+  }
+
+  $node_types = node_type_get_types();
+  foreach ($node_types as $node_type) {
+    if (isset($comment_node_types[$node_type->type])) {
+      $comment_value = COMMENT_NODE_OPEN;
+    }
+    else {
+      $comment_value = COMMENT_NODE_HIDDEN;
+    }
+    $comment_variable = "comment_" . $node_type->type;
+
+    $vsite->controllers->variable->set($comment_variable, $comment_value);
+  }
+}
+
+/**
+ * Implements hook_cp_settings().
+ *
+ * Adds field "Disqus shortname" to the CP > Settings form.
+ */
+function os_comments_cp_settings() {
+  $settings = array();
+
+  // Returns empty array if Disqus module is not enabled.
+  if (!module_exists('disqus')) {
+    return $settings;
+  }
+
+  $vsite = vsite_get_vsite();
+  if ($vsite) {
+    $disqus_shortname = $vsite->controllers->variable->get('disqus_domain', 'space');
+  }
+  else {
+    $disqus_shortname = variable_get('disqus_domain', '');
+  }
+
+  $settings['disqus_domain'] = array(
+    'group' => array(
+      '#id' => 'social',
+      '#title' => t('Social'),
+      '#weight' => 0,
+    ),
+    'form' => array(
+      '#type' => 'textfield',
+      '#title' => t('Disqus Shortname'),
+      '#default_value' => $disqus_shortname,
+      '#description' => t('The website shortname that you registered Disqus with. If you registered http://example.disqus.com, you would enter "example" here. It is called "shortname" on the disqus site. You can <a href="http://disqus.com/" title="Disqus Signup">signup here</a> for a disqus account if you do not have one.'),
+    ),
+  );
+
+  return $settings;
+}
+
+/**
+ * Implements hook_preprocess_HOOK for node.tpl.php.
+ *
+ * Shows the "Add new comment" link on node teasers with a non-drupal comment
+ * source.
+ *
+function os_comments_preprocess_node(&$vars) {
+  if (!$vars['teaser']) {
+    return;
+  }
+  $group_bundles = og_get_all_group_bundle();
+  if (in_array($vars['node']->type, $group_bundles['node'])) {
+    return;
+  }
+
+  $vsite = vsite_get_vsite();
+  if (!$vsite) {
+    return;
+  }
+
+  if ($vars['node']->comment == COMMENT_NODE_OPEN) {
+    continue;
+  }
+  $variables = $vsite->controllers->variable->values['space'];
+  $os_comment_sources = array('disqus_nodetypes', 'fb_social_Facebook Comments_nodetypes');
+  foreach ($os_comment_sources as $comment_source) {
+    if (!isset($variables[$comment_source])) {
+      continue;
+    }
+    if (in_array($vars['node']->type, $variables[$comment_source])) {
+      $vars['node']->comment = COMMENT_NODE_OPEN;
+      break;
+    }
+  }
+} */

@@ -1,0 +1,6 @@
+package = oEmbed
+name = oEmbed Field
+description = A formatter for the link field which embeds oembeddable content
+core = 7.x
+dependencies[] = oembedcore
+dependencies[] = link

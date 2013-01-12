@@ -1,0 +1,294 @@
+<?php
+
+/**
+ * @file cp_appearance.module
+ *
+ * Provides and handles form for cp/appearance
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function cp_appearance_menu(){
+  $items = array();
+  $items['cp/appearance'] = array(
+    'title' => 'Appearance',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array(
+      'cp_appearance_theme_picker_form'
+    ),
+    'weight' => 20,
+    'menu_name' => 'cp',
+    'access callback' => array(
+      'spaces_access_admin'
+    )
+  );
+
+  $items['cp/appearance/theme'] = array(
+    'title' => t('Theme'),
+    'page callback' => 'drupal_get_form',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'page arguments' => array(
+      'cp_appearance_theme_picker_form'
+    ),
+    'weight' => 20,
+    'menu_name' => 'cp',
+    'access callback' => array(
+      'spaces_access_admin'
+    )
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function cp_appearance_theme(){
+  $theme = array();
+
+  $theme['cp-appearance-theme-item'] = array(
+    'variables' => array(
+      'info' => array(),
+      'sub_theme' => ''
+    ),
+    'template' => 'cp-appearance-theme-item',
+    'path' => drupal_get_path('module', 'cp_appearance') . '/theme'
+  );
+
+  $theme['cp_appearance_theme_picker_form'] = array(
+    'render element' => 'form',
+    'function' => 'theme_cp_appearance_theme_picker_form'
+  );
+
+  return $theme;
+}
+
+/**
+ * Theme picker form
+ */
+function cp_appearance_theme_picker_form($form, &$state){
+  ctools_include('themes', 'os');
+  $themes = os_get_themes();
+  ksort($themes);
+  $radio_options = array();
+  drupal_add_js(drupal_get_path('module', 'cp_appearance') . '/theme/cp_appearance_theme_picker.js');
+
+  $form = array(
+    '#title' => t('Theme Picker'),
+    '#theme' => array(
+      'cp_appearance_theme_picker_form'
+    ),
+    '#validate' => array(
+      'cp_appearance_theme_picker_form_validate'
+    ),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'cp_appearance') . '/theme/cp_appearance_theme_picker.js'
+      ),
+      'css' => array(
+        drupal_get_path('module', 'cp_appearance') . '/theme/cp-appearance-theme_picker.css'
+      )
+    )
+  );
+
+  foreach ( $themes as $theme ) {
+    $info = $theme->info;
+    $info['theme_name'] = $theme->name;
+    $radio_options[$info['theme_name']] = $info['theme_name'];
+
+    $theme_flavors = os_theme_get_flavors($theme->name);
+    $elem = 'os_appearance_' . $info['theme_name'] . '_flavor';
+    $default_flavor = '';
+
+    //Get this theme's flavors and add them to the form
+    $flavor_options = _cp_appearance_get_flavor_options($theme_flavors, $info, $default_flavor);
+    if (count($flavor_options)) {
+      $form[$elem] = array(
+        '#type' => 'select',
+        '#title' => t('Flavor'),
+        '#options' => $flavor_options,
+        '#default_value' => variable_get($elem, $default_flavor),
+        '#ajax' => array(
+          'callback' => 'cp_appearance_swap_screenshot',
+          'wrapper' => 'screenshot_' . $theme->name
+        )
+      );
+    }
+  }
+
+  //Move default theme to the front of the array
+  $theme = os_theme_get();
+  if (isset($themes[$theme])) {
+    $default_theme = $themes[$theme];
+    unset($themes[$theme]);
+    $themes = array_merge(array(
+      $theme => $default_theme
+    ), $themes);
+  }
+  else {
+    $theme = key($themes); //We should always have a default, but if not choose the first
+  }
+
+  //Add themes to form
+  $form['theme_default'] = array(
+    '#enabled_themes' => $themes,
+    '#type' => 'radios',
+    '#options' => $radio_options,
+    '#default_value' => $theme,
+    '#tree' => TRUE
+  );
+
+  $form = system_settings_form($form);
+
+  return $form;
+}
+
+/**
+ * Remove variables that do not need to be saved in the DB for all the unused theme-flavors
+ *
+ * @param $form
+ * @param $form_state
+ */
+function cp_appearance_theme_picker_form_validate($form, &$form_state){
+  $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
+
+  if ($op == t('Reset to defaults')) {
+    return;
+  }
+
+  $theme_default = $form_state['values']['theme_default'];
+  foreach ( $form_state['values'] as $key => $value ) {
+    //No need to save all the default flavor variables
+    if ($key != "os_appearance_" . $theme_default . "_flavor" && substr($key, 0, 14) == "os_appearance_" && substr($key, - 7) == "_flavor") {
+      unset($form_state['values'][$key]);
+    }
+  }
+}
+
+/**
+ * Processes all the flavors a theme has.
+ * 
+ * @param array $theme_flavors
+ *  	List of flavors used by this theme
+ * @param array $info
+ *  	Theme info
+ * @param &string $default_flavor
+ * 		Flavor to default to
+ *
+ * @return array
+ */
+function _cp_appearance_get_flavor_options($theme_flavors, $info, &$default_flavor){
+  $options = array();
+  if (count($theme_flavors)) {
+    $options = array(
+      'default' => (isset($info['flavor_name'])) ? $info['flavor_name'] : t('Default ')
+    );
+    $options['default'] .= t(' (Default)');
+
+    foreach ( $theme_flavors as $key => $flavor ) {
+      if (isset($flavor['flavor_name'])) {
+        $options[$key] = $flavor['flavor_name'];
+        $default_flavor = $key;
+      }
+      else {
+        $options[$key] = $flavor['name'];
+      }
+    }
+  }
+
+  return $options;
+}
+
+/**
+ * Themes the theme_picker form
+ */
+function theme_cp_appearance_theme_picker_form($variables){
+  $form = $variables['form'];
+  $output = drupal_render($form['theme_default']);
+  $items = array();
+
+  foreach ($form['theme_default']['#enabled_themes'] as $theme) {
+    $sub_theme = '';
+    $info = array_merge((array) $theme->info, array(
+      'theme_name' => $theme->name
+    ));
+
+    //flavor screenshots
+    $key = 'os_appearance_' . $theme->name . '_flavor';
+    if (array_key_exists($key, $form)) {
+      $sub_theme = drupal_render($form[$key]);
+
+      if ($flavor = $form[$key]['#default_value']) {
+        $flavors = os_theme_get_flavors();
+
+        if (array_key_exists($flavor, $flavors) && array_key_exists('screenshot', $flavors[$flavor]) && $flavors[$flavor]['module'] == $theme->name) {
+          $info['screenshot'] = $flavors[$flavor]['path'] . '/' . $flavors[$flavor]['screenshot'];
+        }
+      }
+    }
+
+    //list of screenshots for each theme
+    $items[] = array(
+      'class' => array(
+        'item-theme-picker',
+        ($theme->name == $form['theme_default']['#default_value']) ? 'current' : ''
+      ),
+      'id' => 'theme-' . str_replace('_', '-', $theme->name),
+      'data' => theme('cp-appearance-theme-item', array(
+        'info' => $info,
+        'sub_theme' => $sub_theme
+      ))
+    );
+  }
+
+  $output .= theme_item_list(array(
+    'items' => $items,
+    'type' => 'ul',
+    'title' => NULL,
+    'attributes' => array(
+      'class' => 'theme-picker'
+    )
+  ));
+  unset($form['#theme']);
+  $output .= drupal_render($form);
+
+  return $output;
+}
+
+/**
+ * menu item takes a flavor and returns its screenshot via ajax
+ */
+function cp_appearance_swap_screenshot($form, &$state){
+  ctools_include('themes', 'os');
+
+  $trigger = $state['triggering_element']['#name'];
+  $flavor = $state['values'][$trigger];
+
+  $flavors = os_theme_get_flavors();
+  if (array_key_exists($flavor, $flavors)) {
+    $path = $flavors[$flavor]['path'] . '/' . $flavors[$flavor]['screenshot'];
+    $module = $flavors[$flavor]['module'];
+  }
+
+  //no screenshot or flavor.  just use the default
+  if (! ($path && file_exists($path))) {
+    $module = str_replace('os_appearance_', '', $trigger);
+    $module = str_replace('_flavor', '', $module);
+    $theme = os_get_themes($module);
+    $path = $theme->info['screenshot'];
+  }
+
+  return theme('image', array(
+    'path' => $path,
+    'alt' => t('Screenshot for %theme theme', array(
+      '%theme' => $module
+    )),
+    'title' => '',
+    'attributes' => array(
+      'class' => 'screenshot',
+      'id' => 'screenshot_' . $module
+    ),
+    'getsize' => FALSE
+  ));
+}

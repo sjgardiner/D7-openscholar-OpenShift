@@ -1,0 +1,86 @@
+<?php
+// $Id$
+
+include_once 'os_events.features.inc';
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_events_os_app_info() {
+  $apps = array();
+
+  $apps['os_events'] = array(
+    'path' => 'calendar',
+  	'nodetypes' => array(
+  	  'event',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * hook os_widget
+ *
+ * Events blocks that can be used on an OpenScholar site
+ */
+function os_events_os_widget() {
+  $items = array();
+
+  //Mini calendar that displays events by month
+  $items['views-os_events-block_1'] = array(
+    'module' => 'views',
+    'delta' => 'os_events-block_1',
+    'region' => 'sidebar_second',
+    'weight' => '-10',
+    'info' => t('Mini Calendar'),
+  );
+
+  //List of upcoming events
+  $items['views-os_events-block_2'] = array(
+    'module' => 'views',
+    'delta' => 'os_events-block_2',
+    'region' => 'sidebar_second',
+    'weight' => '-15',
+    'info' => t('Upcoming Events'),
+  );
+
+  return $items;
+}
+
+// TODO: Remove when os_layout_get is refactored to handle widget titles better
+function os_events_os_widget_alter(&$widget) {
+  if ($widget['delta'] == 'os_events-block_1') {
+    $widget['info'] = t('Mini Calendar');
+  }
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_events_vsite_og_node_type_info() {
+  return array(
+    'event' => 'group content',
+  );
+}
+
+/**
+ * Implements hook_process_node().
+ */
+function os_events_process_node(&$variables) {
+  if($variables['type'] != 'event') {
+  	return;
+  }
+  // Move the terms to the top of the node display.
+  if(isset($variables['content']['og_vocabulary'])) {
+    $variables['content']['og_vocabulary']['#weight'] = 0;
+  }
+  // Move the event date above the event description.
+  if(isset($variables['content']['field_date'])) {
+    $variables['content']['field_date']['#weight'] = 0;
+    // Append <p></p> tags for spacing.
+    if(isset($variables['content']['field_date'][0]['#markup'])) {
+      $variables['content']['field_date'][0]['#markup'] .= '<p></p>';
+    }
+  }
+}

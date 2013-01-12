@@ -1,0 +1,3 @@
+Title: Apply prepopulate actions when editing the entity.
+Issue: http://drupal.org/node/1869326#comment-6856560
+Patch file: http://drupal.org/files/action-on-edit-1869326-1.patch

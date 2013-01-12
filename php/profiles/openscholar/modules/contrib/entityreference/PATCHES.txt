@@ -1,0 +1,4 @@
+- Add option to autocomplete widget to hide entity ID
+  http://drupal.org/node/1802916#comment-6560086
+  http://drupal.org/files/1802916-er-show-identifier-5.patch
+

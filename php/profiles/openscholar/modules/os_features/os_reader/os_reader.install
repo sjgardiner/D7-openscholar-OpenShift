@@ -1,0 +1,13 @@
+<?php
+// $Id$
+
+/**
+ * Perform some setup items for the feed / feed_item content types provided by the feeds module
+ */
+function os_reader_install() {
+
+  //Turn comments off by default
+  variable_set('comment_feed', COMMENT_NODE_CLOSED);
+  variable_set('comment_feed_item', COMMENT_NODE_CLOSED);
+}
+

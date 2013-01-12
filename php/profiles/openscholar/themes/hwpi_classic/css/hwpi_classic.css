@@ -1,0 +1,87 @@
+.region-sidebar-second {
+    padding-left: 15px;
+}
+
+#header {background:#E0E0DD;}
+
+#menu-bar {background:#F0F0EE;}
+
+.not-front #content-column p {
+     font-family: 'Georgia,serif';
+     font-size: 16px;
+}
+
+.not-front #content-column .content-inner {
+	border-right:1px solid #ccc
+}
+
+
+.sidebar .block,
+.front #content-column .block
+ {border-top:3px solid #4384C4;}
+ 
+ .sidebar .block,
+.front #content-column .block.section-nav
+ {border-top:none;}
+ 
+
+h1#page-title,
+h1.node-title {
+     font-family: 'Georgia,serif';
+     font-weight:normal;
+     font-size:16px;
+}
+
+h1#page-title {
+    font-size:38px;
+    margin-top:30px;
+    margin-bottom: 0.5em;
+}
+
+h2.block-title {
+	padding:10px 0;
+	text-transform:uppercase;
+	font-size:11px;
+	font-weight:normal;
+	letter-spacing:0.1em;
+	font-weight:bold;
+}
+
+#footer {
+	border-top:3px solid #D9D9D7;
+	background:#F0F0EE;
+}
+
+
+
+.calendar-calendar .mini tbody {border:1px solid #ccc;}
+
+.view .date-nav-wrapper .date-prev a {
+	background: url('../images/cal_leftarrow.gif') no-repeat;
+	width:15px;
+    height:13px;
+}
+
+
+
+
+.view .date-nav-wrapper .date-next a  {
+    width:15px;
+    height:13px;
+       background: url('../images/cal_rightarrow.gif') no-repeat;
+}
+
+.date-nav h3  {
+	font-family: 'Georgia,serif';
+     font-weight:normal;
+     font-size:16px;
+     }
+
+
+.ui-tabs .ui-tabs-nav li a {
+text-transform:uppercase;
+	font-size:11px;
+	font-weight:normal;
+	letter-spacing:0.1em;
+    font-weight:bold;
+}

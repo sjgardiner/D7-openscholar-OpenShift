@@ -1,0 +1,147 @@
+<?php
+
+/**
+ * Implementation of hook_schema_alter().
+ */
+
+function harvard_activity_reports_schema_alter(&$schema) {
+  if (isset($schema['iqss_pinserver_register'])) {
+    $schema['iqss_pinserver_register'] = array(
+      'fields' => array(
+    	'uid' => array(
+    	  'description' => t('Drupal user ID'),
+    	  'type' => 'int',
+    	  'not null' => TRUE,
+    	  'default' => 0,
+    	),
+    	'huid' => array(
+    	  'description' => t("Holds the Harvard ID of returning users"),
+    	  'type' => 'varchar',
+    	  'length' => 255,
+    	  'not null' => FALSE,
+    	  'default' => '',
+    	),
+    	'hashID' => array(
+      	  'type' => 'varchar',
+   		  'length' => 256,
+   		  'not null' => FALSE,
+   		  'default' => NULL,
+    	),
+    	'reg_time' => array(
+    	  'description' => t("The time of user registration"),
+    	  'type' => 'int',
+    	),
+      ),
+  	  'unique keys' => array(
+   	    'huid' =>array('huid'),
+   	  ),
+ 	  'primary key' => array( 'uid')
+    );
+  }
+}
+
+/**
+ * Function on install to loop the iqss_pinserver_table and hash all the huids
+ * allowing the module to match up properly with the hashed ids being sent
+ */
+function harvard_activity_reports_hash_uids(){
+  // run the check module exists
+  if(!module_exists('iqss_pinserver_register')) {
+  	return;
+  }
+  // use the FAS suffix
+  $suffix = "klA+j230-a819xzm,fy";
+  // select all the huids where there is no hashed HUID already
+  $huidsRes = db_select('iqss_pinserver_register','i')
+    ->fields('i',array('uid','huid'))
+   	->condition('hashID', NULL,'is')
+   	->execute();
+
+  // loop the results for hashing
+  // updated for Drupal 7 - db_fetch_array removed
+  foreach($huidsRes as $huidsRow) {
+	$uid = $huidsRow->uid;
+	$huid = $huidsRow->huid;
+	$hashedID = md5($huid.$suffix);
+
+	// Drupal 7
+	db_update('iqss_pinserver_register')
+  	  ->fields(array('hashID' => $hashedID))
+   	  ->condition('uid', $uid)
+ 	  ->execute();
+  }
+}
+
+/**
+ * Function to alter the table and set the column to accept nulls
+ */
+function harvard_activity_reports_alter_null() {
+  //$ret = array();
+  db_change_field('iqss_pinserver_register','huid','huid', array('type' => 'varchar','length' => 255, 'not null' => FALSE,'default' => NULL));
+}// end function
+
+/**
+ * Update to creates a new column for hashed huids.  Alter the huid column to allow it to be null.
+ * Hash the huids and update each row with their corresponding hashed id.
+ */
+function harvard_activity_reports_update_7001(&$sandbox) {
+
+  if (!module_exists('iqss_pinserver_register')) {
+    return t('IQSS Pinserver Register module not enabled, no updates performed for the HAR Module.');
+  }
+
+  // first check to see if the field exist
+  // gather all the fields in this table
+  if(db_field_exists('iqss_pinserver_register','hashID')==FALSE){
+	db_add_field('iqss_pinserver_register', 'hashID', array('type' => 'varchar','length' => 256,'not null' => FALSE,'default' => NULL));
+  }
+
+  // alter the table
+  if(db_field_exists('iqss_pinserver_register','huid')==TRUE){
+	harvard_activity_reports_alter_null();
+  }
+
+  // run the inserts
+  if(db_field_exists('iqss_pinserver_register','hashID')==TRUE){
+    harvard_activity_reports_hash_uids();
+  }
+  return t('Column created, column altered and all huid\'s have been hashed.');
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function harvard_activity_reports_install() {
+  if (!module_exists('iqss_pinserver_register')) {
+    return;
+  }
+  // first check to see if the field exist
+  // gather all the fields in this table
+  if(db_field_exists('iqss_pinserver_register','hashID')==FALSE){
+    db_add_field('iqss_pinserver_register', 'hashID', array('type' => 'varchar','length' => 256,'not null' => FALSE,'default' => NULL));
+  }
+
+  // alter the table
+  if(db_field_exists('iqss_pinserver_register','huid')==TRUE){
+	harvard_activity_reports_alter_null();
+  }
+
+  // run the inserts
+  if(db_field_exists('iqss_pinserver_register','hashID')==TRUE){
+	harvard_activity_reports_hash_uids();
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function harvard_activity_reports_uninstall() {
+  // run the check module exists
+  if(module_exists('iqss_pinserver_register')) {
+    // first check to see if the field exists
+  	if(db_field_exists('iqss_pinserver_register','hashID')==TRUE){
+	  // its in there, drop it
+	  db_drop_field('iqss_pinserver_register', 'hashID');
+	}
+  }
+}

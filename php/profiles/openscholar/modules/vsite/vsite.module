@@ -1,0 +1,1331 @@
+<?php
+// $Id$
+
+
+/**
+ * @file
+ * A virtual-site (VSite) is a node that is a "group".
+ */
+
+include_once ('vsite.features.inc');
+include_once ('includes/vsite.inc');
+
+//module_load_include('inc', 'spaces', 'spaces.overrides');
+
+/**
+ * Returns the current vsite (space).
+ */
+function vsite_get_vsite($sid = FALSE) {
+  if ($sid && intval($sid)) {
+    $vsite = spaces_load('og', $sid, FALSE);
+  }
+  else {
+    $vsite = spaces_get_space();
+  }
+
+  if ($vsite && $vsite->type == 'og') {
+    return $vsite;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Returns the current purl prefix, or empty string if none found.
+ *
+ * @param object $vsite
+ */
+function vsite_get_purl($vsite = FALSE) {
+  if (!$vsite) {
+    $vsite = spaces_get_space();
+  }
+
+  return !empty($vsite->group) ? $vsite->group->purl : '';
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for node_form.
+ *
+ * Hides the comment settings form from the VSites.
+ */
+function vsite_form_node_form_alter(&$form, &$form_state, $form_id) {
+  if (og_is_group_type('node', $form['#bundle'])) {
+    $form['comment_settings']['#access'] = FALSE;
+    $form['comment_settings']['comment']['#default_value'] = 1;
+  }
+}
+
+/**
+ * Returns the default value for the homepage path.
+ *
+ * @return array
+ */
+function vsite_group_default_homepage_value($entity_type, $entity, $field, $instance, $langcode) {
+  global $base_url;
+
+  list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+  // Is this a group node
+  if (og_is_group_type($entity_type, $bundle) && isset($entity->purl)) {
+    // When a site is first created it does not have a domain provider, use the
+    // path provider that is attached to the entity, we can't use the standard
+    // purl modifier here because the entry has not been made in the table yet
+    return array(
+      0 => array(
+        'title' => '',
+        'url' => url($entity->purl['value'], array(
+            'base_url' => variable_get('purl_base_domain', $base_url),
+            'absolute' => TRUE,
+          )),
+      ),
+    );
+  }
+}
+
+/**
+ * Implements hook_custom_theme().
+ */
+function vsite_custom_theme() {
+  _vsite_purl_init();
+
+  if ($space = spaces_get_space() && (!module_exists('cp') || !cp_use_cp_theme())) {
+    ctools_include('themes', 'os');
+    $theme = os_theme_get();
+    return $theme;
+  }
+}
+
+/**
+ * Implements hook_spaces_presets_alter().
+ *
+ * Alter the space presets to add vsite specific information.
+ */
+function vsite_spaces_presets_alter(&$presets) {
+  ctools_include('path', 'vsite');
+
+  // Alter the preset to include the pathauto settings for nodes prefixed with
+  // the purl path
+  $pathauto_settings = _vsite_get_pathauto_settings();
+  foreach ($presets as $name => & $preset) {
+    if (substr($name, 0, 3) == "os_") {
+      $preset->value['variable'] = array_merge($pathauto_settings, $preset->value['variable']);
+    }
+  }
+}
+
+/**
+ * Implements hook_spaces_plugins().
+ */
+function vsite_spaces_plugins() {
+  $plugins = array();
+  $plugins['vsite'] = array(
+    'handler' => array(
+      'class' => 'vsite',
+      'parent' => 'space_og',
+    ),
+  );
+  return $plugins;
+}
+
+/**
+ * Implements hook_registry_alter().
+ *
+ * Alter the registry to tell spaces_og groups to use the vsite plugin by
+ * default.
+ */
+function vsite_spaces_registry_alter(&$registry) {
+  if (isset($registry['types']['og'])) {
+    $registry['types']['og']['plugin'] = 'vsite';
+  }
+}
+
+/**
+ * Returns whether current user may create additional vsites.
+ *
+ * Handles access rules for when site owner is attempting to create a another
+ * site
+ *
+ * @return
+ */
+function vsite_vsite_exists_access($vsites = array()) {
+  global $user;
+
+  // load user's vsites. anon (uid 0) has no vsites
+  if (!$vsites && $user->uid) {
+    ctools_include('vsite', 'vsite');
+    $vsites = vsite_get_vsite_by_owner($user->uid);
+  }
+
+  $group_bundles = og_get_all_group_bundle();
+  $group_create_access = FALSE;
+  foreach ($group_bundles['node'] as $type => $label) {
+    if (user_access('create ' . $type . ' content')) {
+      $group_create_access = TRUE;
+      break;
+    }
+  }
+
+  // Does user have permission to create vsites?
+  if (!user_access('create vsite content on behalf') && !$group_create_access) {
+    if (current_path() == 'site/register') {
+      // Set error message when appropriate.
+      global $base_url;
+      // Clear message queue.
+      drupal_get_messages();
+      drupal_set_message(t('You do not have permission to create new OpenScholar sites. !link',
+          array('!link' => l(t('Return home.'), $base_url))
+        ), 'error');
+    }
+
+    return FALSE;
+  }
+
+  // Can user create more vsites?
+  if (count($vsites) >= variable_get('os_vsites_per_user') && !user_access('create vsite content on behalf')) {
+    // No, they can't!
+    if (current_path() == 'site/register') {
+      // Set error message when appropriate.
+      // Clear message queue.
+      drupal_get_messages();
+      drupal_set_message(t('You have already created the maximum of %num OpenScholar !sites. !link',
+          array('%num' => count($vsites),
+            '!sites' => count($vsites) > 1 ? 'sites' : 'site',
+            '!link' => l(t('Go to your site' . (count($vsites) > 1 ? 's.' : '.')), count($vsites) > 1 ? 'user' : $vsites[0]->get_absolute_url()),
+          )
+        ), 'error');
+    }
+
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Returns TRUE only if current user may create a vsite.
+ *
+ * @param array $vsites
+ *   Optional. Expects array like output of vsite_get_vsite_by_owner()
+ *
+ * @return bool
+ *   Returns TRUE only if current user may create a vsite. Takes into account
+ *   all group bundles, whether user can create vsites on behalf, and whether
+ *   the user exceeds the sitewide vsite-per-user limit.
+ */
+function _vsite_user_access_create_vsite($vsites = FALSE) {
+  if (!$vsites) {
+    global $user;
+    $vsites = vsite_get_vsite_by_owner($user->uid);
+  }
+
+  $group_bundles = og_get_all_group_bundle();
+  $user_access_create_vsite = FALSE;
+  foreach ($group_bundles['node'] as $type => $label) {
+    if (user_access('create ' . $type . ' content')) {
+      $user_access_create_vsite = TRUE;
+      break;
+    }
+  }
+
+	// Returns FALSE if user does not have permission to create vsites at all.
+  if (!user_access('create vsite content on behalf') && !$user_access_create_vsite) {
+    return FALSE;
+  }
+
+  // Returns if user may create on behalf, if they exceed the limit themselves.
+  $user_owns_vsites = count($vsites);
+  if ($user_owns_vsites) {
+    $vsite_limit = variable_get('os_vsites_per_user', 1);
+    $user_exceeds_limit = (bool) (count($vsites) >= $vsite_limit);
+    if ($user_exceeds_limit) {
+      return user_access('create vsite content on behalf');
+    }
+  }
+
+  // Returns TRUE if user is not the author of any vsite.
+  return TRUE;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function vsite_permission() {
+  return array('create vsite content on behalf' => array(
+      'title' => 'create vsite on behalf',
+      'description' => t('Create vsite content on behalf of other users'),
+    ));
+}
+
+/**
+ *
+ * Implements hook_admin_paths_alter().
+ *
+ * Any path in spaces is immediately disqualified from being in an overlay
+ * because none
+ * of them start with a wildcard.
+ * They expect something like node/5/edit, when they get
+ * site01/node/5/edit and fail.
+ * This is rectified by putting a wildcard at the beginning to catch the
+ * space modifier.
+ */
+function vsite_admin_paths_alter(&$paths) {
+  $new_paths = array();
+  foreach ($paths as $p => $b) {
+    if (strpos($p, '*/') !== 0) {
+      $new_paths['*/' . $p] = TRUE;
+    }
+  }
+  $paths = array_merge($paths, $new_paths);
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function vsite_vsite_og_node_type_info() {
+  return array(
+    'personal' => 'group',
+    'project' => 'group',
+    'department' => 'group',
+  );
+}
+
+/**
+ * Returns whether bundle is a group or is group content.
+ *
+ *  @param $bundle
+ *    The node type bundle.
+ *
+ *  @return
+ *    group/group content. If $bundle is empty, all the node types info will be
+ *    returned.
+ */
+function vsite_get_type_from_bundle($bundle = NULL) {
+  $info = module_invoke_all('vsite_og_node_type_info');
+
+  if (empty($bundle)) {
+    return $info;
+  }
+
+  return isset($info[$bundle]) ? $info[$bundle] : FALSE;
+}
+
+/**
+ * Implements hook_field_attach_create_bundle().
+ *
+ * When creating a new node bundle check if the bundle is defined as a group or
+ * group content and attach the right fields.
+ *
+ * @see hook_vsite_og_node_type_info().
+ */
+function vsite_field_attach_create_bundle($entity_type, $bundle) {
+  switch ($entity_type) {
+    case 'file':
+      // Every file is group content.
+      vsite_attach_fields_to_group_content('file', $bundle);
+      break;
+
+    case 'node':
+      if (!$type = vsite_get_type_from_bundle($bundle)) {
+        return;
+      }
+
+      if ($type == 'group') {
+        vsite_attach_fields_to_group($bundle);
+      }
+      else {
+        // Group content.
+        vsite_attach_fields_to_group_content('node', $bundle);
+      }
+      break;
+  }
+}
+
+/**
+ * Adds group content fields to bundle.
+ *
+ * @param $entity_type
+ *   The entity type of the bundle we want to attach the field to
+ *
+ * @param $bundle
+ *   The bundle to attach the fields to.
+ */
+function vsite_attach_fields_to_group_content($entity_type, $bundle) {
+  $og_field = og_fields_info(OG_AUDIENCE_FIELD);
+  $og_field['instance']['display'] = array(
+    'default' => array(
+      'type' => 'hidden',
+    ),
+    'teaser' => array(
+      'type' => 'hidden',
+    ),
+  );
+  // Enable Entity reference prepopulate.
+  $og_field['instance']['settings']['behaviors']['prepopulate'] = array(
+    'status' => TRUE,
+    'action' => 'hide',
+    'fallback' => 'hide',
+    'skip_perm' => FALSE,
+    'og_context' => TRUE,
+    'action_on_edit' => TRUE,
+  );
+  og_create_field(OG_AUDIENCE_FIELD, $entity_type, $bundle, $og_field);
+}
+
+/**
+ * Adds group fields to bundle.
+ *
+ * @param $bundle
+ *   The node-type to attach the fields to.
+ */
+function vsite_attach_fields_to_group($bundle) {
+  og_create_field(OG_GROUP_FIELD, 'node', $bundle);
+  og_create_field(OG_ACCESS_FIELD, 'node', $bundle);
+
+  if (!field_info_field('field_site_address')) {
+    // field_site_address.
+    $field = array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_site_address',
+      'foreign keys' => array(
+        'format' => array(
+          'columns' => array(
+            'format' => 'format',
+          ),
+          'table' => 'filter_format',
+        ),
+      ),
+      'indexes' => array(
+        'format' => array(
+          0 => 'format',
+        ),
+      ),
+      'module' => 'text',
+      'settings' => array(
+        'max_length' => '255',
+      ),
+      'translatable' => '0',
+      'type' => 'text',
+    );
+    $field = field_create_field($field);
+  }
+
+  if (!field_info_instance('node', 'field_site_address', $bundle)) {
+    $instance = array(
+      'bundle' => $bundle,
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'text',
+          'settings' => array(),
+          'type' => 'text_default',
+          'weight' => 3,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_site_address',
+      'label' => 'Site Address',
+      'required' => 0,
+      'settings' => array(
+        'text_processing' => '0',
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'text',
+        'settings' => array(
+          'size' => '30',
+        ),
+        'type' => 'text_textfield',
+        'weight' => '32',
+      ),
+    );
+    field_create_instance($instance);
+  }
+
+  if (!field_info_field('field_site_description')) {
+    // field_site_description.
+    $field = array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_site_description',
+      'foreign keys' => array(
+        'format' => array(
+          'columns' => array(
+            'format' => 'format',
+          ),
+          'table' => 'filter_format',
+        ),
+      ),
+      'indexes' => array(
+        'format' => array(
+          0 => 'format',
+        ),
+      ),
+      'module' => 'text',
+      'settings' => array(
+        'max_length' => '255',
+      ),
+      'translatable' => '0',
+      'type' => 'text',
+    );
+    $field = field_create_field($field);
+  }
+
+  if (!field_info_instance('node', 'field_site_description', $bundle)) {
+    $instance = array(
+      'bundle' => $bundle,
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'text',
+          'settings' => array(),
+          'type' => 'text_default',
+          'weight' => 2,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_site_description',
+      'label' => 'Site Description',
+      'required' => FALSE,
+      'settings' => array(
+        'text_processing' => 0,
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'module' => 'text',
+        'settings' => array(
+          'size' => 60,
+        ),
+        'type' => 'text_textfield',
+        'weight' => '31',
+      ),
+    );
+    field_create_instance($instance);
+  }
+
+  if (!field_info_field('field_group_path')) {
+    // field_group_path.
+    $field = array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_group_path',
+      'foreign keys' => array(),
+      'indexes' => array(),
+      'locked' => '0',
+      'module' => 'link',
+      'settings' => array(
+        'attributes' => array(
+          'class' => '',
+          'rel' => '',
+          'target' => 'default',
+        ),
+        'display' => array(
+          'url_cutoff' => 80,
+        ),
+        'enable_tokens' => 1,
+        'title' => 'optional',
+        'title_maxlength' => 128,
+        'title_value' => '',
+        'url' => 0,
+      ),
+      'translatable' => '0',
+      'type' => 'link_field',
+    );
+    $field = field_create_field($field);
+  }
+
+  if (!field_info_instance('node', 'field_group_path', $bundle)) {
+    $instance = array(
+      'bundle' => $bundle,
+      'default_value' => NULL,
+      'default_value_function' => 'vsite_group_default_homepage_value',
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '5',
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_group_path',
+      'label' => 'Group Homepage Path',
+      'required' => 0,
+      'settings' => array(
+        'attributes' => array(
+          'class' => '',
+          'configurable_title' => 0,
+          'rel' => '',
+          'target' => 'default',
+          'title' => '',
+        ),
+        'display' => array(
+          'url_cutoff' => '80',
+        ),
+        'enable_tokens' => 1,
+        'rel_remove' => 'default',
+        'title' => 'none',
+        'title_maxlength' => '128',
+        'title_value' => '',
+        'url' => 0,
+        'user_register_form' => FALSE,
+        'validate_url' => 0,
+      ),
+      'widget' => array(
+        'active' => 0,
+        'module' => 'link',
+        'settings' => array(),
+        'type' => 'link_field',
+        'weight' => '2',
+      ),
+    );
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Prevents l() from initalizing the theme.
+ *
+ * This is used during hook_custom_theme(), so that we can get the space
+ * earlier.
+ *
+ * Following a cache clear, the spaces presets need rebuilding. At some
+ * point in this process, l() is called to put a link in the description
+ * of a field in image. If l() tries to theme the link it creates,
+ * drupal_initialize_theme is run, defeating the purpose of hook_custom_theme.
+ *
+ * This function prevents l() from initalizing the theme by setting theme_link
+ * to false, running purl_init, and then restoring theme_link to its original
+ * value.
+ *
+ * This fixes the theme problem after a cache clear. May have other unforseen
+ * consequences.
+ *
+ * @see purl_init()
+ */
+function _vsite_purl_init() {
+  // hack alert!
+  global $conf;
+  $theme_link = isset($conf['theme_link']) ? $conf['theme_link'] : NULL;
+  $conf['theme_link'] = FALSE;
+
+  purl_init();
+
+  if (isset($theme_link)) {
+    $conf['theme_link'] = $theme_link;
+  }
+  else {
+    unset($conf['theme_link']);
+  }
+}
+
+/**
+ * Implements hook_menu_alter().
+ *
+ * Remove the "Groups" link from the users 'edit' form.
+ */
+function vsite_menu_alter(&$items) {
+  $items['user/%user/edit/groups']['access callback'] = FALSE;
+}
+
+/**
+ * Returns an array of all sites a user owns.
+ */
+function vsite_load_user_sites($user_id) {
+  $sites = array();
+  $sites_array = array();
+  // Grab their sites.
+
+  $vsites_owner = vsite_get_vsite_by_owner($user_id);
+  // Create each site as a link.
+  foreach ($vsites_owner as $site) {
+    $sites = array(
+      '#title' => $site->group->title,
+      '#type' => 'link',
+      '#href' => $site->get_absolute_url(),
+    );
+    // Prepare them for theme_list_item.
+    $sites_array[] = array(
+      'data' => drupal_render($sites),
+    );
+  }
+
+  return $sites_array;
+}
+
+/**
+ * Returns an array of all sites the user is a member of of.
+ */
+function vsite_load_user_membership($user_id) {
+  $member_sites = array();
+  $member_array = array();
+
+  $vsites_member = vsite_get_user_vsites($user_id);
+  // This function is returning 'all' sites, both member and admin sites.
+  // Loop through and create links for the sites, but also check if they're the owner
+  // or not, ignore them if they are.
+  foreach ($vsites_member as $m_site) {
+    // Check against the uid of the site
+    if ($user_id != $m_site->group->uid) {
+      $member_sites = array(
+        '#title' => $m_site->group->title,
+        '#type' => 'link',
+        '#href' => $m_site->get_absolute_url(),
+      );
+      // Prepare them for theme_list_item.
+      $member_array[] = array(
+        'data' => drupal_render($member_sites),
+      );
+    }
+  }
+
+  return $member_array;
+}
+
+/**
+ * Implements hook_user_view_alter().
+ * Altering the user view to remove history, groups and other groups
+ * also altering to add in "My Websites" for all sites the user belongs to.
+ */
+function vsite_user_view_alter(&$build) {
+  global $user;
+  // Removal section.
+  // Remove the "history" and "member for" info if it's there.
+  if (isset($build['summary'])) {
+    unset($build['summary']);
+  }
+  // Remove the og_user_group_ref.
+  if (isset($build['og_user_group_ref'])) {
+    $build['og_user_group_ref']['#access'] = FALSE;
+  }
+  // Remove the og_other_user_group_ref.
+  if (isset($build['og_other_user_group_ref'])) {
+    $build['og_other_user_group_ref']['#access'] = FALSE;
+  }
+  // Remove the og_user_node.
+  if (isset($build['og_user_node'])) {
+    $build['og_user_node']['#access'] = FALSE;
+  }
+
+  // Additions section.
+  // Load data of their sites.
+  $owner_sites = vsite_load_user_sites($build['#account']->uid);
+  $member_sites = vsite_load_user_membership($build['#account']->uid);
+
+  $vsites_list = '';
+  // Websites item build.
+  if (!empty($owner_sites) || !empty($member_sites)) {
+    // Pass the items to theme_item_list.
+    if (!empty($owner_sites)) {
+      // In d6 a plural or singular was used in order to apply the correct CSS selector to the list
+      // retain that functionality.
+      if (count($owner_sites) > 1) {
+        $css_selector = array(
+          'class' => 'plural',
+        );
+        $website_title = t('My Websites:');
+      }
+      else {
+        $css_selector = array(
+          'class' => 'single',
+        );
+        $website_title = t('My Website:');
+      }
+      $vsites_list .= theme_item_list(array(
+          'items' => $owner_sites,
+          'title' => $website_title,
+          'type' => 'ul',
+          'attributes' => $css_selector,
+        ));
+    }
+    if (!empty($member_sites)) {
+      if (count($member_sites) > 1) {
+        $css_selector = array(
+          'class' => 'plural',
+        );
+        $membership_title = t('Websites I am a member of:');
+      }
+      else {
+        $css_selector = array(
+          'class' => 'single',
+        );
+        $membership_title = t('Website I am a member of:');
+      }
+      // end if
+      $vsites_list .= theme_item_list(array(
+          'items' => $member_sites,
+          'title' => $membership_title,
+          'type' => 'ul',
+          'attributes' => $css_selector,
+        ));
+    }
+    // Set a new field.
+    $build['web_sites'] = array(
+      '#title' => t('Website Membership Summary:'),
+      '#type' => 'user_profile_item',
+      '#markup' => $vsites_list,
+      '#weight' => '10',
+    );
+  }
+}
+
+/**
+ * Implements hook_mail_alter().
+ *
+ * Alters system emails to users based on certain actions.
+ */
+function vsite_mail_alter(&$message) {
+  global $base_url;
+
+  switch ($message['id']) {
+    // Account created during "Create this OS Site on behalf of another user".
+    case 'user_register_no_approval_required':
+      // Gets the user id we just created.
+      $uid = $message['params']['account']->uid;
+      // Loads the user.
+      $user = user_load($uid);
+      // Grab their first name, if it doesnt exist, use their user name.
+      if (!empty($user->field_first_name['und'][0]['value'])) {
+        $first_name = $user->field_first_name['und'][0]['value'];
+      }
+      else {
+        $first_name = $user->name;
+      }
+      // Alter the subject.
+      $message['subject'] = t('An OpenScholar account has been created for you at !site_name', array(
+          '!site_name' => variable_get('site_name', 'OpenScholar'),
+        ));
+      $replacements = array(
+        '!site' => variable_get('site_name', 'OpenScholar'),
+        '!login_url' => user_pass_reset_url($user),
+        '!mailto' => $user->mail,
+        '!firstname' => $first_name,
+        '!username' => $user->name,
+        '!futurelogin' => $base_url . '/user/',
+      );
+
+      // Alter the body message.
+      $message['body'][0] = t("Dear !firstname,\n\nYour account at the !site website has been created for you. You may now log in by either clicking through on the following link or pasting it into your browser:\n\n !login_url\n\n(Note: This login can be used only once.)\n\nYour username is: !username \n\nAfter setting your password with the included link, you will be able to log in at !futurelogin in the future.\n\nSincerely,\nThe !site Team", $replacements);
+      break;
+
+    // Account created by admin in the admin/people panel.
+    case 'user_register_admin_created':
+      // Get the user id we just created.
+      $uid = $message['params']['account']->uid;
+      // Load the user data.
+      $user = user_load($uid);
+      // Grab their first name, if it doesnt exist, use their user name.
+      if (!empty($user->field_first_name['und'][0]['value'])) {
+        $first_name = $user->field_first_name['und'][0]['value'];
+      }
+      else {
+        $first_name = $user->name;
+      }
+      // Alter the email subject.
+      $message['subject'] = t('An OpenScholar account has been created for you at !site_name', array(
+          '!site_name' => variable_get('site_name', 'OpenScholar'),
+        ));
+      $replacements = array(
+        '!site' => variable_get('site_name', 'OpenScholar'),
+        '!login_url' => user_pass_reset_url($user),
+        '!mailto' => $user->mail,
+        '!firstname' => $first_name,
+        '!username' => $user->name,
+        '!futurelogin' => $base_url . '/user/',
+      );
+      // Alter the message body.
+      $message['body'][0] = t("Dear !firstname,\n\nA site owner at the !site website has created an account for you. You may now log in by either clicking through on the following link or pasting it into your browser:\n\n !login_url\n\n(Note: This login can be used only once.)\n\nYour username is: !username \n\nAfter setting your password with the included link, you will be able to log in at !futurelogin in the future.\n\nSincerely,\nThe !site Team", $replacements);
+      break;
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function vsite_node_presave($node) {
+  include_once (drupal_get_path('module', 'vsite') . '/includes/path.inc');
+  _vsite_alter_node_path_settings($node);
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for user_profile_form.
+ */
+function vsite_form_user_profile_form_alter(&$form, &$form_state, &$form_id) {
+  if (!array_key_exists('redirect_from_reset', $form)) {
+    $form['redirect_from_reset'] = array('#type' => 'hidden', '#default_value' => FALSE);
+  }
+
+  if ($_SERVER['REDIRECT_STATUS'] == '200' && strstr($_SERVER['HTTP_REFERER'], 'user/reset') !== FALSE) {
+    $form['redirect_from_reset']['#value'] = TRUE;
+  }
+  // Are we coming from the special login link?
+
+  $form['#submit'][] = 'vsite_redirect_reset_submit';
+
+  // Remove the form element that the 'contact' module hooks in.
+  if (isset($form['contact'])) {
+    $form['contact']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Submit callback for user_profile_form.
+ *
+ * Checks the passed reset value, if it is present we will redirect.
+ */
+function vsite_redirect_reset_submit($form, &$form_state) {
+  if (is_array($form_state['values'])
+    && array_key_exists('redirect_from_reset', $form_state['values'])
+    && $form_state['values']['redirect_from_reset']
+  ) {
+    $vsites = vsite_get_vsite_by_owner($form['#user']->uid);
+    if (count($vsites) == 1 && is_object($vsites[0])) {
+      drupal_goto($vsites[0]->get_absolute_url());
+    }
+    else {
+      drupal_goto('user/' . $form['#user']->uid);
+    }
+  }
+}
+
+/**
+ * Implements hook_cp_settings().
+ *
+ * Add the vsite privacy form element to CP settings.
+ */
+function vsite_cp_settings() {
+  $form          = array();
+  $space         = spaces_get_space();
+  $annon_contact = variable_get('vsite_users_contact_form_anonymous', '1');
+  if (!empty($space)) {
+    // Get the vsite_users_contact_form_anonymous varible
+    $annon_contact = $space->controllers->variable->get('vsite_users_contact_form_anonymous', 'space');
+    $node = node_load($space->group->nid);
+
+    $form['vsite_private'] = array(
+      'group' => array(
+        '#id' => 'privacy',
+        '#title' => t('Privacy'),
+        '#weight' => 10,
+      ),
+      'form' => array(
+        '#type' => 'checkbox',
+        '#title' => t('Make your site Private'),
+        '#default_value' => $node->group_access[LANGUAGE_NONE][0]['value'],
+        '#description' => "If private your vsite will only be avalible when you are logged in, regular users will see a message and be giving the choice to login.",
+      ),
+      'submit' => array('vsite_cp_settings_node_submit'),
+    );
+  }
+
+  $form['vsite_users_contact_form_anonymous'] = array(
+    'group' => array(
+      '#id' => 'privacy',
+      '#title' => t('Privacy'),
+      '#weight' => 10,
+    ),
+    'form' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Anonymous Contact'),
+      '#default_value' => $annon_contact,
+      '#description' => "When this is checked a user does not need to be logged in to contact you.",
+    ),
+  );
+  return $form;
+}
+
+/**
+ * Submit callback for cp/settings form.
+ *
+ * Sets vsite_privacy value for the node.
+ *
+ * @see vsite_cp_settings()
+ */
+function vsite_cp_settings_node_submit($form, &$form_state) {
+  // Get the current vsite.
+  $space = spaces_get_space();
+  // Node load the vsite.
+  $node = node_load($space->group->nid);
+  // Get the vsite_privacy value.
+  if (isset($form_state['values']['vsite_private']) && module_exists('vsite_access')) {
+    // Set the new group_access for the node.
+    $node->group_access[LANGUAGE_NONE][0]['value'] = $form_state['values']['vsite_private'];
+    // Resave the node.
+    node_save($node);
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function vsite_menu() {
+  $items = array();
+
+  $items['private_site'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Private Site',
+    'page callback' => 'vsite_private_site_login',
+    'access arguments' => array(
+      'access content',
+    ),
+  );
+
+  $items['contact_owner'] = array(
+    'title' => 'Contact',
+    'page callback' => 'vsite_site_contact',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'vsite_site_contact_access',
+  );
+
+  // Node autocomplete callback that filters only nodes in the current space.
+  $items['vsite/autocomplete/node'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Vsite Autocomplete Node',
+    'page callback' => 'vsite_node_autocomplete_callback',
+    'file' => 'nodeautocomplete.inc',
+    'access arguments' => array(
+      'access content'
+    ),
+    'file path' => drupal_get_path('module', 'vsite') . '/includes'
+  );
+
+  return $items;
+}
+
+/**
+ * Renders the private site login page.
+ */
+function vsite_private_site_login() {
+  if (!user_is_logged_in()) {
+    $login_form = drupal_render(drupal_get_form('user_login'));
+  }
+  else {
+    $login_form = '';
+  }
+  return t("This site is private, you must be logged in and be a site member to view.") . $login_form;
+}
+
+/**
+ * Page callback; Contact form that contacts the site owner.
+ *
+ * @return contact_page
+ */
+function vsite_site_contact() {
+  if (!($space = spaces_get_space()) || !($user = user_load($space->group->uid))) {
+    return MENU_ACCESS_DENIED;
+  }
+  $space = spaces_get_space();
+  if (!empty($space)) {
+    // Get the vsite_users_contact_form_anonymous varible
+    $contact_anon = $space->controllers->variable->get('vsite_users_contact_form_anonymous', 'space');
+  }
+  else {
+    $contact_anon = variable_get('vsite_users_contact_form_anonymous', '1');
+  }
+  if (empty($contact_anon) && !user_is_logged_in()) {
+    $output = t('You need to be logged in in order to send mail to this user.');
+  }
+  elseif (!flood_is_allowed('contact', variable_get('contact_hourly_threshold', 3))) {
+    $output = t('You cannot contact more than %number users per hour. Please try again later.', array('%number' => variable_get('contact_hourly_threshold', 3)));
+  }
+  else {
+    drupal_set_title("Contact Site Owner");
+    $output = drupal_get_form('vsite_contact_mail_owner', $user);
+  }
+
+  return $output;
+}
+
+/**
+ * Builds and returns the contact_owner form.
+ */
+function vsite_contact_mail_owner($form, &$form_state, $recipient) {
+  global $user;
+  $email_user = user_load($recipient->uid);
+
+  // Create the form.
+  if ($user->uid != 0) {
+    $form['#token'] = $user->name . $user->mail;
+  }
+
+  $form['recipient'] = array('#type' => 'value', '#value' => $recipient);
+  if ($user->uid != 0 && $user->mail) {
+    $form['from'] = array(
+      '#type' => 'item',
+      '#title' => t('From'),
+      '#markup' => theme('username', array('account' => $user)) . ' &lt;' . check_plain($user->mail) . '&gt;',
+    );
+  }
+  else {
+    $form['name'] = array(
+      '#type' => 'item',
+      '#title' => t('From'),
+      '#markup' => t('Anonymous'),
+    );
+
+    $form['sender_firstname'] = array(
+      '#type' => 'textfield',
+      '#title' => t('First name'),
+      '#required' => TRUE,
+    );
+
+    $form['sender_lastname'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Last name'),
+      '#required' => TRUE,
+    );
+
+    $form['from'] = array(
+      '#type' => 'textfield',
+      '#title' => t('E-Mail Address'),
+      '#required' => TRUE,
+    );
+  }
+
+  // Check for a first name.
+  $user_first_name = field_get_items('user', $email_user, 'field_first_name');
+  if (isset($user_first_name[0]['safe_value'])) {
+    $first_name = $user_first_name[0]['safe_value'];
+    // Get the last name.
+    $user_last_name = field_get_items('user', $email_user, 'field_last_name');
+    if (isset($user_last_name[0]['safe_value'])) {
+      $last_name = $user_last_name[0]['safe_value'];
+    }
+    else {
+      $last_name = '';
+    }
+    $recipient->name = $first_name . " " . $last_name;
+  }
+  elseif (($space = spaces_get_space()) && strlen($space->group->title)) {
+    $recipient->name = $space->group->title;
+  }
+
+  if ($user->uid === 0) {
+    $recipient_name = check_plain($recipient->name);
+  }
+  else {
+    $recipient_name = theme('username', array('account' => $recipient));
+  }
+
+  $form['to'] = array(
+    '#type' => 'item',
+    '#title' => t('To'),
+    '#markup' => $recipient_name,
+  );
+  $form['subject'] = array('#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#maxlength' => 50,
+    '#required' => TRUE,
+  );
+  $form['message'] = array('#type' => 'textarea',
+    '#title' => t('Message'),
+    '#rows' => 15,
+    '#required' => TRUE,
+  );
+  $form['copy'] = array('#type' => 'checkbox',
+    '#title' => t('Send yourself a copy.'),
+  );
+  $form['submit'] = array('#type' => 'submit',
+    '#value' => t('Send e-mail'),
+    '#weight' => 100,
+  );
+
+  return $form;
+}
+
+/**
+ * Processes the personal contact page form submission.
+ */
+function vsite_contact_mail_owner_submit($form, &$form_state) {
+  global $user, $language;
+
+  $account = $form_state['values']['recipient'];
+  $space = spaces_get_space();
+
+  // Send from the current user to the requested user.
+  $to = $account->mail;
+  if ($user->uid != 0) {
+    $from = $user->mail;
+    // Needed for the watchdog entry.
+    $flood_name = $user->name;
+  }
+  else {
+    if (!strlen($form_state['values']['from']) || !preg_match('/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,7})+$/', $form_state['values']['from'])) {
+      drupal_set_message(t('You must provide a valid e-mail address.'));
+      return;
+    }
+    // Needed for the watchdog entry.
+    $flood_name = 'anonymous';
+    $from = $form_state['values']['from'];
+  }
+
+  // Save both users and all form values for email composition.
+  $values            = $form_state['values'];
+  $values['account'] = $account;
+  $values['user']    = $user;
+  $values['vsite']   = $space;
+
+  // Send the e-mail in the requested user language.
+  drupal_mail('vsite', 'user_mail', $to, user_preferred_language($account), $values, $from);
+
+  // Send a copy if requested, using current page language.
+  if ($form_state['values']['copy']) {
+    drupal_mail('vsite', 'user_copy', $from, $language, $values, $from);
+  }
+
+  flood_register_event('contact');
+  watchdog('mail', '%name-from sent %name-to an e-mail.', array('%name-from' => $flood_name, '%name-to' => $account->name));
+  drupal_set_message(t('The message has been sent.'));
+
+  // Back to the home page
+  $form_state['redirect'] = "home";
+}
+
+/**
+ * Only allows access if user is authenticated and space is set.
+ *
+ * @return contact_page
+ */
+function vsite_site_contact_access() {
+  if (!($space = spaces_get_space()) || !($user = user_load($space->group->uid))) {
+    return FALSE;
+  }
+
+  return TRUE;
+  /*
+  $contact_anon = $vsite->controllers->variable->get('vsite_users_contact_anonymous');
+  // there was a contact form var here, but I don't know where it's set from
+  return ($contact_anon !== 0 || user_is_logged_in());
+  */
+}
+
+/**
+ * Implements hook_mail().
+ */
+function vsite_mail($key, &$message, $params) {
+  $language = $message['language'];
+  switch ($key) {
+    case 'user_mail':
+    case 'user_copy':
+      $user               = $params['user'];
+      $account            = $params['account'];
+      $vsite              = $params['vsite'];
+      $message['subject'] = $params['subject'] . ' [via ' . variable_get('site_name', 'Drupal') . ']';
+      $message['body'][]  = $params['message'];
+      $message['body'][]  = "\n\n---------------";
+
+      $message['body'][] = t("This message was sent to you from \"!site\" on behalf of !name through your website contact form (!form-url).", array(
+          '!name' => isset($user->name) ? $user->name : $params['sender_firstname'] . ' ' . $params['sender_lastname'] . ' (' . $message['from'] . ')',
+          '!form-url' => url($_GET['q'], array(
+              'absolute' => TRUE,
+              'language' => $language,
+            )),
+          '!site' => variable_get('site_name', 'Drupal'),
+        ));
+      $message['body'][] = t("If you don't want to receive such e-mails, you can change your settings at !url.", array(
+          '!url' => $vsite->get_absolute_url("cp/settings"),
+        ));
+      break;
+  }
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ * Altering the node_admin_content form to remove the
+ * Promote/demote content to frontpage option in admin/content on multisite installs.
+ */
+function vsite_form_node_admin_content_alter(&$form, &$form_state) {
+  if(isset($form['admin']['options']['operation']['#options']['promote'])) {
+    unset($form['admin']['options']['operation']['#options']['promote']);
+  }
+  if(isset($form['admin']['options']['operation']['#options']['demote'])) {
+	unset($form['admin']['options']['operation']['#options']['demote']);
+  }
+}
+
+/**
+ * Implements hook_mollom_form_list().
+ */
+function vsite_mollom_form_list() {
+  if(module_exists('mollom')) {
+    $forms['vsite_contact_mail_owner'] = array(
+      'title' => t('Contact Site Owner'),
+    );
+    return $forms;
+  }
+}
+
+/**
+ * Implements hook_mollom_form_info().
+ */
+function vsite_mollom_form_info($form_id) {
+  if(module_exists('mollom')) {
+    switch ($form_id) {
+      case 'vsite_contact_mail_owner':
+        $form_info = array(
+      	  'mode' => MOLLOM_MODE_CAPTCHA,
+          'elements' => array(),
+          'mapping' => array(),
+        );
+      return $form_info;
+      break;
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_html().
+ * Set the head_title to the vsite name rather than the site_name, if in a vsite.
+ */
+function vsite_preprocess_html(&$vars) {
+  $spaces = spaces_get_space();
+  if(isset($spaces)) {
+  	$vsite_title = isset($spaces->group->title) ? $spaces->group->title : variable_get('site_name');
+
+    // Check for the frontpage.
+    if(drupal_is_front_page()) {
+  	  $head_title = array(
+  	    $vsite_title
+  	  );
+    }else {
+  	  $head_title = array(
+  	    strip_tags(drupal_get_title()),
+  	    $vsite_title
+  	  );
+    }
+
+    // Set the new page 'head' title.
+    $vars['head_title'] = implode(' | ', $head_title);
+  }
+}

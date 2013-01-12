@@ -1,0 +1,9 @@
+
+.node-teaser .field-name-field-biblio-image {
+  float: left;
+  margin-right: 1em;
+}
+
+.node-biblio.node-teaser .field-name-field-upload {
+  display: inline;
+}

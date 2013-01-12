@@ -1,0 +1,55 @@
+<?php
+/**
+ * @file
+ * Install file for Harvard courses module.
+ */
+
+function harvard_courses_install() {
+  drupal_set_message(t('Please clear you cache for the settings to take place.'));
+
+  // Apply features exported fields.
+  features_rebuild();
+  field_cache_clear();
+
+  // Create import nodes.
+  $node = new stdClass();
+  $node->type = 'harvard_api_importer';
+  $node->title = 'Department importer';
+  $node->language = LANGUAGE_NONE;
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $wrapper->field_base_url->set('http://services.isites.harvard.edu/course_catalog/api/v1/search');
+  $wrapper->field_import_type->set('department');
+  $wrapper->author->set(1);
+  $wrapper->save();
+
+  $node = new stdClass();
+  $node->type = 'harvard_api_importer';
+  $node->title = 'Catalog importer';
+  $node->language = LANGUAGE_NONE;
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $wrapper->field_base_url->set('http://services.isites.harvard.edu/course_catalog/api/v1/search');
+  $wrapper->field_import_type->set('cat_num');
+  $wrapper->author->set(1);
+  $wrapper->save();
+
+  // Enable the harvard courses feature.
+  $preset = spaces_preset_load('os_scholar', 'og');
+  $preset->value['variable']['spaces_features']['harvard_courses'] = 1;
+  spaces_preset_save($preset);
+
+  $spaces_features = variable_get('spaces_features', array());
+  $spaces_features['harvard_courses'] = 1;
+  variable_set('spaces_features', $spaces_features);
+
+  // Change the weight of the module so we can change the OS add new link menu.
+  $weight = db_select('system', 's')
+    ->fields('s', array('weight'))
+    ->condition('name', 'os')
+    ->execute()
+    ->fetchField();
+
+  db_update('system')
+    ->fields(array('weight' => $weight +1))
+    ->condition('name', 'harvard_courses')
+    ->execute();
+}

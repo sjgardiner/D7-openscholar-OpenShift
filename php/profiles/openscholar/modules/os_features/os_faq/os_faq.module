@@ -1,0 +1,35 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Code for the OS App FAQ (a feature module).
+ */
+
+include_once ('os_faq.features.inc');
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_faq_os_app_info() {
+  $apps = array();
+
+  $apps['os_faq'] = array(
+    'path' => 'faq',
+  	'nodetypes' => array(
+  	  'faq',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_faq_vsite_og_node_type_info() {
+  return array(
+    'faq' => 'group content',
+  );
+}
+

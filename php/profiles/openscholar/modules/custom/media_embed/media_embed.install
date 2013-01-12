@@ -1,0 +1,63 @@
+<?php
+
+function media_embed_install() {
+  // legacy:
+  $type = new stdClass();
+  $type->name = 'html';
+  $type->label = "Embedded HTML";
+  $type->base = TRUE;
+  $type->type_callback_args = array(
+    'match_type' => 'all',
+    'mimetypes' => array('/^html/'),
+    'extensions' => array(),
+    'streams' => array('embed'),
+  );
+
+  media_type_save($type);
+
+  // add the fields for it
+  try {
+    field_create_field(array(
+      'field_name' => 'field_html_code',
+      'type' => 'text_long',
+    ));
+  }
+  catch (FieldException $fe) {
+    // the fields already exist
+  }
+
+  field_create_instance(array(
+    'field_name' => 'field_html_code',
+    'entity_type' => 'file',
+    'label' => 'Code',
+    'bundle' => 'html',
+    'required' => TRUE,
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+      ),
+    )
+  ));
+
+  field_bundle_settings('file', 'html', array(
+    'extra_fields' => array(
+      'display' => array(
+      	'file' => array(
+          'default' => array(
+            'visible' => TRUE,
+            'weight' => 0,
+          ),
+      	),
+      ),
+    ),
+  ));
+}
+
+function media_embed_uninstall() {
+  try {
+    field_attach_delete_bundle('file', 'html');
+  }
+  catch (Exception $e) {
+
+  }
+}

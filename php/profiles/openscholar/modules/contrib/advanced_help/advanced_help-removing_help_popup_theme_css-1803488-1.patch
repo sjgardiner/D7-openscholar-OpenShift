@@ -1,0 +1,20 @@
+diff --git a/advanced_help.module b/advanced_help.module
+index ad55411..1870c35 100644
+--- a/advanced_help.module
++++ b/advanced_help.module
+@@ -997,11 +997,12 @@ function template_preprocess_advanced_help_popup(&$variables) {
+   $css = drupal_add_css();
+ 
+   // Remove theme css.
+-  foreach ($css as $media => $types) {
+-    if (isset($css[$media]['theme'])) {
+-      $css[$media]['theme'] = array();
++  foreach ($css as $key => $value) {
++    if ($value['group'] == CSS_THEME) {
++      $exclude[$key] = FALSE;
+     }
+   }
++  $css = array_diff_key($css, $exclude);
+ 
+   $variables['styles']            = drupal_get_css($css);
+   $variables['scripts']           = drupal_get_js();

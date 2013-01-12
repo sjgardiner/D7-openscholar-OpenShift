@@ -1,0 +1,25 @@
+diff --git a/og.inc b/og.inc
+index a1a658b..bc77b7b 100644
+--- a/og.inc
++++ b/og.inc
+@@ -5,6 +5,11 @@
+  * Import Organic group memberships.
+  */
+ 
++//If OG has been updated to include this destination then use that
++if(class_exists('MigrateDestinationOGMembership')){
++  return;
++}
++
+ /**
+  * Destination class implementing migration into an OG Audience field.
+  */
+@@ -19,7 +24,7 @@ class MigrateDestinationOGMembership extends MigrateDestination {
+   public function __toString() {
+     return t('group');
+   }
+-  
++
+   static public function getKeySchema() {
+     return array(
+       'gid' => array(

@@ -1,0 +1,30 @@
+<?php
+// $Id$
+
+include_once 'os_reader.features.inc';
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_reader_os_app_info() {
+  $apps = array();
+
+  $apps['os_reader'] = array(
+    'path' => 'reader',
+  	'nodetypes' => array(
+  	  'feed',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_reader_vsite_og_node_type_info() {
+  return array(
+    'feed' => 'group content',
+  );
+}
+

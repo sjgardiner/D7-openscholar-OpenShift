@@ -1,0 +1,4 @@
+name = Google FeedAPI Formatter
+description = Create a formatter for the link field that will pull from a rss feed
+core = 7.x
+php = 5.2.4

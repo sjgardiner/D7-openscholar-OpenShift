@@ -1,0 +1,256 @@
+<?php
+// $Id$
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Need to hook into the openscholar settings form
+ * to allow admins to set the global Google Analytics ID
+ */
+function os_ga_form_os_settings_form_alter(&$form, &$form_state, $form_id) {
+  $form['os_ga_global_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter your Google Analytics ID'),
+    '#size' => 20,
+    '#maxlength' => 255,
+    '#default_value' => variable_get('os_ga_global_id', ''),
+    '#description' => t("Entering your ID this will enable the sending of your OpenScholar sitewide page and visitor data to your Google Analytics account. Go to the <a href=\"http://www.google.com/analytics/\">Google Analytics site</a> to set one up. Your ID will be in the format UA-XXXXXXX-XX."),
+    '#element_validate' => array('os_ga_analytics_id_validate'),
+  );
+}
+
+/**
+ * Implements hook os_ga_cp_settings().
+ *
+ * @return array
+ */
+function os_ga_cp_settings() {
+  $settings = array();
+
+  $settings['os_ga_google_analytics_id'] = array(
+    'form' => array(
+      '#type' => 'textfield',
+      '#title' => t('Enter your Google Analytics ID'),
+      '#size' => 20,
+      '#maxlength' => 255,
+      '#default_value' => variable_get('os_ga_google_analytics_id', ''),
+      '#description' => t("Entering your ID this will send page and visitor data to your Google Analytics account. Go to the <a href=\"http://www.google.com/analytics/\">Google Analytics site</a> to set one up. Your ID will be in the format UA-XXXXXXX-XX."),
+      '#element_validate' => array('os_ga_analytics_id_validate'),
+    ),
+    'group' => array(
+      '#id' => 'ga',
+      '#title' => t('Google Analytics'),
+      '#weight' => -100,
+    ),
+  );
+
+  return $settings;
+}
+
+/**
+ * Impelements hook_init().
+ */
+function os_ga_init() {
+  $ga_vars = _os_ga_ga_id_vars();
+
+  // If no ga ids are saved, then return.
+  if (!count($ga_vars)) {
+    return;
+  }
+
+  global $user;
+
+  // Build tracker code for footer.
+  $script = '';
+
+  // Check to see if both global and site specific GA accounts are set.
+  if ((!empty($ga_vars['global_id'])) && (!empty($ga_vars['os_id']))) {
+    // Set both to be tracked.
+    $script .= '_gaq.push(["_setAccount", ' . drupal_json_encode($ga_vars['os_id']) . ']);';
+    $script .= '_gaq.push(["_trackPageview"]);';
+
+    // Add in our global account as well.
+    $script .= '_gaq.push(["b._setAccount", ' . drupal_json_encode($ga_vars['global_id']) . ']);';
+    $script .= '_gaq.push(["b._trackPageview"]);';
+
+    // finish up the script.
+    $script .= '(function() {';
+    $script .= 'var ga = document.createElement("script");';
+    $script .= 'ga.type = "text/javascript";';
+    $script .= 'ga.async = true;';
+    $script .= 'ga.src = ("https:" == document.location.protocol ? "https://ssl" : "http://www") + ".google-analytics.com/ga.js";';
+    $script .= 'var s = document.getElementsByTagName("script")[0];';
+    $script .= 's.parentNode.insertBefore(ga, s);';
+    $script .= '})();';
+    // Integrates with AddThis. Currently AddThis only supports one property at
+    // a time, so we use vsite-level profile over the global profile.
+    $script .= "var addthis_config = {data_ga_social: true, data_ga_property: '" . drupal_json_encode($ga_vars['os_id']) . "'};";
+  }
+  elseif (!empty($ga_vars['global_id'])) {
+    // Global pageTracker object.
+    $script = 'var _gaq = _gaq || [];';
+    $script .= '_gaq.push(["_setAccount", ' . drupal_json_encode($ga_vars['global_id']) . ']);';
+
+    // Pass segmentation data to pageTrackerGlobal account.
+    if (!empty($segmentation)) {
+      $script .= $segmentation;
+    }
+
+    $script .= '_gaq.push(["_trackPageview"]);';
+    $script .= '(function() {';
+    $script .= 'var ga = document.createElement("script");';
+    $script .= 'ga.type = "text/javascript";';
+    $script .= 'ga.async = true;';
+    $script .= 'ga.src = ("https:" == document.location.protocol ? "https://ssl" : "http://www") + ".google-analytics.com/ga.js";';
+    $script .= 'var s = document.getElementsByTagName("script")[0];';
+    $script .= 's.parentNode.insertBefore(ga, s);';
+    $script .= '})();';
+    // Integrates with AddThis.
+    $script .= "var addthis_config = {data_ga_social: true, data_ga_property: '" . drupal_json_encode($ga_vars['global_id']) . "'};";
+  }
+  elseif (!empty($ga_vars['os_id'])) {
+    // Vsite pageTracker object.
+    $script .= 'var _gaq = _gaq || [];';
+    $script .= '_gaq.push(["_setAccount", ' . drupal_json_encode($ga_vars['os_id']) . ']);';
+    $script .= '_gaq.push(["_trackPageview"]);';
+
+    // Add in our global account as well.
+    // $script .= '_gaq.push(["b._setAccount", ' . drupal_json_encode($globalAccount) . ']);';
+    // $script .= '_gaq.push(["b._trackPageview"]);';
+
+    // Finish up the script.
+    $script .= '(function() {';
+    $script .= 'var ga = document.createElement("script");';
+    $script .= 'ga.type = "text/javascript";';
+    $script .= 'ga.async = true;';
+    $script .= 'ga.src = ("https:" == document.location.protocol ? "https://ssl" : "http://www") + ".google-analytics.com/ga.js";';
+    $script .= 'var s = document.getElementsByTagName("script")[0];';
+    $script .= 's.parentNode.insertBefore(ga, s);';
+    $script .= '})();';
+    // Integrates with AddThis.
+    $script .= "var addthis_config = {data_ga_social: true, data_ga_property: '" . drupal_json_encode($ga_vars['os_id']) . "'};";
+  }
+  else {
+    // Default to out global account.
+    $script = '';
+  }
+
+  if (strlen($script)) {
+    // Code snippet goes in header by default.
+    drupal_add_js($script, 'inline', variable_get('vsite_ga_scope', 'header'));
+  }
+}
+
+/**
+ * Check for global and site-specific Google Analytics ID variables.
+ */
+function _os_ga_ga_id_vars() {
+  $ga_vars = array();
+  // Global id.
+  // Load in the spaces info.
+  // Global id.
+
+  $spaces = spaces_get_space();
+
+  if ($spaces) {
+    //if (strlen($spaces->controllers->variable->get('vsite_ga_google_analytics_id', 'original'))) {
+    // Check for the global GA account set from the admin bar.
+    if ($global_id = variable_get('os_ga_global_id', '')) {
+      if (strlen($global_id)) {
+        $ga_vars['global_id'] = $global_id;
+      }
+    }
+
+    // Check for the site specific GA account set from the users settings.
+    if ($local_id = variable_get('os_ga_google_analytics_id', '')) {
+      if (strlen($local_id)) {
+        $ga_vars['os_id'] = $local_id;
+      }
+    }
+  }
+  else {
+    //if($global_id = variable_get('vsite_ga_google_analytics_id', '')) {
+    // No personal GA account nor spaces set, grab the global GA account.
+    if ($global_id = variable_get('os_ga_global_id', '')) {
+      if (strlen($global_id)) {
+        $ga_vars['global_id'] = $global_id;
+      }
+    }
+  }
+
+  return $ga_vars;
+}
+
+/**
+ * Validates a user-entered GA string.
+ */
+function os_ga_analytics_id_validate($element, $form_state) {
+  $pattern = '/^UA-[0-9]+-[0-9]{1,2}$/';
+  if ($element['#value'] && !preg_match($pattern, trim($element['#value']))) {
+    form_error($element, t('This field does not follow the correct format.'));
+  }
+}
+
+/**
+ * Implements hook_os_widget().
+ */
+function os_ga_os_widget() {
+  $widgets = array();
+
+  $widgets['os_ga-google_translate'] = array(
+    'module' => 'os_ga',
+    'delta' => 'google_translate',
+    'title' => '',
+    'info' => t('Google Translate'),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function os_ga_block_info() {
+  $blocks = array();
+
+  $blocks['google_translate'] = array(
+    'info' => t('Google Translate'),
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implement hook_block_view().
+ */
+function os_ga_block_view($delta) {
+  $block = array();
+
+  switch ($delta) {
+    case 'google_translate':
+      $block['content'] = os_ga_google_translate();
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Renders a Google translate HTML and add needed JS.
+ */
+function os_ga_google_translate() {
+  global $language;
+  $script = '';
+
+  $script .= "function googleTranslateElementInit() {";
+  $script .= "new google.translate.TranslateElement({pageLanguage: '$language->language', layout: ";
+  $script .= "google.translate.TranslateElement.InlineLayout.SIMPLE}, 'google_translate_element');";
+  $script .= "}";
+
+  drupal_add_js($script, array('type' => 'inline'));
+  drupal_add_js('http://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit', array('type' => 'external'));
+
+  return '<div id="google_translate_element"></div>';
+}
+

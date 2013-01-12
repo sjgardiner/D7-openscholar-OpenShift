@@ -1,0 +1,61 @@
+/*Typography */
+body {
+    font-family: Arial;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 24px;
+}
+
+a {color: #4384C4;}
+
+
+.breadcrumb,
+.breadcrumb a {
+	color:#4384C4;
+	text-transform:uppercase;
+	font-size:12px;
+	font-weight:bold;	
+	letter-spacing:0.1em;
+}
+
+.not-front #columns {margin-top:40px;}
+
+/* Block Styles */
+#content-column .block .block-inner {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#content-column .block ul {
+    list-style: disc;
+}
+
+
+/* Search Bar */
+#search-block-form .container-inline .form-item .form-text {
+    height: 29px;
+ }
+
+
+.region-header-third .block-os-search-solr,
+.region-header-third .block-os-search-db {
+     float: right;
+     height: 35px;
+     width: 300px;
+}
+
+input[type="search"] {
+   -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+   margin-top:-7px;
+   
+}
+
+
+#search-block-form input.form-submit, #search-block-form #edit-submit, #search-form #edit-submit {
+     background: url("../images/hwpi_basesprite.png") no-repeat 0 -59px;
+     width:42px;
+     height:32px;
+}

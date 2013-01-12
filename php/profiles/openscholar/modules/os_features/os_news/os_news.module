@@ -1,0 +1,86 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Code for the OS news feature module.
+ */
+
+include_once ('os_news.features.inc');
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_news_os_app_info() {
+  $apps = array();
+
+  $apps['os_news'] = array(
+    'path' => 'news',
+  	'nodetypes' => array(
+  	  'news',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Implements hook_process_hook() for node.
+ *
+ * Customizes $submitted for new nodes as just "M D, YYYY"
+ *
+ * Moves the photo field before the title for teaser display.
+ *
+ * Moves the taxonomy terms to top of the node rather than the bottom.
+ */
+function os_news_process_node(&$vars) {
+  if ($vars['type'] !== 'news') {
+    return;
+  }
+
+  // Helps poor theme developers find these changes to $variables
+  $vars['classes'] .= ' modified-in-os_news_process_node';
+
+  // Build the submitted variable used by default in node templates
+  $pubdate = format_date($vars['created'], 'custom', 'F j, Y');
+  // Publication date, formatted with time element
+  $vars['submitted'] = '<time datetime="' . $vars['datetime'] . '" pubdate="pubdate">' . $pubdate . '</time>';
+
+  // Includes custom CSS
+  $vars['title_prefix']['#attached'] = array(
+    'css' => array(
+      'type' => 'file',
+      'data' => drupal_get_path('module', 'os_news') . '/os_news.css',
+    ),
+  );
+
+  if ($vars['teaser']) {
+    // Moves the profile photo thumbnail before teaser title (full name)
+    if (isset($vars['content']['field_photo'])) {
+      $vars['title_prefix'] = $vars['content']['field_photo'];
+      unset($vars['content']['field_photo']);
+    }
+  }
+  else {
+    if (isset($vars['content']['field_photo'])) {
+      $vars['content']['body'][0]['#markup'] = render($vars['content']['field_photo']) . $vars['content']['body'][0]['#markup'];
+      unset($vars['content']['field_photo']);
+    }
+  }
+
+  // Move the terms to the top of the node display.
+  if(isset($vars['content']['og_vocabulary'])) {
+    $vars['content']['og_vocabulary']['#weight'] = 0;
+  }
+
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_news_vsite_og_node_type_info() {
+  return array(
+    'news' => 'group content',
+  );
+}
+

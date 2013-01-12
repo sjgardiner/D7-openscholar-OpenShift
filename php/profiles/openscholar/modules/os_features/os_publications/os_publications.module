@@ -1,0 +1,561 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Code for the os_publications feature.
+ */
+
+include_once 'os_publications.features.inc';
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_publications_os_app_info() {
+  $apps = array();
+
+  $apps['os_publications'] = array(
+    'path' => 'publications',
+  	'nodetypes' => array(
+  	  'biblio',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Defines the overview menu entry
+ */
+function os_publications_menu_alter(&$items) {
+  $items['publications'] = array(
+    'title' => 'Publications',
+    'page callback' => 'os_publications_overview',
+    'access callback' => 'spaces_access_feature',
+    'access arguments' => array('view', 'os_publications'),
+    'file' => drupal_get_path('module', 'os_publications') . '/os_publications.pages.inc',
+    'menu_name' => 'primary',
+  );
+
+  $items['publications/export'] = array(
+    'title' => '',
+    'page callback' => 'os_publications_export',
+    'access callback' => 'user_access',
+    'access arguments' => array('show export links'),
+    'file' => drupal_get_path('module', 'os_publications') . '/os_publications.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['publications/reset'] = array(
+    'title' => 'Reset OS Publications Defaults',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('os_publications_reset'),
+    'access arguments' => 'administer nodes',
+    'file' => drupal_get_path('module', 'os_publications'). '/os_publications.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['features/os_publications'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('os_publications_settings'),
+    'access callback' => module_exists('vsite') ? 'spaces_access_admin' : 'user_access',
+    'access arguments' => module_exists('vsite') ? array() : array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => drupal_get_path('module', 'os_publications') . '/os_publications.pages.inc',
+  );
+
+  // for the toolbar
+  $items['node/add/biblio']['title'] = 'Publication';
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_publications_vsite_og_node_type_info() {
+  return array(
+    'biblio' => 'group content',
+  );
+}
+
+/**
+ * Implementation of hook_form_user_profile_form_alter
+ * This hook will remove the "bibio" fieldset from the users profile form
+ */
+function os_publications_form_user_profile_form_alter(&$form, &$form_state) {
+  // check to make sure it's set
+  if (isset($form['biblio_fieldset'])) {
+    $form['biblio_fieldset']['#access'] = FALSE;
+  }
+  // end if
+}
+// end function
+
+/**
+ * Alters biblio queries to take spaces into account
+ *
+ * Joins to the og_membership table, which is where these relationships are stored
+ */
+function os_publications_query_biblio_alter(QueryAlterableInterface $query) {
+  if (module_exists('spaces') && $space = spaces_get_space()) {
+    // this has to be separate because of scoping.
+    if ($space->type == 'og') {
+      $query->innerJoin('og_membership', 'ogm', 'n.nid = ogm.etid');
+      $query->condition('ogm.entity_type', 'node');
+      $query->condition('ogm.gid', $space->id);
+    }
+    // Check the sort order for biblio.
+    // If we're sorting by year, we want to sort by date as well to replicate d6 sorting.
+    if ($space->controllers->variable->get('biblio_sort','space') == 'year') {
+      // Get their sort order.
+      $biblio_year_sort = $space->controllers->variable->get('biblio_order','space');
+      $order = &$query->getOrderBy();
+
+      // Don't wipe the non-default sort order, this will let users still toggle asc/desc sorting by year.
+      if (array_key_exists('biblio_year', $order) && $order['biblio_year'] != $biblio_year_sort) {
+	    	$biblio_year_sort = $order['biblio_year'];
+      }
+
+      // Rebuild the array to our defaults only when the user is NOT searching.  When the user is searching, use their selections
+      if (isset($_GET['s']) && in_array($_GET['s'], array('author', 'title', 'type'))) {
+        $s = current(array_keys($order));
+        $o = current($order);
+
+        if ($s == 'biblio_sort_year') {
+          $biblio_sort_year = $o;
+        }
+
+        if ($s = 'biblio_sort_title') {
+          $biblio_sort_title = $o;
+        }
+      } else {
+        $order = array();
+      }
+
+      $order['biblio_year'] = isset($biblio_year_sort) ? $biblio_year_sort : 'DESC';
+      $order['biblio_date'] = 'DESC';
+      $order['biblio_sort_title'] = (isset($biblio_sort_title)) ? $biblio_sort_title : 'ASC';
+    }
+  }
+}
+
+/**
+ * Replaces biblio theme functions with our own.
+ */
+function os_publications_theme_registry_alter(&$reg) {
+  $reg['biblio_tabular'] = array_merge($reg['biblio_tabular'], array(
+      'file' => 'os_publications.theme.inc',
+      'theme path' => drupal_get_path('module', 'os_publications'),
+      'function' => 'theme_os_publications_tabular',
+    ));
+  $reg['biblio_tabular']['includes'][] = drupal_get_path('module', 'os_publications') . '/os_publications.theme.inc';
+
+  $reg['biblio_export_links'] = array_merge($reg['biblio_export_links'], array(
+      'file' => 'os_publications.theme.inc',
+      'theme path' => drupal_get_path('module', 'os_publications'),
+      'function' => 'theme_os_publications_export_links',
+    ));
+  $reg['biblio_export_links']['includes'][] = drupal_get_path('module', 'os_publications') . '/os_publications.theme.inc';
+
+  $reg['biblio_contributors'] = array_merge($reg['biblio_contributors'], array(
+      'file' => 'os_publications.theme.inc',
+      'theme path' => drupal_get_path('module', 'os_publications'),
+      'function' => 'theme_os_publications_contributors',
+    ));
+  $reg['biblio_contributors']['includes'][] = drupal_get_path('module', 'os_publications') . '/os_publications.theme.inc';
+
+  $reg['biblio_download_links'] = array_merge($reg['biblio_download_links'], array(
+      'file' => 'os_publications.theme.inc',
+      'theme path' => drupal_get_path('module', 'os_publications'),
+      'function' => 'theme_os_publications_download_links',
+    ));
+  $reg['biblio_download_links']['includes'][] = drupal_get_path('module', 'os_publications') . '/os_publications.theme.inc';
+
+  //Override publications by year box so biblio years display submitted/inpress/etc
+  $reg['views_view_summary__publication_years__block'] = $reg['views_view_summary'];
+  $reg['views_view_summary__publication_years__block']['preprocess functions'][] = 'theme_os_publications_biblio_year_row';
+
+  $reg['biblio_sort_tabs'] = array_merge($reg['biblio_sort_tabs'], array(
+    'file' => 'os_publications.theme.inc',
+    'theme path' => drupal_get_path('module', 'os_publications'),
+    'function' => 'theme_os_publications_sort_tabs',
+  ));
+}
+
+/**
+ * Alters the biblio form to do a lot of things
+ */
+function os_publications_form_biblio_node_form_alter(&$form, $form_state) {
+  if (!isset($form['#node']->nid)) {
+    drupal_set_title(t('Create @name', array('@name' => 'Publication')), PASS_THROUGH);
+  }
+  else {
+    drupal_set_title(t('<em>Edit @type</em> @title', array('@type' => 'Publication', '@title' => $form['#node']->title)), PASS_THROUGH);
+    $node = $form['#node'];
+  }
+  $tid = !empty($form_state['biblio_type']) ? $form_state['biblio_type'] : (isset($form_state['node']->biblio_type) ? $form_state['node']->biblio_type : 0);
+
+  // Hides the "Book Cover" biblio_image field.
+  $form['field_biblio_image']['#access'] = FALSE;
+  // Hides the "Extra Fields" (dyntextfield) field until a type is selected.
+  $form['field_biblio_extra']['#access'] = FALSE;
+
+  // hide look up and pasting fields
+  if (isset($form['biblio_doi_lookup'])) {
+    $form['biblio_doi_lookup']['#access'] = FALSE;
+  }
+  if (isset($form['biblio_pubmed_lookup'])) {
+    $form['biblio_pubmed_lookup']['#access'] = FALSE;
+  }
+  if (isset($form['biblio_ris_paste'])) {
+    $form['biblio_ris_paste']['#access'] = FALSE;
+  }
+  if (isset($form['biblio_cut_paste'])) {
+    $form['biblio_cut_paste']['#access'] = FALSE;
+  }
+
+  ksort($form['biblio_type']['#options']);
+
+  // Alters form based on what publication type is selected.
+  switch ($tid) {
+    case 0:
+      // no pub type
+      // we're on the first step of a biblio form. bail out.
+      $form['biblio_type']['#weight'] = -1000;
+      return;
+
+    default:
+      // Shows the Extra Fields for any selected publication type.
+      $form['field_biblio_extra']['#access'] = TRUE;
+      // Show cover image upload field for any selected publication type.
+      $form['field_biblio_image']['#access'] = TRUE;
+  }
+
+  // Moves fields out of the vertical tabs
+  // I like how the form looks with the tabs in. Much cleaner.
+  // So I'm keeping them.
+  $form['biblio_authors'] = $form['biblio_tabs']['biblio_authors'];
+  unset($form['biblio_authors']['#group']);
+  $form['biblio_authors']['add_more']['#value'] = t('Add author');
+  $form['field_biblio_extra']['und']['add_more']['#value'] = t('Add extra field');
+  $form['biblio_authors']['#collapsible'] = FALSE;
+  $form['biblio_authors']['#attached']['js'] = array(drupal_get_path('module', 'os_publications') . '/misc/os_publications.js');
+  foreach ($form['biblio_authors']['biblio_contributors'] as $k => $f) {
+    if (is_array($f) && strpos($k, '#') !== 0) {
+      $form['biblio_authors']['biblio_contributors'][$k]['auth_category']['#type'] = 'hidden';
+    }
+  }
+
+  // We're coming from biblio's ajax callback. It requires the form structure for authors be unchanged.
+  if (isset($form_state['values']['op']) && $form_state['values']['op'] == t('Add author')) {
+    $form['biblio_tabs']['biblio_authors'] = $form['biblio_authors'];
+    return;
+  }
+  unset($form['biblio_tabs']['biblio_authors']);
+
+  $form['body'][LANGUAGE_NONE][0]['summary']['#access'] = false;
+  $form['biblio_tabs']['biblio_full_text']['body'] = $form['body'];
+  unset($form['body']);
+
+  // vtabs 2, 3 and 8 always contain fields we either want outside of vtabs or don't want at all
+  // fields we don't want are taken out through biblio's field system
+  // so we just have to pull everything left outside of the vtabs
+  foreach (array(2, 3, 8) as $tab) {
+    if (!isset($form['biblio_tabs'][$tab]) || !is_array($form['biblio_tabs'][$tab])) {
+      continue;
+    }
+    $children = element_children($form['biblio_tabs'][$tab]);
+    foreach ($children as $elem) {
+      $form[$elem] = $form['biblio_tabs'][$tab][$elem];
+      unset($form['biblio_tabs'][$tab][$elem]);
+    }
+    if (count(element_children($form['biblio_tabs'][$tab])) == 0) {
+      unset($form['biblio_tabs'][$tab]);
+    }
+  }
+
+  // Add our related URL title field to the form
+  // Place it next to the URL title field, which is in a vtab.
+  // Put them in a container so we can put a header on the both of them
+  // and conserve verbage.
+  $form['biblio_tabs'][5]['url'] = array(
+    '#type' => 'container',
+    '#prefix' => '<h4>' . t('Related External Link') . '</h4>',
+    'biblio_url' => $form['biblio_tabs'][5]['biblio_url'],
+    'biblio_url_title' => array(
+      '#default_value' => isset($node->biblio_url_title) ? $node->biblio_url_title : '',
+      '#type' => 'textfield',
+      '#title' => 'Title',
+      '#description' => t('Text to show when linking to external URL.'),
+    ),
+  );
+
+  $form['biblio_tabs'][5]['url']['biblio_url']['#title'] = t('URL');
+  unset($form['biblio_tabs'][5]['biblio_url']);
+
+  // generate the year description
+  $years = variable_get('biblio_years_text', array(9999 => t('Submitted'), 9998 => t('In Press')));
+  $form['biblio_year']['#description'] = t('Required. Must be one of @years, or YYYY', array('@years' => implode(', ', $years)));
+
+  // Change the Notes field's description to include a link to the settings form
+  ctools_include('ajax');
+  ctools_include('modal');
+  $form['biblio_tabs'][7]['biblio_notes']['#description'] = t('Add an annotation for this work. Your notes are currently set to <strong>:privacy</strong>. ', array(':privacy' => variable_get('os_publications_note_in_teaser', FALSE) ? 'public' : 'private')) . ctools_modal_text_button('Change Note Settings', 'features/nojs/os_publications', 'Change Note Settings');
+
+  // hide the rest of the vtabs behind a collapsible fieldset
+  $form['publication_extras'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Publication Extras',
+    '#weight' => 20,
+    'biblio_tabs' => $form['biblio_tabs'],
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+
+  // remove the sticky content option
+  unset($form['options']['sticky']);
+
+  unset($form['biblio_tabs']);
+}
+
+/**
+ * Is given a render array representing the biblio node ready for rendering in the list view
+ *
+ * Adds any fields that may have been added to the node type
+ *
+ * @param unknown_type $entry
+ */
+function os_publications_biblio_entry_alter(&$entry, $node) {
+  unset($entry['export_links']);
+
+  $entry = node_view($node, 'teaser');
+  $entry['teaser']['#weight'] = 1;
+  $entry['#attached']['css'][] = drupal_get_path('module', 'os_publications').'/misc/os_publications.css';
+  unset($entry['links']['node'], $entry['links']['biblio_google_scholar']);
+}
+
+/**
+ * Function to create the biblio notes.
+ */
+function _os_publications_attach_notes(&$entry, $node) {
+  if(isset($node->biblio_notes)) {
+    $entry['biblio_notes'] = array(
+      '#type' => 'container',
+      '#weight' => 4,
+      '#attributes' => array(
+        'class' => array(
+          'biblio-note',
+        ),
+      ),
+      'notes' => array(
+        '#markup' => check_markup($node->biblio_notes, filter_default_format()),
+      ),
+    );
+  }
+}
+
+function _os_publications_attach_abstract(&$entry, $node) {
+  if (strlen($node->biblio_abst_e)) {
+    $entry['#attached']['js'][] = drupal_get_path('module', 'os') . '/theme/os_toggle.js';
+    $html   = &$entry['teaser']['#markup'];
+    $insert = strrpos($html, '</div>');
+    $extra  = l('Abstract', 'node/' . $node->nid, array('attributes' => array('class' => array('biblio-abstract-link', 'toggle'))));
+    $entry['abstract_slider'] = array(
+      '#type' => 'container',
+      '#weight' => 3,
+      '#attributes' => array(
+        'class' => array(
+          'biblio-abstract-display',
+          'slider',
+        ),
+      ),
+      'abstract' => array(
+        '#markup' => check_markup($node->biblio_abst_e, filter_default_format()),
+      ),
+    );
+    if ($insert === FALSE) {
+      $html .= $extra;
+    }
+    else {
+      $html = substr_replace($html, ' ' . $extra, $insert, 0);
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_node().
+ */
+function os_publications_preprocess_node(&$vars) {
+  if ($vars['type'] == 'biblio') {
+    $vars['display_submitted'] = false;
+    if ($vars['teaser']) {
+      $vars['title'] = false;
+    }
+  }
+}
+
+/**
+ * Removes the export links from the full view of the node
+ * Adds 'Abstract' link to toggle a sliding box with the full abstract
+ * Adds in the biblio_url to the external link.
+ */
+function os_publications_node_view_alter(&$build, $type) {
+  $spaces = spaces_get_space();
+  if ($type == 'node' && $build['#bundle'] == 'biblio') {
+    if ($build['#view_mode'] == 'teaser') {
+      // Alter the teaser to remove the external URL as the URL title and
+      // replace it with either the biblio_url_title or "website".
+      if(isset($build['teaser']['#markup'])) {
+      	$html = $build['teaser']['#markup'];
+    	$insert = strrpos($html, '</div>');
+    	// Since the biblio_url is wiped out in the CSL file, get the url back from the node.
+        $node = node_load($build['#node']->nid);
+      	if(!empty($node->biblio_url)) {
+          $biblio_url = $node->biblio_url;
+          $biblio_check_url = l($biblio_url,$biblio_url);
+          $biblio_url_title = !empty($node->biblio_url_title) ? $node->biblio_url_title : 'Website';
+          $new_biblio_url = l($biblio_url_title,$biblio_url);
+          if ($insert === FALSE) {
+            $html .= ' ' . $new_biblio_url;
+    	  }
+    	  else {
+            $html = substr_replace($html, ' ' . $new_biblio_url, $insert, 0);
+    	  }
+          $build['teaser']['#markup'] = $html;
+      	}
+      }
+
+      // Add the abstract slider.
+	  _os_publications_attach_abstract($build, $build['#node']);
+	  // Add in notes.
+      if(isset($spaces) && is_object($spaces) && $spaces->controllers->variable->get('os_publications_note_in_teaser', 'space') == TRUE) {
+        _os_publications_attach_notes($build, $build['#node']);
+      }
+      $build['teaser']['#weight'] = 1;
+      $build['links']['#access'] = FALSE;
+    }
+    else {
+      $links = &$build['links'];
+      foreach ($links as $k => $l) {
+        if (is_array($l) && isset($l['#links'])) {
+          foreach ($l['#links'] as $id => $arr) {
+            if (strpos($arr['href'], 'export') !== FALSE) {
+              unset($links[$k]['#links'][$id]);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Adds a page contextual link for importing biblio nodes.
+ */
+function os_publications_os_add_new_links_alter(&$links) {
+  if (isset($links['biblio'])) {
+    $links['biblio-import'] = array(
+      'title' => t('Import Publications'),
+      'href' => 'publications/import',
+      'html' => TRUE,
+    );
+    $links['biblio']['title'] = 'Publication';
+  }
+}
+
+/**
+ * Removes some things our users don't need to know about from the import form
+ * They don't need to know about batch processing, user id or taxonomy settings
+ */
+function os_publications_form_biblio_import_form_alter(&$form, &$form_state) {
+
+  // always use batch processing
+  // 99% of our users won't know what this is anyway
+  $form['batch_process']['#type'] = 'value';
+
+  // set the user id to the current user
+  // and make it unchangable
+  $form['userid']['#type'] = 'value';
+  $form['userid']['#type'] = $GLOBALS['user']->uid;
+
+  // unset taxonomy settings
+  unset($form['import_taxonomy']);
+}
+
+/**
+ * Alters the import batch to redirect to the publication's root
+ * Has to be done this way, since Import batch doesn't get the import form's form_state
+ */
+function os_publications_batch_alter(&$batch) {
+  $base = variable_get('biblio_base', 'biblio');
+  if ($batch['source_url'] == $base.'/import') {
+    $batch['redirect'] = $base;
+  }
+}
+
+// Clear relevant caches when a biblio node is added, changed or deleted
+function os_publications_node_insert($node) {
+  if ($node->type == 'biblio') {
+    _os_publications_handle_import($node);
+    _os_publications_clear_cache($node);
+  }
+}
+
+function os_publications_node_update($node) {
+  if ($node->type == 'biblio') {
+    _os_publications_clear_cache($node);
+  }
+}
+
+function os_publications_node_delete($node) {
+  if ($node->type == 'biblio') {
+    _os_publications_clear_cache($node);
+  }
+}
+
+/**
+ * Puts together a list of all the cids that a given node would affect
+ * And then clears them from the cache table
+ *
+ * @param unknown_type $node
+ */
+function _os_publications_clear_cache($node) {
+  //Sanity check the passed node
+  if($node->type != 'biblio'){
+    return;
+  }
+
+  $cid = "biblio:";
+
+  if (module_exists('spaces') && $space = spaces_get_space()) {
+    $cid = $cid.'space:'.$space->id;
+  }
+
+  cache_clear_all($cid, 'cache_biblio_lists',TRUE);
+}
+
+/**
+ * Ensures the space is set on imported biblio nodes
+ */
+function _os_publications_handle_import($node) {
+  if ($node->type == 'biblio' && isset($node->nid) && module_exists('vsite') && $space = spaces_get_space()) {
+    $groups = field_get_items('node', $node, OG_AUDIENCE_FIELD, $node->language);
+    //If this node is in no groups add it to the active group
+    if(empty($groups)){
+      module_load_include('inc', 'vsite', 'includes/vsite');
+      vsite_add_entity($node);
+    }
+  }
+}
+
+/**
+ * @function theme_os_publications_biblio_year_row
+ *
+ * Themes biblio years during preprocessing.  Changes the link title to the biblio year text,
+ * but does not change the link to the numerical year.
+ */
+function theme_os_publications_biblio_year_row(&$vars) {
+  foreach ($vars['rows'] as $delta => $row) {
+    $vars['rows'][$delta]->link = _biblio_text_year($row->link);
+  }
+}

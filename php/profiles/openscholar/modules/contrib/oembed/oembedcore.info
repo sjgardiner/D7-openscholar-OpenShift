@@ -1,0 +1,8 @@
+package = oEmbed
+name = oEmbed Core
+description = Common functionality for oEmbed client and provider
+core = 7.x
+configure = admin/config/media/oembed
+dependencies[] = ctools
+files[] = oembedcore.module
+files[] = theme/oembedcore_theme.inc

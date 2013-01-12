@@ -1,0 +1,114 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Code for the Profiles feature.
+ */
+
+include_once 'os_profiles.features.inc';
+
+/**
+ * Implements hook_os_app_info().
+ */
+function os_profiles_os_app_info() {
+  $apps = array();
+
+  $apps['os_profiles'] = array(
+    'path' => 'people',
+  	'nodetypes' => array(
+  	  'person',
+    ),
+  );
+
+  return $apps;
+}
+
+/**
+ * Implements hook_process_hook() for node.
+ *
+ * Enter description here...
+ */
+function os_profiles_process_node(&$vars) {
+  if ($vars['type'] !== 'person') {
+    return;
+  }
+
+  // Helps poor theme developers find these changes to $variables
+  $vars['classes'] .= ' modified-in-os_profiles_process_node';
+
+  // Moves the profile photo thumbnail before teaser title (full name)
+  if (isset($vars['content']['field_person_photo'])) {
+    $vars['title_prefix'] = $vars['content']['field_person_photo'];
+    unset($vars['content']['field_person_photo']);
+  }
+  // Includes custom CSS
+  $vars['title_prefix']['#attached'] = array(
+    'css' => array(
+      'type' => 'file',
+      'data' => drupal_get_path('module', 'os_profiles') . '/os_profiles.css',
+    ),
+  );
+
+  if (!$vars['teaser']) {
+    $vars['title_prefix']['#suffix'] = '<h2>' . $vars['title'] . '</h2>';
+  }
+
+  // Customizes field markup with prefixes and suffixes
+  if (isset($vars['content']['field_email'])) {
+    $email_plain = $vars['content']['field_email'][0]['#markup'];
+    if ($email_plain) {
+      $vars['content']['field_email'][0]['#markup'] = '<a href="mailto:' . $email_plain . '">email</a>';
+    }
+  }
+  if (isset($vars['content']['field_phone'])) {
+    $phone_plain = $vars['content']['field_phone'][0]['#markup'];
+    if ($phone_plain) {
+      $vars['content']['field_phone'][0]['#markup'] = '<em>p:</em> ' . $phone_plain;
+    }
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ *
+ * Generates node title for Person nodes
+ */
+function os_profiles_node_presave($node) {
+  if ($node->type !== 'person') {
+    return;
+  }
+
+  // Sets the node title like "[first] [middle] [last]"
+  $title = _os_profiles_person_node_title($node);
+  if ($title) {
+    $node->title = $title;
+  }
+}
+
+/**
+ * Implements hook_vsite_og_node_type_info().
+ */
+function os_profiles_vsite_og_node_type_info() {
+  return array(
+    'person' => 'group content',
+  );
+}
+
+/**
+ * Prepares the node title for person nodes.
+ */
+function _os_profiles_person_node_title($node) {
+  $fields = array('first_name', 'middle_name_or_initial', 'last_name');
+  $values = array();
+  foreach ($fields as $field) {
+    $items = field_get_items('node', $node, 'field_' . $field);
+    if (!empty($items[0]['value'])) {
+      $values[] = $items[0]['value'];
+    }
+  }
+
+  $title = implode(' ', $values);
+  return $title;
+}
+

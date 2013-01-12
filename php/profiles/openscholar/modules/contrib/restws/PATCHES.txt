@@ -1,0 +1,3 @@
+- EntityMetadataWrapperException: This node is no book page
+  http://drupal.org/node/1806142#comment-6587762
+  http://drupal.org/files/1806142-restws-property-exception.patch

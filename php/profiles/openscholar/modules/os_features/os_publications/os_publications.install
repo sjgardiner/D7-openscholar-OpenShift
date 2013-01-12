@@ -1,0 +1,216 @@
+<?php
+// $Id$
+
+function os_publications_schema() {
+  $schema['cache_biblio_lists'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_biblio_lists']['description'] = 'Cache table for biblio lists module.';
+  return $schema;
+}
+
+// Implements hook_install().
+function os_publications_install() {
+   db_add_field('biblio', 'biblio_url_title', array(
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => FALSE,
+      'description' => 'A title to go with the Relevant URL',
+    ));
+
+  // Insert the biblio_url_title into the biblio_fields table.
+  // Biblio_fields table is not auto increment, grab the last fid and increment it for our insert.
+  $field_id = db_query('SELECT fid FROM {biblio_fields} ORDER BY fid DESC LIMIT 1')->fetchField();
+  if(isset($field_id)) {
+    $field_id = $field_id+1;
+  }
+  db_insert('biblio_fields')
+  ->fields(array(
+    'fid' => $field_id,
+    'name' => 'biblio_url_title',
+    'type' => 'textfield',
+    'size' => 60,
+    'maxsize' => 255,
+  ))
+  ->execute();
+
+  if ($field = field_info_instance('node', 'body', 'biblio')) {
+    $field['display']['teaser'] = array(
+      'label' => 'hidden',
+      'type' => 'hidden',
+    );
+    field_update_instance($field);
+  }
+
+  if(module_exists('biblio_citeproc')){
+    //Remove Line indentation from citeproc styles
+    foreach (biblio_get_styles() as $name => $desc){
+      $csl = db_query('SELECT csl FROM {biblio_citeproc_styles} WHERE filename = :id', array(':id' => $name))->fetchObject();
+      if (isset($csl->csl)) {
+        $csl_file_contents = $csl->csl;
+        if($csl_file_contents = str_replace('<bibliography hanging-indent="true"', '<bibliography hanging-indent="false"', $csl_file_contents) && ($csl_file_contents != $csl->csl)){
+          biblio_citeproc_install_style($name, $csl_file_contents);
+        }
+      }
+    }
+
+    // Remove second biblio_secondary_title field mapping.
+    $field_map = biblio_get_map('field_map','csl');
+    if(isset($field_map['collection-title']) && isset($field_map['container-title'])) {
+      if($field_map['collection-title'] == 'biblio_secondary_title' && $field_map['container-title'] == 'biblio_secondary_title') {
+	    $field_map['collection-title'] = '';
+	    biblio_set_map('field_map', 'csl', $field_map);
+	  }
+    }
+  }
+}
+
+// Implements hook_schema_alter().
+function os_publications_schema_alter(&$schema) {
+  if (isset($schema['biblio'])) {
+    $schema['biblio']['fields']['biblio_url_title'] = array(
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => FALSE,
+      'description' => 'A title to go with the Relevant URL',
+    );
+  }
+}
+
+// Implements hook_update_N().
+function os_publications_update_7001() {
+  // Insert the biblio_url_title into the biblio_fields table.
+  // Biblio_fields table is not auto increment, grab the last fid and increment it for our insert.
+  $field_id = db_query('SELECT fid FROM {biblio_fields} ORDER BY fid DESC LIMIT 1')->fetchField();
+  if(isset($field_id)) {
+    $field_id = $field_id+1;
+  }
+  db_insert('biblio_fields')
+  ->fields(array(
+    'fid' => $field_id,
+    'name' => 'biblio_url_title',
+    'type' => 'textfield',
+    'size' => 60,
+    'maxsize' => 255,
+  ))
+  ->execute();
+
+  return t('biblio_url_title successfully inserted into the biblio fields table.');
+}
+
+function os_publications_uninstall() {
+  db_drop_field('biblio', 'biblio_url_title');
+}
+
+function os_publications_enable() {
+  _os_publications_update_field_data();
+
+  // place it behind import/export modules
+  db_update('system')
+    ->fields(array('weight' => 50))
+    ->condition('name', 'os_publications', '=')
+    ->condition('type', 'module', '=')
+    ->execute();
+}
+
+/*
+ * Every update in which fields change needs to call this function
+ * All field changes should be exported to the csv using SQL
+ */
+function _os_publications_update_field_data() {
+  static $run_once = FALSE;
+
+  // this only needs to be run once per update
+  if ($run_once) {
+    return;
+  }
+
+  $file = drupal_get_path('module', 'os_publications') . '/misc/biblio_settings.inc';
+  if (!file_exists($file)) {
+    return;
+  }
+
+  list($biblio_field_type, $biblio_field_type_data, $biblio_contributor_type, $biblio_contributor_type_data) = include ($file);
+
+  db_truncate('biblio_field_type')->execute();
+  foreach ($biblio_field_type as $type) {
+    drupal_write_record('biblio_field_type', $type);
+  }
+
+  db_truncate('biblio_field_type_data')->execute();
+  foreach ($biblio_field_type_data as $type_data) {
+    drupal_write_record('biblio_field_type_data', $type_data);
+  }
+
+  db_truncate('biblio_contributor_type')->execute();
+  foreach ($biblio_contributor_type as $contrib_type) {
+    drupal_write_record('biblio_contributor_type', $contrib_type);
+  }
+
+  db_truncate('biblio_contributor_type_data')->execute();
+  foreach ($biblio_contributor_type_data as $contrib_type_data) {
+    //Run the query manually to override the serials
+    drupal_write_record('biblio_contributor_type_data', $contrib_type_data);
+  }
+}
+
+/**
+ * Remove indentation information from the citation styles
+ */
+function os_publications_update_7002(){
+
+  if(module_exists('biblio_citeproc')){
+    //Remove Line indentation from citeproc styles
+    foreach (biblio_get_styles() as $name => $desc){
+      $csl = db_query('SELECT csl FROM {biblio_citeproc_styles} WHERE filename = :id', array(':id' => $name))->fetchObject();
+      if (isset($csl->csl)) {
+        $csl_file_contents = $csl->csl;
+        if(($csl_file_contents = str_replace('<bibliography hanging-indent="true"', '<bibliography hanging-indent="false"', $csl_file_contents)) && ($csl_file_contents != $csl->csl)){
+          biblio_citeproc_install_style($name, $csl_file_contents);
+        }
+      }
+    }
+  }
+
+  return t('Removed inline indents from biblio_citeproc citations.');
+}
+
+/**
+ * Remove the second mapping of biblio_secondary_title which causes duplicate title entries in certain citations.
+ */
+function os_publications_update_7003() {
+  if(!module_exists('biblio_citeproc')){
+  	return t('CiteProc not installed, update not needed.');
+  }
+  $field_map = biblio_get_map('field_map','csl');
+  if(isset($field_map['collection-title']) && isset($field_map['container-title'])) {
+    if($field_map['collection-title'] == 'biblio_secondary_title' && $field_map['container-title'] == 'biblio_secondary_title') {
+	  $field_map['collection-title'] = '';
+	  biblio_set_map('field_map', 'csl', $field_map);
+	  return t('Second biblio_secondary_title field mapping removed.');
+	}
+  }
+}
+
+/**
+ * Remove the migrate related residual "Select Type..." publication type from the biblio_types table.
+ */
+function os_publications_update_7004() {
+  if(!db_table_exists('biblio_types')) {
+  	return;
+  }
+
+  $result = db_select('biblio_types', 'b')
+    ->fields('b', array('tid'))
+    ->condition('name', 'Select Type...','=')
+    ->execute()
+    ->fetchField();
+
+  if(empty($result)) {
+  	return;
+  }
+
+  $delete_type = db_delete('biblio_types')
+    ->condition('tid',$result)
+  	->execute();
+
+  return t('Select Type... has been removed from the biblio_types table.');
+}

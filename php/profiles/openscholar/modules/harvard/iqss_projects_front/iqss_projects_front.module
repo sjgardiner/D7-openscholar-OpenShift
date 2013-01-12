@@ -1,0 +1,120 @@
+<?php
+include_once('iqss_projects_front.features.inc');
+
+/**
+ * implementation of hook_context_default_contexts_alter
+ */
+function iqss_projects_front_context_default_contexts_alter(&$contexts){
+  // add some extra blocks/boxes to the 'sitewide_front'
+  if (isset($contexts['os_sitewide_front'])) {
+    $fp_blocks = &$contexts['os_sitewide_front']->reactions['block']['blocks'];
+
+    $fp_blocks['boxes-iqss_projects_fp_infoblock'] = array(
+        'module' => 'boxes',
+        'delta' => 'iqss_projects_fp_infoblock',
+        'weight' => -100,
+        'region' => 'content_top',
+    );
+
+    $fp_blocks['boxes-iqss_projects_fp_logoblock'] = array(
+        'module' => 'boxes',
+        'delta' => 'iqss_projects_fp_logoblock',
+        'weight' => -100,
+        'region' => 'header_first',
+    );
+
+    $fp_blocks['boxes-iqss_projects_fp_features'] = array(
+        'module' => 'boxes',
+        'delta' => 'iqss_projects_fp_features',
+        'weight' => 10,
+        'region' => 'content_first',
+    );
+
+    $fp_blocks['boxes-iqss_projects_fp_stats'] = array(
+        'module' => 'os_stats',
+        'delta' => 'os_stats',
+        'weight' => 10,
+        'region' => 'footer',
+    );
+
+    $fp_blocks['boxes-iqss_projects_fp_navblock'] = array(
+        'module' => 'boxes',
+        'delta' => 'iqss_projects_fp_navblock',
+        'weight' => -100,
+        'region' => 'header_second',
+    );
+
+    if(isset($fp_blocks['vsite_register-get_your_site_block'])){
+      // Unset this block reaction as we're not using it on the projects site.
+      // We are using the logic of this box in another box (infoblock).
+      unset($fp_blocks['vsite_register-get_your_site_block']);
+    }
+
+    $fp_blocks['views-os_websites-block'] = array(
+      'module' => 'views',
+      'delta' => 'os_websites-block',
+      'region' => 'content_bottom',
+      'weight' => '-9',
+    );
+
+  }
+}// end function
+
+/**
+ * Implement hook_strongarm
+ * Strongarm hook for configuration variables
+ * for the os_stats block
+ */
+function iqss_projects_front_strongarm() {
+	$export = array();
+
+	$strongarm = new stdClass();
+  	$strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  	$strongarm->api_version = 1;
+  	$strongarm->name = 'os_stats_cache_expiration';
+  	$strongarm->value = (int)3600*24;
+  	$export['os_stats_cache_expiration'] = $strongarm;
+
+	$strongarm = new stdClass();
+  	$strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  	$strongarm->api_version = 1;
+  	$strongarm->name = 'os_stats_enabled';
+  	$strongarm->value = serialize(array(
+  		'Publications'=>(bool)0,
+  		'Vsites'=>(bool)1,
+  		'Nodes'=>(bool)1,
+  		'Files'=>(bool)1,
+  		'Filesize'=>(bool)0,
+  		'Users'=>(bool)0,
+  	));
+  	$export['os_stats_enabled'] = $strongarm;
+
+  	return $export;
+}// end function
+
+/**
+ * Implements hook_preprocess_page().
+ * Add the jcarousel call into the preprocess page for the projects front page
+ */
+function iqss_projects_front_preprocess_page(&$variables){
+  // Add in the jcarousel call.
+  // Make sure we're on the front page only and the jcarousel module exists.
+  if(module_exists('jcarousel')) {
+    if(drupal_is_front_page() == TRUE) {
+      jcarousel_add('os-jcarousel-skin-os_front ul',array('skin'=>'os_front'),TRUE);
+    }
+  }
+}
+
+/**
+ * Implements hook_jcarousel_skin_info().
+ * Allows us to use our own custom CSS file for the carousel skin.
+ */
+function iqss_projects_front_jcarousel_skin_info() {
+  $skins = array();
+  $skins['os_front'] = array(
+    'title' => t('OpenScholar Projects Front Page'),
+    'file' => 'carousel.css',
+  );
+  return $skins;
+}

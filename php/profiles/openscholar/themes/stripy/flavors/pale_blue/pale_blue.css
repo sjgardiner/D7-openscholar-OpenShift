@@ -1,0 +1,18 @@
+/* Pale Blue*/
+
+body {
+  background:#AAB7C5;
+  }
+
+body.navbar-off #page {
+  background-image:url('images/body-bg-alt-paleblue.png');
+  }
+
+#menu-bar {
+  background-image: url('images/nav-paleblue.png');
+  }
+
+.biblio-title a, .biblio-title-chicago a,
+a, a:visited {
+  color: #658ab2;
+  }

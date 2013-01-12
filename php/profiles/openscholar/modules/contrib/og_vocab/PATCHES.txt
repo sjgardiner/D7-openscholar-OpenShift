@@ -1,0 +1,4 @@
+- Error when calling function=.
+  http://drupal.org/node/1864634#comment-6852052
+  http://drupal.org/files/1864634-og-bundle-4.patch
+  

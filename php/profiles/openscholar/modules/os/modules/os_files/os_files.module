@@ -1,0 +1,822 @@
+<?php
+
+/**
+ * @file
+ * OS File module main module file.
+ */
+
+define('OS_FILE_FILEPATH_MULTITENANT', '[vsite:site-purl]/files');
+define('OS_FILE_FILEPATH_SINGLETENANT', 'share');
+
+/**
+ * Implements hook_ctools_plugin_api().
+ *
+ * Leave this one.
+ */
+function os_files_ctools_plugin_api($module, $api){
+  if ($module == 'file_entity' && $api == 'file_default_displays') {
+    return array(
+      'version' => 1
+    );
+  }
+  elseif ($module == "strongarm" && $api == "strongarm") {
+    return array(
+      "version" => "1"
+    );
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function os_files_menu(){
+  $items = array();
+
+  $items['files/%'] = array(
+    'title' => 'File download',
+    'page callback' => 'os_files_download',
+    'page arguments' => array(
+      1
+    ),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function os_files_menu_alter(&$callbacks){
+  $items = array();
+
+  if (method_exists(file_stream_wrapper_get_instance_by_scheme('public'), 'getExternalDirectoryPath')) {
+
+    // Generate image derivatives url for our alternate "clean" file path if it is different
+    $file_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
+    $external_file_path = file_stream_wrapper_get_instance_by_scheme('public')->getExternalDirectoryPath();
+
+    if ($external_file_path != $file_path) {
+      $callbacks[$external_file_path . '/styles/%image_style'] = $callbacks[$file_path . '/styles/%image_style'];
+      $callbacks[$external_file_path . '/styles/%image_style']['page arguments'] = array(
+        count(explode('/', $external_file_path)) + 1
+      );
+    }
+  }
+}
+
+function os_files_theme_registry_alter(&$reg){
+  unset($reg['oembed']['template']);
+  $reg['oembed']['function'] = 'theme_os_files_oembed';
+}
+
+function theme_os_files_oembed($vars){
+  return render($vars['content']);
+}
+
+/**
+ * Implements hook_file_insert().
+ */
+function os_files_file_insert($file){
+  if ($context = og_context()) {
+    $file->skip_og_membership = TRUE;
+    og_group('node', $context['gid'], array(
+      'entity_type' => 'file',
+      'entity' => $file
+    ));
+  }
+}
+
+/**
+ * Return a "Coppy to clip-board" link using clippy library.
+ *
+ *  @param $url_file
+ *    The url the user will coppy.
+ *
+ *  @param $options
+ *    array of options for styling the button
+ *      - bgcolor: Background color.
+ *      - width: The width of the wrapper for the button and the text.
+ *      - height: The height of the wrapper for the button and the text.
+ */
+function os_files_clippy($url_file, $options = array()){
+  global $base_url;
+
+  // Default values of the button style.
+  $options += array(
+    'bgcolor' => '',
+    'height' => 20,
+    'width' => 110
+  );
+
+  // Location of the flash file.
+  $library = libraries_get_path('clippy');
+  $path = $base_url . '/' . $library . '/build/clippy.swf';
+
+  // Print out the copy button.
+  $html = '
+    <object
+      classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000"
+      width="' . $options['height'] . '"
+      height="' . $options['width'] . '"
+      id="clippy">
+        <param name="movie" value="' . $path . '"/>
+        <param name="allowScriptAccess" value="always" />
+        <param name="quality" value="high" />
+        <param name="scale" value="noscale" />
+        <param NAME="FlashVars" value="text=' . $url_file . '">
+        <param name="bgcolor" value=" ' . $options['bgcolor'] . '">
+        <embed
+          src="' . $path . '"
+          width="' . $options['width'] . '"
+          height="' . $options['height'] . '"
+          name="clippy"
+          quality="high"
+          allowScriptAccess="always"
+          type="application/x-shockwave-flash"
+          pluginspage="http://www.macromedia.com/go/getflashplayer"
+          FlashVars="text=' . $url_file . '"
+          bgcolor="' . $options['bgcolor'] . '"
+        />
+    </object>
+  ';
+  return $html;
+}
+
+function os_files_form_file_entity_add_upload_alter(&$form, &$form_state) {
+  $form['help']['#markup'] = t('You may press Submit immediately after choosing a file. If you wish to view the progress of your file upload, you can press Upload and a progress bar will show you how far along your upload is.');
+}
+
+function os_files_form_file_entity_edit_alter(&$form, &$form_state){
+  // only display the field if the file is older than 5 minutes
+
+  if (isset($form['#entity'])) {
+    $form['replace_upload']['#access'] = (time() - $form['#entity']->timestamp) > 5 * 60;
+  }
+  else {
+    $form['replace_upload']['#access'] = false;
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function os_files_views_api(){
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'os_files') . '/includes/views'
+  );
+}
+
+/**
+ * Entry point for vsite aliased file downloads.
+ *
+ * This allows legacy file paths to exsit that are mapped to paths "domain/vsite/files/file1.pdf"
+ */
+function os_files_download(){
+  $args = func_get_args();
+  $scheme = 'public';
+
+  if (module_exists('vsite') && ! file_exists($scheme . '://' . implode('/', $args))) {
+
+    // Add the menu entry as an arg.
+    array_unshift($args, 'files');
+
+    $prefix = vsite_get_purl();
+    //If we are in a vsite and the file is in a vsite prefixed directory
+    if ($prefix && ! file_exists($scheme . '://' . implode('/', $args))) {
+      // Add the prefix as an arg.
+      array_unshift($args, $prefix);
+    }
+  }
+
+  // Use the public schema.
+  array_unshift($args, 'public');
+
+  // Serve the file via the standard download handler.
+  call_user_func_array('file_download', $args);
+}
+
+function os_files_entity_info_alter(&$info){
+  $info['file']['view modes'] += array(
+    'os_files_xxlarge' => array(
+      'label' => t('Giant Image (1000px)'),
+      'custom settings' => TRUE
+    ),
+    'os_files_xlarge' => array(
+      'label' => t('Huge Image (800px)'),
+      'custom settings' => TRUE
+    ),
+    'os_files_large' => array(
+      'label' => t('Large Image (600px)'),
+      'custom settings' => TRUE
+    ),
+    'os_files_med' => array(
+      'label' => t('Medium Image (400px)'),
+      'custom settings' => TRUE
+    ),
+    'os_files_small' => array(
+      'label' => t('Small Image (200px)'),
+      'custom settings' => TRUE
+    ),
+    'os_files_link_icon' => array(
+      'label' => t('Link with icon'),
+      'custom settings' => TRUE
+    ),
+    'os_files_link' => array(
+      'label' => t('Link with no icon'),
+      'custom settings' => TRUE
+    )
+  );
+
+  $info['file']['bundles']['undefined'] = array(
+    'label' => 'Undefined',
+    'admin' => array(
+      'path' => 'admin/structure/file-types/manage/%file_type',
+      'real path' => 'admin/structure/file-types/manage/undefined',
+      'bundle argument' => 4
+    )
+  );
+}
+
+function os_files_image_default_styles(){
+  $styles = array(
+    'os_files_xxlarge' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array(
+            'width' => 1000,
+            'height' => 1000,
+            'upscale' => 0
+          )
+        )
+      )
+    ),
+    'os_files_xlarge' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array(
+            'width' => 800,
+            'height' => 800,
+            'upscale' => 0
+          )
+        )
+      )
+    ),
+    'os_files_large' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array(
+            'width' => 600,
+            'height' => 600,
+            'upscale' => 0
+          )
+        )
+      )
+    ),
+    'os_files_medium' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array(
+            'width' => 400,
+            'height' => 400,
+            'upscale' => 0
+          )
+        )
+      )
+    ),
+    'os_files_small' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array(
+            'width' => 200,
+            'height' => 200,
+            'upscale' => 0
+          )
+        )
+      )
+    )
+  );
+
+  return $styles;
+}
+
+function os_files_file_default_displays(){
+  $keys = array(
+    'image__os_files_xxlarge__file_image' => array(
+      'image_style' => 'os_files_xxlarge'
+    ),
+    'image__os_files_xlarge__file_image' => array(
+      'image_style' => 'os_files_xlarge'
+    ),
+    'image__os_files_large__file_image' => array(
+      'image_style' => 'os_files_large'
+    ),
+    'image__os_files_med__file_image' => array(
+      'image_style' => 'os_files_medium'
+    ),
+    'image__os_files_small__file_image' => array(
+      'image_style' => 'os_files_small'
+    ),
+    'image__default__file_image' => array(
+      'image_style' => 'large'
+    )
+  );
+
+  foreach ( file_type_get_enabled_types() + array(
+    'default' => array()
+  ) as $type => $info ) {
+    $keys["{$type}__os_files_link__os_link"] = array('icon' => FALSE);
+    $keys["{$type}__os_files_link_icon__os_link"] = array();
+
+    $keys["{$type}__preview__file_field_media_large_icon"] = array();
+  }
+
+  $displays = array();
+  foreach ( $keys as $k => $settings ) {
+    $displays[$k] = ( object ) array(
+      'api_version' => 1,
+      'name' => $k,
+      'status' => 1,
+      'weight' => 5,
+      'settings' => $settings
+    );
+  }
+
+  return $displays;
+}
+
+/**
+ * File displays are {file_type}__{view_mode}__{formatter}
+ * Why they have to be called something different, I don't know
+ */
+function os_files_file_formatter_info(){
+  $formatters = array();
+
+  $formatters['os_link'] = array(
+    'label' => t('Link To File'),
+    'default settings' => array(
+      'download' => TRUE,
+      'icon' => TRUE,
+    ),
+    'view callback' => 'os_files_file_formatter_file_link',
+    'settings callback' => 'os_files_file_formatter_file_link_settings'
+  );
+
+  return $formatters;
+}
+
+/**
+ * Generates a link to the file
+ * This will either be a link to the direct download of a file
+ * or to the file's view path (file/$id). Direct download is the default
+ */
+function os_files_file_formatter_file_link($file, $display, $langcode){
+  $title = field_get_items('file', $file, 'media_title', $langcode);
+  $title = isset($title[0]) ? $title[0]['value'] : file_create_url($file->uri);
+
+  $path = $display['settings']['download'] ? file_create_url($file->uri) : file_entity_uri($file);
+
+  if (empty($file->override['wysiwyg'])) {
+    return array(
+      'icon' => array(
+        '#theme' => 'file_icon',
+        '#file' => $file,
+        '#access' => $display['settings']['icon'],
+      ),
+      'link' => array(
+        '#theme' => 'link',
+        '#href' => $path,
+        '#path' => $path,
+        '#text' => $title,
+        '#options' => array(
+          'html' => false,
+          'attributes' => array()
+        )
+      )
+    );
+  }
+  else {
+    // generate an image to use in the wysiwyg. The wysiwyg only accepts images, currently
+  }
+}
+
+function os_files_media_token_to_markup_alter(&$element, $tag_info, $settings){
+  if (isset($tag_info['render_fid']) && $element['content']['file']['#view_mode'] == 'os_files_link') {
+    $file = &$element['content']['file'];
+    unset($file['icon']);
+    $image = file_load($tag_info['render_fid']);
+    $file['link']['#text'] = theme('image_style', array(
+      'path' => $image->uri,
+      'style_name' => 'os_files_medium'
+    ));
+    $file['link']['#options']['html'] = true;
+  }
+}
+
+/**
+ * File Settings.
+ */
+function os_files_media_browser_params_alter(&$media_params){
+
+  // Are we in multi-tenant? get the file path.
+  if (spaces_get_space()) {
+    $filepath = OS_FILE_FILEPATH_MULTITENANT;
+  }
+  else {
+    $filepath = OS_FILE_FILEPATH_SINGLETENANT;
+  }
+
+  if (! empty($filepath) && (empty($media_params['file_directory']) || ! strstr($media_params['file_directory'], $filepath))) {
+    if (! empty($media_params['file_directory'])) {
+      // Prepend the file path.
+      $media_params['file_directory'] = $filepath . "/" . $media_params['file_directory'];
+    }
+    else {
+      // Set the default file path.
+      $media_params['file_directory'] = $filepath;
+    }
+  }
+}
+
+/**
+ * Alters the titles of the Media Browser tabs to more friendly terms
+ */
+function os_files_media_browser_plugins_alter(&$output){
+  unset($output['media_default--media_browser_my_files']);
+  $output['upload']['#title'] = t('My Computer');
+  $output['media_default--media_browser_1']['#title'] = t('My Library');
+}
+
+function os_files_media_wysiwyg_allowed_view_modes_alter(&$view_modes, $file){
+  $scheme = file_uri_scheme($file->uri);
+  switch ($scheme) {
+    case 'oembed' :
+      $temp['default'] = $view_modes['default'];
+      $view_modes = $temp;
+      break;
+    case 'public' :
+      $type = file_get_type($file);
+      if ($type == 'image') {
+        $temp['os_files_xxlarge'] = $view_modes['os_files_xxlarge'];
+        $temp['os_files_xlarge'] = $view_modes['os_files_xlarge'];
+        $temp['os_files_large'] = $view_modes['os_files_large'];
+        $temp['os_files_med'] = $view_modes['os_files_med'];
+        $temp['os_files_small'] = $view_modes['os_files_small'];
+        $temp['os_files_link_icon'] = $view_modes['os_files_link_icon'];
+        $temp['os_files_link'] = $view_modes['os_files_link'];
+      }
+      else { // until there is support for the audio or video tags, this is the best we can do for that kind of file.
+        $temp['os_files_link'] = $view_modes['os_files_link'];
+        $temp['os_files_link_icon'] = $view_modes['os_files_link_icon'];
+      }
+      $view_modes = $temp;
+      break;
+  }
+}
+
+/**
+ * Implements hook_file_download().
+ *
+ * Serve public files from a vsite directory.
+ */
+function os_files_file_download($uri){
+  global $user;
+  $path = file_uri_target($uri);
+  $scheme = file_uri_scheme($uri);
+
+  if ($scheme != 'public' || ! module_exists('vsite')) {
+    return NULL;
+  }
+
+  $prefix = vsite_get_purl();
+
+  // Public file access for vsite paths.
+  if (strpos($path, $prefix . '/') === 0) {
+
+    // Get the file record based on the URI. If not in the database just return.
+
+
+    $files = file_load_multiple(array(), array(
+      'uri' => $uri
+    ));
+    if (count($files)) {
+      foreach ( $files as $item ) {
+        // Since some database servers sometimes use a case-insensitive
+        // comparison by default, double check that the filename is an exact
+        // match.
+        if ($item->uri === $uri) {
+          $file = $item;
+          break;
+        }
+      }
+    }
+    if (! isset($file)) {
+      return;
+    }
+
+    return file_get_content_headers($file);
+  }
+}
+
+/**
+ * Implements hook_views_alter().
+ *
+ * Adds necessary relationship and filters to Media Browser view to make it
+ * work with spaces.
+ */
+function os_files_views_default_views_alter(&$views){
+  if (module_exists('vsite') && isset($views['media_default'])) {
+    $view = $views['media_default'];
+
+    //Link in Files related via file_usage
+    $view->add_item('default', 'filter', 'spaces', 'current');
+  }
+}
+
+/**
+ * Media Gallery adds some fields to every file bundle. We don't want one of
+ * them.
+ */
+function os_files_modules_installed($modules){
+  if (in_array('media_gallery', $modules)) {
+    _os_files_clean_up_fields();
+  }
+}
+
+/**
+ * Remove field_license because no one will use it
+ * Add title and description to file types media_gallery didn't add them to
+ */
+function _os_files_clean_up_fields(){
+  field_delete_field('field_license');
+  if ($title = field_info_instance('file', 'media_title', 'image')) {
+    $descrip = field_info_instance('file', 'media_description', 'image');
+    $file_types = file_type_get_all_types();
+    foreach ( $file_types as $bundle => $info ) {
+      if (! field_info_instance('file', 'media_title', $bundle)) {
+        $title_copy = $title;
+        $title_copy['entity_type'] = 'file';
+        $title_copy['bundle'] = $bundle;
+        field_create_instance($title_copy);
+      }
+
+      if (! field_info_instance('file', 'media_description', $bundle)) {
+        $descrip_copy = $descrip;
+        $descrip_copy['entity_type'] = 'file';
+        $descrip_copy['bundle'] = $bundle;
+        field_create_instance($descrip_copy);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ *
+ * Formatter that splits images into its own list Used in conjunction with
+ * jCarousel.
+ */
+function os_files_field_formatter_info(){
+  $formatters = array();
+
+  $formatters['os_files_image_list'] = array(
+    'label' => t('Images as Separate List'),
+    'field types' => array(
+      'file'
+    ),
+    'multiple values' => FIELD_BEHAVIOR_DEFAULT
+  );
+
+  return $formatters;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ *
+ * This formatter renders a list of files as two elements:
+ *  1. A list of images
+ *  2. A table of everything else
+ */
+function os_files_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display){
+  $elements = array(
+    '#type' => 'markup',
+    '#theme' => '',
+    '#attributes' => array(
+      'class' => array(
+        'field-items'
+      )
+    )
+  );
+  switch ($display['type']) {
+    case 'os_files_image_list' :
+      $images = array();
+      $other = array();
+      foreach ( $items as $i ) {
+        if ($i['type'] == 'image') {
+          $title = field_get_items('file', ( object ) $i, 'media_title');
+          $title = isset($title[0]) ? $title[0]['value'] : '';
+          $alt = field_get_items('file', ( object ) $i, 'media_description');
+          $alt = isset($alt[0]) ? $alt[0]['value'] : '';
+          $image_info = image_get_info($i['uri']);
+          $images[] = array(
+            'href' => file_create_url($i['uri']),
+            'title' => theme('image_style', array(
+              'path' => $i['uri'],
+              'style_name' => 'thumbnail',
+              'title' => $title,
+              'alt' => $alt,
+              'width' => $image_info['width'],
+              'height' => $image_info['height']
+            )),
+            'html' => TRUE,
+            'attributes' => array(
+              'class' => array(
+                'colorbox'
+              )
+            )
+          );
+        }
+        else {
+          $extension = strtolower(substr(strrchr($i['filename'], '.'), 1));
+          $href = file_create_url($i['uri']);
+          $text = $i['description'] ? $i['description'] : $i['filename'];
+          $other[] = array(
+            array(
+              'data' => theme('file_icon', array(
+                'file' => ( object ) $i
+              )),
+              'class' => array(
+                'mime',
+                'mime-' . $extension
+              )
+            ),
+            array(
+              'data' => l($text, $href),
+              'class' => array(
+                'file'
+              )
+            ),
+            array(
+              'data' => format_size($i['filesize']),
+              'class' => array(
+                'size'
+              )
+            )
+          );
+        }
+      }
+
+      $elements['images'] = array(
+        '#theme' => 'links',
+        '#links' => $images,
+        '#attributes' => array(
+          'class' => array(
+            'os-files-image-list',
+            'jcarousel-skin-default'
+          )
+        )
+      );
+      if (module_exists('jcarousel')) {
+        $elements['images']['#pre_render'][] = 'os_files_jcarousel_add';
+      }
+      $elements['other'] = array(
+        '#theme' => 'table',
+        '#rows' => $other,
+        '#header' => array(),
+        '#attributes' => array(
+          'class' => array(
+            'os-files-other-list'
+          )
+        )
+      );
+      break;
+  }
+
+  return $elements;
+}
+
+function os_files_jcarousel_add($elements){
+  jcarousel_add('os-files-image-list');
+  return $elements;
+}
+
+/**
+ * Implements hook_views_data_alter().
+ *
+ * Adds file_managed as a table the pseudo-table spaces can be joined to.
+ * This enables files to use the spaces_current_space filter
+ */
+function os_files_views_data_alter(&$data){
+  $data['spaces']['table']['join']['file_managed'] = array(
+    'left_field' => 'fid',
+    'field' => 'id'
+  );
+}
+
+function os_files_file_default_types_alter(&$types){
+  $types['image']->mimetypes = array_merge($types['image']->mimetypes, array(
+    // *.ico files
+    'image/ico',
+    'application/ico',
+    'application/x-ico',
+    'application/x-win-bitmap',
+    'image/x-win-bitmap'
+  ));
+
+  $types['video']->mimetypes = array_merge($types['video']->mimetypes, array(
+    // *.mov files
+    'video/x-quicktime',
+    'image/mov',
+    'audio/aiff',
+    'audio/x-midi',
+    'audio/x-wav',
+    'video/avi',
+    // *.mp4 files
+    'video/mp4v-es',
+    'audio/mp4',
+    // *.m4v files
+    'video/mp4v-es',
+    // *.mpeg files
+    'video/mpeg',
+    // *.avi files
+    'video/avi',
+    'video/msvideo',
+    'video/xmpg2',
+    'application/x-troff-msvideo',
+    'audio/aiff',
+    'audio/avi',
+    // *.ogg files
+    'application/ogg',
+    'audio/x-ogg',
+    'application/x-ogg',
+    // *.wmv files
+    'video/x-ms-wmv'
+  ));
+
+  $types['audio']->mimetypes = array_merge($types['audio']->mimetypes, array(
+    // *.mp3 files
+    'audio/x-mpeg',
+    'audio/mp3',
+    'audio/x-mp3',
+    'audio/mpeg3',
+    'audio/x-mpeg3',
+    'audio/mpg',
+    'audio/x-mpg',
+    'audio/x-mpegaudio',
+    // *.m4a files
+    'audio/mp4',
+    // *.ogg files  - Ogg's foundation recommends *.ogg only be used for audio
+    'application/ogg',
+    'audio/x-ogg',
+    'application/x-ogg'
+  ));
+
+  $types['document']->mimetypes = array_merge($types['document']->mimetypes, array(
+    // *.doc files
+    'application/vnd.msword',
+    'application/vmd.ms-word',
+    'application/doc',
+    'appl/text',
+    'application/winword',
+    'application/word',
+    'application/x-msw6',
+    'application/x-msword',
+    // *.docx files
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // *.xlsx files
+    'application.vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    // *.pptx files
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // *.ppsx files
+    'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+    // *.odt files
+    'application/x-vnd.oasis.opendocument.text',
+    // *.ods files
+    'application/x-vnd.oasis.opendocument.spreadsheet',
+    // *.odp files
+    'application/x-vnd.oasis.opendocument.presentation',
+    'application/octet-stream'
+  ));
+}
+
+/**
+ * Implements hook_stream_wrappers_alter().
+ *
+ * Used to extend the public stream wrapper.
+ *
+ * @param array $wrappers
+ */
+function os_files_stream_wrappers_alter(&$wrappers){
+
+  // Use OS Stream Wrapper.
+  if (isset($wrappers['public'])) {
+    $wrappers['public']['class'] = 'OSPublicStreamWrapper';
+  }
+}

@@ -1,0 +1,135 @@
+<?php
+// $Id$
+
+
+/**
+ * Implements hook_install().
+ */
+function vsite_install() {
+  $node_info = module_invoke_all('vsite_og_node_type_info');
+  $group_bundles = array_keys($node_info, 'group');
+  foreach ($group_bundles as $group_bundle) {
+
+    // Adds the base vsite roles as OG roles
+    $vsite_roles = array(
+      'member',
+      'non-member',
+      'vsite user',
+      'vsite admin',
+    );
+
+    foreach ($vsite_roles as $name) {
+      $role = og_role_create($name, 'node', 0, $group_bundle);
+      og_role_save($role);
+    }
+
+    $roles = og_roles($group_type = 'node', $bundle = $group_bundle);
+    $manager_roles = array();
+    // Sets OG-specific roles
+    foreach ($roles as $rid => $role) {
+      switch ($role) {
+        case 'vsite admin':
+          $manager_roles[] = $rid;
+          og_role_grant_permissions($rid, array(
+              'view users outside groups',
+              'update group',
+              'unsubscribe',
+              'manage group space',
+              'approve and deny subscription',
+              'administer group',
+              'add user',
+              'access administration pages',
+            ));
+          break;
+
+        case 'vsite user':
+          og_role_grant_permissions($rid, array(
+              'view users outside groups',
+              'unsubscribe',
+            ));
+          break;
+
+        case 'manager':
+          $manager_roles[] = $rid;
+          break;
+      }
+    }
+  }
+
+  variable_set('og_group_manager_default_rids_node_vsite', $manager_roles);
+
+  // Sets the default OG preset to be os_personal
+  variable_set('spaces_preset_og', 'os_scholar');
+
+  _vsite_initilize_group_fields();
+}
+
+/**
+ * Adds default group and group content fields to existing content.
+ *
+ * Only attaches to types provided by hook_vsite_og_node_type_info().
+ */
+function _vsite_initilize_group_fields() {
+
+  $bundles = vsite_get_type_from_bundle();
+
+  // Gets installed nodes.
+  $info = entity_get_info('node');
+
+  // Excludes nodes managed by this module.
+  // These are the only nodes that will not require action.
+  if (function_exists('vsite_node_info')) {
+    $info['bundles'] = array_diff_key($info['bundles'], vsite_node_info());
+  }
+
+  foreach ($bundles as $bundle => $type) {
+    // Skips if this bundle has not been created.
+    if (!isset($info['bundles'][$bundle])) {
+      continue;
+    }
+
+    if ($type == 'group') {
+      vsite_attach_fields_to_group($bundle);
+    }
+    // Otherwise, treats this as "group content".
+    else {
+      vsite_attach_fields_to_group_content('node', $bundle);
+    }
+  }
+
+  $info = entity_get_info('file');
+  foreach ($info['bundles'] + array('undefined' => '') as $bundle => $type) {
+    vsite_attach_fields_to_group_content('file', $bundle);
+  }
+}
+
+/**
+ * Enables field_group_overlay
+ * Replace site info blocks with the new field_group block
+ */
+function vsite_update_7001(&$ctx) {
+  module_enable('field_group_overlay');
+
+  $nodes = db_select('node', 'n')->fields('n', array('nid'))->where('type', 'personal');
+
+  foreach ($nodes as $r) {
+    $override = db_select('spaces_override', 'so')
+                ->fields('so', array('object_id', 'value'))
+                ->where('id', $r->nid)
+                ->where('object_type', 'context')
+                ->where('object_id', '%reaction:block', 'LIKE')
+                ->execute();
+    foreach ($override as $over) {
+      $blocks = unserialize($over->value);
+      if (isset($blocks['boxes-site_info'])) {
+        $delta = 'fg:node:'.$r->nid.':group_site_info';
+        $blocks['vsite-'.$delta] = array(
+          'module' => 'vsite',
+          'delta' => $delta,
+          'weight' => $blocks['boxes-site_info']['weight'],
+          'region' => $blocks['boxes-site_info']['region'],
+        );
+      }
+    }
+  }
+}

@@ -1,0 +1,138 @@
+<?php
+/**
+ * @file vsite_register.module
+ *
+ * Provides form so users can create vsites
+ */
+
+/**
+ * Implements hook_menu
+ */
+function vsite_register_menu() {
+  $items['site/register'] = array(
+    'title' => 'Create your web site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('vsite_register_form'),
+    'access callback' => 'vsite_vsite_exists_access',
+    'file' => 'vsite_register.form.inc',
+  );
+
+  $items['admin/config/openscholar/vsite_register'] = array(
+    'title' => 'Vsite Registration',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('vsite_register_admin_form'),
+    'file' => 'vsite_register.admin.inc',
+    'access arguments' => array('access administration pages'),
+    //'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implements hook_block_info
+ */
+function vsite_register_block_info() {
+  return array(
+    'get_your_site_block' => array('info' => t('Vsite Registration'),'status' => 0),
+  );
+}
+
+/**
+ * Implements hook_block_view
+ */
+function vsite_register_block_view($delta = '') {
+  global $user;
+  if(user_is_logged_in()) {
+  	$vsites = vsite_get_vsite_by_owner($user->uid);
+  }
+  $block = array();
+  ctools_include('vsite','vsite');
+
+  switch ($delta) {
+    case 'get_your_site_block':
+      if (vsite_vsite_exists_access()) {
+        $content = l(t('Create your site'), 'site/register', array());
+
+      } elseif (isset($vsites) && user_is_logged_in()) {
+        if (count($vsites) > 1) {
+          $content = l(t('Go to your sites'), 'user');
+        } else {
+          $content = l(t('Go to your site'), $vsites[0]->og->purl);
+        }
+      }
+
+    break;
+  }
+
+  if (isset($content)) {
+    $block['content'] = array(
+    	'content' => array('#markup' => $content),
+    );
+  }
+
+  return $block;
+}
+
+
+/**
+ * Implements hook_theme
+ *
+ * Provides theming for form errors
+ */
+function vsite_register_theme() {
+  $theme = array();
+  $theme['vsite_register_form_errors'] = array(
+    'render element' => 'form',
+    'function' => 'theme_vsite_register_form_errors',
+    'variables' => array('name'=>NULL, 'errors'=>array()),
+  );
+  return $theme;
+}
+
+function theme_vsite_register_form_errors($vars) {
+  $list = theme('item_list', array('items'=>$vars['errors'], 'type'=>'ul', 'attributes'=>array('class'=>array('error'))));
+  return '<div id="' . $vars['name'] . '-errors">' . $list . '</div>';
+}
+
+/**
+ * Implementation of hook_vsite_regsiter_message()
+ * @return the message shown after a successful  web site registration
+ */
+function vsite_register_message($form, $domain){
+  global $user, $base_url;
+
+  $word_replace = user_access("create openscholar site on behalf of others") ? 'the' : 'your';
+
+  $message  = '<div id="success-message" class="status">';
+  $message .= '<p>Success! ' . ucfirst($word_replace) . ' new site has been created.</p>';
+
+  if (in_array('anonymous user', $user -> roles)){
+    $message .= '<p>Check your email account for further details on how to login in to start adding features and content.</p>';
+  }
+
+  $message .= '<p>The url of ' . $word_replace . ' site is ' . $base_url . '/' . $domain . ' ' . l(t("Go there now"), $base_url . '/' . $domain) . '</p>';
+  $message .= '</div>';
+
+  //give other modules a chance to alter message
+  module_invoke_all('vsite_register_message',  $message, $form, $domain);
+  return $message;
+}
+
+function _vsite_register_form_error(){
+  return ajax_command_html('#submit-suffix', 'The web site cannot be created. Please fix the errors and try again.');
+}
+
+/**
+ * Implements hook_fork_BASE_FORM_ID_alter()
+ * Alter the vsite_register_form to remove the notify element
+ * if the user is not logged in.
+ */
+function vsite_register_form_vsite_register_form_alter(&$form, &$form_state) {
+  if(!user_is_logged_in()) {
+  	if(isset($form['notify'])) {
+  		$form['notify']['#access'] = FALSE;
+  	}
+  }
+}

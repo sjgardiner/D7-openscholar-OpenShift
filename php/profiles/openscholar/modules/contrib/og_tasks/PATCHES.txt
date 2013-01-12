@@ -1,0 +1,2 @@
+Port code to OG7.x-2 - http://drupal.org/node/1834076
+-- http://drupal.org/files/port_code_to_og7.x-2_1834076_3.patch
