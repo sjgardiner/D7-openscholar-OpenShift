@@ -41,35 +41,59 @@ class OgVocab extends Entity {
   public function getFormElement($entity_type, $entity, &$form, &$form_state) {
     $vid = $this->vid;
     $vocabulary = taxonomy_vocabulary_load($vid);
+    $field_name = $this->field_name;
+    $field = field_info_field($field_name);
 
     // Create a dummy entity that only holds the legal values for the
     // selected vocabulary. This is needed for autocomplete fields.
     $dummy_entity = clone $entity;
     $wrapper = entity_metadata_wrapper($entity_type, $dummy_entity);
-    foreach ($wrapper->{OG_VOCAB_FIELD}->value() as $delta => $term) {
-      if ($term->vid != $this->vid) {
-        $wrapper->{OG_VOCAB_FIELD}->offsetUnset($delta);
+    $rebuild_keys = FALSE;
+    if ($field['cardinality'] != 1) {
+      foreach ($wrapper->{$field_name}->value() as $delta => $term) {
+        if (empty($term)) {
+          // The term has deleted, but the reference still remains in the field.
+          continue;
+        }
+        if ($term->vid != $this->vid) {
+          $wrapper->{$field_name}->offsetUnset($delta);
+          $rebuild_keys = TRUE;
+        }
       }
     }
+
+    if ($rebuild_keys) {
+      $ids =  $wrapper->{$field_name}->value(array('identifier' => TRUE));
+      // Rebuild the deltas.
+      $wrapper->{$field_name}->set(array_values($ids));
+    }
+
 
     ctools_include('fields');
     $mocked_field = $this->getMockedField();
     $field_instance = $mocked_field['instance'];
     $field_instance['field'] = $mocked_field['field'];
 
-    $options = array(
-      'default' => TRUE,
-    );
+    $dummy_form_state = $form_state;
+    if (empty($form_state['rebuild'])) {
+      // Form is "fresh" (i.e. not call from field_add_more_submit()), so
+      // re-set the items-count, to show the correct amount for the mocked
+      // instance.
+      $dummy_form_state['field'][$field_name][LANGUAGE_NONE]['items_count'] = !empty($dummy_entity->{$field_name}[LANGUAGE_NONE]) ? count($dummy_entity->{$field_name}[LANGUAGE_NONE]) : 0;
+    }
 
-    $new_element = ctools_field_invoke_field($field_instance, 'form', $entity_type, $dummy_entity, $form, $form_state, $options);
-    $element = $new_element[OG_VOCAB_FIELD][LANGUAGE_NONE];
+    $new_element = ctools_field_invoke_field($field_instance, 'form', $entity_type, $dummy_entity, $form, $dummy_form_state, array('default' => TRUE));
+    $element = $new_element[$field_name][LANGUAGE_NONE];
+
 
     if ($this->settings['widget_type'] ==  'entityreference_autocomplete') {
       $element['#vid'] = $vid;
 
-      // Change the "Add more" button name so it adds only the needed
-      // element.
-      $element['add_more']['#name'] .= '__' . $vid;
+      if (!empty($element['add_more'])) {
+        // Change the "Add more" button name so it adds only the needed
+        // element.
+        $element['add_more']['#name'] .= '__' . $vid;
+      }
 
       foreach (array_keys($element) as $delta) {
         if (!is_numeric($delta)) {
@@ -109,8 +133,8 @@ class OgVocab extends Entity {
    */
   public function getMockedField() {
     $vocabulary = taxonomy_vocabulary_load($this->vid);
-    $field = field_info_field(OG_VOCAB_FIELD);
-    $instance = field_info_instance($this->entity_type, OG_VOCAB_FIELD, $this->bundle);
+    $field = field_info_field($this->field_name);
+    $instance = field_info_instance($this->entity_type, $this->field_name, $this->bundle);
 
     $mocked_field = $mocked_instance = array();
 
@@ -120,7 +144,8 @@ class OgVocab extends Entity {
     // Set the widget's module.
     $widget_info = field_info_widget_types($widget_type);
     $mocked_instance['widget']['module'] = $widget_info['module'];
-    $mocked_instance['widget']['settings'] = drupal_array_merge_deep($widget_info['settings'], $instance['widget']['settings']);
+    $this->settings['widget'] = empty($this->settings['widget']) ? array() : $this->settings['widget'];
+    $mocked_instance['widget']['settings'] = drupal_array_merge_deep($widget_info['settings'], $instance['widget']['settings'], $this->settings['widget']);
 
     // Set widget's auto complete path if needed.
     if (in_array($this->settings['widget_type'], array('entityreference_autocomplete', 'entityreference_autocomplete_tags'))) {
@@ -172,11 +197,47 @@ class OgVocab extends Entity {
    * Overrides Entity::save().
    */
   public function save() {
-    parent::save();
-
     // Add the OG-vocabulary field in the group-content, in case it
     // doesn't already exist.
-    og_create_field(OG_VOCAB_FIELD, $this->entity_type, $this->bundle);
+    if (empty($this->field_name)) {
+      $og_vocab_fields = og_vocab_get_og_vocab_fields($this->entity_type, $this->bundle);
+      $this->field_name = !empty($og_vocab_fields) ? key($og_vocab_fields) : OG_VOCAB_FIELD;
+    }
+
+    if (!field_info_instance($this->entity_type, $this->field_name,  $this->bundle)) {
+      // Add the new field.
+      $og_info = og_fields_info(OG_VOCAB_FIELD);
+      og_create_field($this->field_name, $this->entity_type, $this->bundle, $og_info);
+    }
+
+    parent::save();
+  }
+
+  /**
+   * Overrides Entity::delete().
+   */
+  public function delete() {
+    if (variable_get('og_use_queue', FALSE)) {
+      // Add item to the queue.
+      $group = og_vocab_relation_get($this->vid);
+      $data = array(
+        'vid' => $this->vid,
+        'entity_type' => $this->entity_type,
+        'bundle' => $this->bundle,
+        'field_name' => $this->field_name,
+        'group_type' => $group->group_type,
+        'gid' => $group->gid,
+        // The last processed OG-membership ID.
+        'last_id' => 0,
+      );
+
+      $queue = DrupalQueue::get('og_vocab');
+      $queue->createItem($data);
+    }
+
+    // After defining the item data, if we used queue, delete the entity.
+    parent::delete();
+
   }
 }
 
@@ -184,12 +245,44 @@ class OgVocab extends Entity {
  * After build; Remove the "Add more" button.
  */
 function og_vocab_element_after_build($form, &$form_state) {
-  $form[OG_VOCAB_FIELD][LANGUAGE_NONE]['#theme'] = '';
-  unset($form[OG_VOCAB_FIELD][LANGUAGE_NONE]['add_more']);
-  unset($form[OG_VOCAB_FIELD][LANGUAGE_NONE][0]['_weight']);
+  foreach (array_keys(og_vocab_get_og_vocab_fields($form['#entity_type'], $form['#bundle'])) as $field_name) {
+    if (empty($form[$field_name][LANGUAGE_NONE][0])) {
+      // Field has no reference, so we can hide it.
+      continue;
+    }
+    $form[$field_name][LANGUAGE_NONE]['#theme'] = '';
+    unset($form[$field_name][LANGUAGE_NONE]['add_more']);
+    unset($form[$field_name][LANGUAGE_NONE][0]['_weight']);
 
-  $form[OG_VOCAB_FIELD][LANGUAGE_NONE]['#theme_wrappers'] = array('fieldset');
-  $form[OG_VOCAB_FIELD][LANGUAGE_NONE]['#title'] = '';
+    // Counting the vocabularies relate to the entity.
+    $vocabularies = 0;
+
+    // Counting how much vocabularies were removed due to empty terms to select.
+    $hidden_vocabularies = 0;
+    foreach ($form[$field_name][LANGUAGE_NONE][0] as $key => &$info) {
+      if (!is_numeric($key)) {
+        continue;
+      }
+
+      $vocabularies++;
+      // We need to check that the #options property is there due to form
+      // elements that might not holds this property.
+      if (isset($info['#options']) && empty($info['#options'])) {
+        $hidden_vocabularies++;
+        $info['#access'] = FALSE;
+      }
+    }
+
+    $form[$field_name][LANGUAGE_NONE]['#theme_wrappers'] = array('fieldset');
+    $form[$field_name][LANGUAGE_NONE]['#title'] = '';
+
+    if ($vocabularies == $hidden_vocabularies) {
+      // All of the vocabularies were removed. Remove the field as well from the
+      // form.
+      unset($form[$field_name][LANGUAGE_NONE]);
+    }
+  }
+
   return $form;
 }
 
@@ -199,12 +292,13 @@ function og_vocab_element_after_build($form, &$form_state) {
 function og_vocab_sub_widget_cardinality_validate($element, &$form_state) {
   $og_vocab = $element['#og_vocab'];
   $cardinality = $og_vocab->settings['cardinality'];
+  $field_name = $og_vocab->field_name;
 
   if ($cardinality == FIELD_CARDINALITY_UNLIMITED) {
     return;
   }
 
-  if (empty($form_state['values'][OG_VOCAB_FIELD][LANGUAGE_NONE][0])) {
+  if (empty($form_state['values'][$field_name][LANGUAGE_NONE][0])) {
     return;
   }
 
@@ -212,7 +306,7 @@ function og_vocab_sub_widget_cardinality_validate($element, &$form_state) {
 
   $count = 0;
 
-  foreach ($form_state['values'][OG_VOCAB_FIELD][LANGUAGE_NONE][0][$vid] as $value) {
+  foreach ($form_state['values'][$field_name][LANGUAGE_NONE][0][$vid] as $value) {
     if (!empty($value['target_id'])) {
       ++$count;
       if ($count > $cardinality) {
@@ -235,29 +329,36 @@ function og_vocab_sub_widget_cardinality_validate($element, &$form_state) {
  * TODO: Deal with non-accessible by the user values -- re add them.
  */
 function og_vocab_element_validate($form, &$form_state) {
-  if (empty($form_state['values'][OG_VOCAB_FIELD][LANGUAGE_NONE][0])) {
-    return;
-  }
-
-  $ids = array();
-
-  foreach ($form_state['values'][OG_VOCAB_FIELD][LANGUAGE_NONE][0] as $vid => &$values) {
-    if (!is_numeric($vid)) {
+  $entity_type = $form['#entity_type'];
+  $bundle = $form['#bundle'];
+  foreach (array_keys(og_vocab_get_og_vocab_fields($entity_type, $bundle)) as $field_name) {
+    if (empty($form_state['values'][$field_name][LANGUAGE_NONE][0])) {
       continue;
     }
-    foreach ($values as $key => &$value) {
-      if (!is_numeric($key)) {
-        // "_weight" field.
-        continue;
-      }
 
-      if (isset($value['target_id']) && empty($value['target_id'])) {
-        // Empty field.
+    $ids = array();
+
+    foreach ($form_state['values'][$field_name][LANGUAGE_NONE][0] as $vid => &$values) {
+      if (!is_numeric($vid)) {
         continue;
       }
-      $ids[] = $value;
+      foreach ($values as $key => &$value) {
+        if (!is_numeric($key)) {
+          // "_weight" field.
+          continue;
+        }
+
+        if (isset($value['target_id']) && empty($value['target_id'])) {
+          // Empty field.
+          continue;
+        }
+        $ids[] = $value;
+      }
     }
+
+    // We don't use form_set_value(), as we want to allow others the possibility
+    // to change the field's location in the form.
+    drupal_array_set_nested_value($form_state['values'], $form_state['field'][$field_name][LANGUAGE_NONE]['array_parents'], $ids, TRUE);
   }
-  form_set_value($form[OG_VOCAB_FIELD][LANGUAGE_NONE], $ids, $form_state);
 }
 

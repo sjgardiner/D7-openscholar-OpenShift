@@ -131,6 +131,12 @@
                <text macro="publisher" prefix=" "/>
                <text variable="page" prefix=" p. " suffix="."/>
             </else-if>
+            <else-if type="patent">
+               <text variable="edition" prefix=" " suffix=" patent"/>
+               <text variable="section" prefix=" "/>
+               <text variable="volume" prefix=" " suffix="."/>
+               <text macro="date" prefix=" " suffix="."/>
+            </else-if>
             <else>
                <text variable="container-title" suffix=" " form="short"/>
                <text macro="date" suffix=";"/>

@@ -76,10 +76,6 @@ class MigrateDestinationTableCopy extends MigrateDestination {
     }
   }
 
-  public function handleException($e){
-    Migration::displayMessage($e->getMessage());
-  }
-
   public function fields($migration = NULL) {
     return array();
   }

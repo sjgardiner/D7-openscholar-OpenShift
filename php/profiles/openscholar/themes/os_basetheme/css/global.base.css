@@ -90,7 +90,7 @@ body {
   font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   margin: 0;
- 
+
 }
 
 h1,h2,h3,h4,h5,h6,
@@ -120,6 +120,16 @@ section {
   display: block;
 }
 
+
+.lt-ie9 img,
+.lt-ie9 object,
+.lt-ie9 embed,
+.lt-ie9 video {
+  max-width: 100%;
+  border:none;
+}
+
+
 /* Default font sizes for headings, can be overridden in theme settings or set them here */
 
 h1 {
@@ -128,6 +138,18 @@ h1 {
 h1.node-title {
 	font-size:1.15em;
 }
+
+.node-teaser .field-name-body h2,
+.node-teaser .field-name-body h3,
+.node-teaser .field-name-body h4 {
+	font-size:1em !important;
+}
+
+.sub_title {
+	display:block;
+	font-size:.75em;
+}
+
 
 h2 {
 	font-size:1.3em;
@@ -163,19 +185,213 @@ h4 a {
     font-size: 1.3em;
 }
 
+.block-boxes-os_sv_list_box .sv-list-view-title .node {margin-bottom:12px;}
+
+.block-boxes-os_sv_list_box .sv-list-view-title h1 {font-weight:normal;font-size:1em !important;}
+
+
+
 .field-type-file img,
 img,
 a img {
   border: 0;
 }
+
+
+.block-boxes-os_sv_list_file .file {
+	margin-bottom: 22px;	
+}
+
+#content-column .block-boxes-os_sv_list_file .file {
+	border-bottom: 1px solid #CCCCCC;
+    padding-bottom: 20px;
+}
+
+#content-column .block-boxes-os_sv_list_file span.file {
+	border-bottom: none;
+}
+
+#content-column .sv-list-video.sv-list-view-teaser .file.file-video,
+#content-column .sv-list-image.sv-list-view-teaser .file.file-image {
+	border-bottom: none;
+	margin-bottom:100px;
+
+}
+
+
+#content-column .sv-list-video.sv-list-view-teaser.sv-list-layout-grid .file-video,
+#content-column .sv-list-image.sv-list-view-teaser .file.file-image {
+	margin-bottom:20px;
+
+}
+
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .content {
+	display:block;
+	
+	}
+
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .file,
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .file {
+	background:#f1f1f1;
+	}
+
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .field-name-os-file-description,
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .file-info,
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .field-name-os-file-description,
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .file-info {
+	padding:0 8px;
+	}
+
+
+.block-boxes-os_sv_list_file .file img {margin-right:15px;display:block;}
+.block-boxes-os_sv_list_file .file img.file-icon {margin-right:8px;}
+.sv-list-all.sv-list-view-os_files_link_icon .file img.file-icon {margin-right:4px;}
+
+
+.sv-list-view-os_files_link_icon .file img.file-icon {margin-right:2px !important;}
+
+
+.block-boxes-os_sv_list_file .file img.file-icon {display:inline;}
+
+.block-boxes-os_sv_list_file .file-info iframe {display:block;}
+
+.block-boxes-os_sv_list_file .read-more {margin-left:5px;font-size:13px;}
+
+.block-boxes-os_sv_list_file .view-mode-teaser p {display:inline;}
+
+
+/* VIDEO RULES */
+
+.sv-list-video.sv-list-view-teaser.sv-list-layout-list .video-indicator {
+bottom: 20px;
+}
+
+.sv-list-video.sv-list-view-teaser img {
+	width: 200px;
+}
+
+#content-column .sv-list-image.sv-list-view-teaser .file-image img,
+#content-column .sv-list-video.sv-list-view-teaser .oembed {
+	float: left;
+}
+
+#content-column .sv-list-video.sv-list-view-teaser img,
+#content-column .sv-list-image.sv-list-view-teaser .file-image img {
+	margin-bottom: 20px;
+}
+
+#content-column .sv-list-image.sv-list-view-teaser .file-image,
+#content-column .sv-list-video.sv-list-view-teaser .file-video  {
+    clear: both;
+    display: block;
+}
+
+a.entity-link {
+	display: inline;
+	font-weight:bold;	
+	padding-right: 10px;
+}
+
+div.content a.download-link {
+	/*background: url("../images/scholarbase-sprite.png") no-repeat scroll 2px -588px rgba(0, 0, 0, 0);
+	 padding-left: 1.2em;*/
+    font-size: 11px;
+    text-decoration:underline;
+	}
+	
+.sv-list-all.sv-list-view-teaser .file-info {display:table;}
+
+	/** SV LIST GRID VIEW **/
+.os_sv_list_file.sv-list-layout-grid > div {
+  display: inline-block !important;
+    margin-right: 0.5em;
+}
+
+.os_sv_list_file.sv-list-layout-grid img {
+margin-bottom: 8px !important;
+}
+
+#content-column .sv-list-layout-grid .file {
+    border-bottom: none !important;
+}
+
+
+.os_sv_list_file.sv-list-layout-grid > div.file {
+  vertical-align: top;
+}
+
+.sv-list-layout-grid.sv-grid-2 >.file, .sv-list-layout-grid.sv-grid-2 >.oembed {width: 48%;}
+.sv-list-layout-grid.sv-grid-3 >.file, .sv-list-layout-grid.sv-grid-3 >.oembed {width: 31%;}
+.sv-list-layout-grid.sv-grid-4 >.file, .sv-list-layout-grid.sv-grid-4 >.oembed {width: 23%;}
+.sv-list-layout-grid.sv-grid-5 >.file, .sv-list-layout-grid.sv-grid-5 >.oembed {width: 18%;}
+
+.sv-list-video.sv-list-layout-grid img {
+  width: 100%;
+}
+
+
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .file,
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .file {
+	padding-bottom: 5px !important;
+}
+
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .content,
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .content {
+	position:relative;
+}
+
+.sv-list-video.sv-list-view-teaser.sv-list-layout-grid .field-name-os-file-description,
+.sv-list-image.sv-list-view-teaser.sv-list-layout-grid .field-name-os-file-description {
+	display:none;
+	position:absolute;
+	z-index:2000;
+	background: #F1F1F1;
+	padding-bottom:8px;
+}
+
 p {
-  margin: 0 0 1.5em;
-  padding: 0;
+     margin: 0px 0px 1.5em;
+     padding: 0px;
+}
+
+
+#columns p:only-child,
+#columns p:last-child {
+     margin: 0 0px .4em;
 }
 
 a, a:visited {
     text-decoration: none;
     color: #005C9C;
+}
+
+/* INFINITE SCROLL BUTTON */
+#autopager-load-more, #autopager-load-prev {
+     text-align: center;
+}
+
+#autopager-load-more:hover, #autopager-load-prev:hover {
+     background-color: #FFFFFF;
+}
+
+#autopager-load-prev a,
+#autopager-load-more a {
+     background: #f1f1f1;
+     border-radius: 4px 4px 4px 4px;
+     border: 1px solid #CCCCCC;
+     color: #215990;
+     display: block;
+     font-size: 13px;
+     font-weight: bold;
+     margin: 0px auto;
+     padding: 3px;
+     width: 25%;
+}
+
+#autopager-load-prev a:hover,
+#autopager-load-more a:hover {
+    text-decoration:none !important;
+    cursor: pointer;
 }
 
 em,
@@ -222,7 +438,6 @@ blockquote p {
 
 blockquote {
 border-left: 2px solid #807E6D;
-    color: #807E6D;
     font-style: italic;
     margin: 1em 3em;
     padding-left: 1em;
@@ -239,6 +454,10 @@ ul,
 ol {
   margin: 0 0 1.5em 17px;
   padding: 0;
+}
+
+.field-name-body ol {
+margin: 0 0 1.5em 21px;
 }
 
 .item-list ul,
@@ -262,6 +481,12 @@ margin: 0 0 1.5em 17px;
     list-style: none;
 }
 
+.block.block-boxes-os_boxes_html ul,
+.block .field-name-body ul {
+     list-style: disc;
+
+}
+
 ul ul,
 ul ol,
 ol ol,
@@ -279,19 +504,23 @@ ol ul,
 
 /** 1 A a (1) **/
 
-
+.mceContentBody ol,
 #content-column ol {
- list-style-type:decimal; 
+ list-style-type:decimal;
 }
 
+.mceContentBody ol ol,
 #content-column ol ol {
  list-style-type: upper-alpha;
+ margin-left:25px;
 }
 
+.mceContentBody ol ol ol,
 #content-column ol ol ol {
  list-style-type: lower-alpha;
 }
 
+.mceContentBody ol ol ol ol,
 #content-column ol ol ol ol {
  list-style-type: decimal;
 }
@@ -347,10 +576,20 @@ ul ul ul ul {
 	margin-left:0;
 }
 
-.sidebar .block-boxes-os_taxonomy_fbt ul ul {margin-left:10px;}
+.sidebar .block-boxes-os_taxonomy_fbt ul ul {margin: 0 10px;}
+
+/* ADDS SOME SPACE BELOW EACH VOCAB SECTION IN FACET'D BELOW */
+.sidebar .block-boxes-os_boxes_facetapi_vocabulary .item-list {
+	margin-bottom: 15px;
+}
+
+.sidebar .block-boxes-os_boxes_facetapi_vocabulary .item-list:last-chld {
+	margin-bottom: 0;
+}
+
 
 .boxes-box ul.featured-links {
- 
+
     margin-left: 0;
 }
 
@@ -368,8 +607,155 @@ ul ul ul ul {
     margin:20px 0 0 0;
 }
 
+.calendar-calendar .week-view div.single-day .view-item {
+  position: relative;
+  float: left;
+}
+
 .view-os-events .field-items{
     display: inline-block;
+}
+
+.lt-ie9 .view-os-events .field-items{
+    display: block;
+}
+
+.view-os-events.view-id-os_events {
+  position: relative;
+}
+
+.view-display-id-page_4 .view-content,
+.view-display-id-page_5 .view-content {
+  padding-top: 10px;
+}
+
+.view-os-events.view-id-os_events .view-header {
+  padding-top: 30px;
+}
+
+.node-event {
+  position: relative;
+}
+
+.attachment.attachment-before ul li {
+  border-bottom: none;
+}
+
+/* Don't display the ical link in the floating box. */
+#cboxWrapper .node-event .links {
+  display: none;
+}
+
+.view-os-events.view-id-os_events .attachment-before {
+  position: absolute;
+  top: -10px;
+  right: 0px;
+}
+
+.node-event.article .node-content .links,
+.view-os-events.view-id-os_events .attachment-before .links {
+ display:inline-block;
+ margin-left:8px;
+}
+
+.ical {
+  padding:3px 0 3px 25px !important;
+  border-bottom:none !important;
+  position: relative;
+}
+
+.webcal {
+  padding:3px 0 3px 25px !important;
+  border-bottom:none !important;
+  position: relative;
+}
+
+.webcal:before,
+.ical:before {
+  background: url('../images/scholarbase-sprite.png') no-repeat -48px -727px;
+  width: 21px;
+  height: 21px;
+  position: absolute;
+  left: 0;
+  content: '';
+}
+
+.rss {
+  padding:3px 0 3px 25px !important;
+  border-bottom:none !important;
+  position: relative;
+}
+
+.rss:before {
+  background: url('../images/scholarbase-sprite.png') no-repeat 0px -727px;
+  width: 21px;
+  height: 21px;
+  position: absolute;
+  left: 0;
+  content: '';
+}
+
+.subscribe {
+  padding:3px 0 3px 25px !important;
+  border-bottom:none !important;
+  position: relative;
+}
+
+.subscribe:before {
+  background: url('../images/scholarbase-sprite.png') no-repeat -24px -727px;
+  width: 21px;
+  height: 21px;
+  position: absolute;
+  left: 0;
+  content: '';
+}
+
+.register {
+  font-weight:bold;
+  border-bottom:none !important;
+}
+
+div.register-link-teaser {
+  margin-bottom: 0 !important;
+}
+
+div.register-link-teaser .register {
+  font-weight: normal;
+  border-bottom:none !important;
+}
+
+.os_events_export_links .first {
+  margin-top: 7px;
+  float: left;
+}
+
+.os_events_export_links .last {
+  margin-top: 7px;
+  float: right;
+}
+
+.page-node.node-type-event .rss,
+.page-node.node-type-event .subscribe {
+  display: inline-block;
+
+}
+
+.page-node.node-type-event .field-type-registration {
+  padding-top: 30px;
+}
+
+.register-link-teaser a {
+font-style: italic;
+}
+
+.register-event-full {
+display: block;
+font-style: italic;
+color: #6D6D6D;
+}
+
+.node-event.article .field-name-field-default-email.field-label-above {
+	float:left;margin-top:10px;
 }
 
 /* BOOK NAVS */
@@ -377,13 +763,11 @@ ul ul ul ul {
   width: 33%;
   float: right;
   margin: 0 0 1em 1.5em;
-  border-left: 1px dashed #ccc;
-  padding-left: .7em;
   font-size: .95em;
   }
 
 .book-menu h3 {
-  margin: .5em 0;
+  margin: .3em 0;
   }
 
 #block-book-navigation ul.menu,
@@ -392,7 +776,7 @@ ul ul ul ul {
   margin: 0;
   }
 
-.book-menu ul.menu li, 
+.book-menu ul.menu li,
 #block-book-navigation ul.menu li,
 .block-boxes-os_boxes_booktoc ul.menu li {
   list-style: none;
@@ -409,14 +793,14 @@ ul ul ul ul {
   list-style: circle;
 }
 
-.book-menu ul.menu li li, 
+.book-menu ul.menu li li,
 #block-book-navigation ul.menu li li,
 .block-boxes-os_boxes_booktoc ul.menu li li {
   margin-bottom: 0;
   font-weight: normal;
   }
 
-.book-menu ul.menu li a, 
+.book-menu ul.menu li a,
 #block-book-navigation ul.menu li a,
 .block-boxes-os_boxes_booktoc ul.menu li a {
   display:block;
@@ -424,14 +808,14 @@ ul ul ul ul {
   padding-top: .3em;
   padding-bottom: .1em;
   }
-  
-.sidebar .book-menu ul.menu li a, 
+
+.sidebar .book-menu ul.menu li a,
 .sidebar #block-book-navigation ul.menu li a,
 .sidebar .block-boxes-os_boxes_booktoc ul.menu li a {
   border-bottom: none;
-  }  
+  }
 
-.book-menu ul.menu ul a, 
+.book-menu ul.menu ul a,
 #block-book-navigation ul.menu ul a,
 .block-boxes-os_boxes_booktoc ul.menu ul a {
   padding:0 0 0 .5em;
@@ -454,17 +838,17 @@ ul ul ul ul {
 .block-boxes-os_boxes_booktoc ul.menu ul ul ul ul a {
   padding:0 0 0 2.5em;
   }
-  
-  
-#boxes-box-scholar_book_recent_docs a.active, 
+
+
+#boxes-box-scholar_book_recent_docs a.active,
 #boxes-box-scholar_book_current_toc a.active,
 #block-book-navigation a.active,
 .block-boxes-os_boxes_booktoc a.active,
 .book-menu .active {
     font-weight: bolder;
     font-style: italic;
-     } 
-  
+     }
+
 
 
 dt {
@@ -501,15 +885,29 @@ video {
 }
 
 /* Disable flexiblity for IE8 and below or these tags in tables*/
-.lt-ie9 img,
-.lt-ie9 object,
-.lt-ie9 embed,
-.lt-ie9 video,
+.lt-ie9 table img,
+.lt-ie9 table object,
+.lt-ie9 table embed,
+.lt-ie9 table video,
 table img,
 table embed,
 table object,
 table video {
   max-width: none;
+}
+
+.lt-ie9 div img,
+.lt-ie9 div object,
+.lt-ie9 div embed,
+.lt-ie9 div video,
+.lt-ie9 table img,
+.lt-ie9 table object,
+.lt-ie9 table embed,
+.lt-ie9 table video {
+  max-width: 100%;
+  border:none;
+  width:auto;
+  height:auto;
 }
 
 /* Override max-width 100% for map displays, as much as possible anyway... */
@@ -555,6 +953,18 @@ header[role=banner],
   word-wrap: break-word;
 }
 
+/* iframe padding when its floated left or right*/
+.lt-ie9 span[style*="FLOAT: LEFT;"] iframe,
+span[style*="float: left;"] iframe {
+	padding-right:15px;
+	}
+	
+	
+.lt-ie9	span[style*="FLOAT:"][style*="RIGHT;"] iframe,
+span[style*="float:"][style*="right;"] iframe {
+	padding-left:15px;
+	}
+
 /* Helpful classes for hiding content */
 .element-invisible {
   border: 0;
@@ -592,11 +1002,11 @@ header[role=banner],
 }
 
 /** TABLES **/
-	
+
 tbody {
 border-top: none;
-}	
-	
+}
+
 th, td {
     color: #4A4A4A;
     padding: 0.6em;
@@ -607,3 +1017,96 @@ td img {
      max-width: none !important;
 }
 
+/* Hides empty header container from displaying on CP forms. */
+.overlay #header-container {
+  display: none;
+}
+
+/** Floats and spaces the publication image properly **/
+.publication-cover-container {
+  float:left;
+  margin: 0 1.5em .5em 0;
+}
+
+.entity-registration .field-label {
+  padding-right: 5px;
+}
+
+/** Message icon overrides */
+div.status,
+div.error {
+  background-image: none;
+}
+
+div.messages:before {
+  position: absolute;
+  content: '';
+  background-image: url('../images/scholarbase-sprite.png');
+  height: 24px;
+  width: 24px;
+  top: 8px;
+  left: 8px;
+}
+
+div.status:before {
+  background-position: -38px -231px;
+}
+
+div.error:before {
+  background-position: -72px -231px;
+}
+
+/** Toolbar overrides */
+
+#toolbar-home a span {
+  background: url('../images/scholarbase-sprite.png') no-repeat 0 -845px;
+}
+
+#toolbar div.toolbar-menu a.toggle {
+  background: url('../images/scholarbase-sprite.png') 0 -820px no-repeat;
+}
+
+#toolbar a.toggle {
+  background-image: url('../images/scholarbase-sprite.png');
+  background-position: 0px -859px;
+}
+
+#toolbar a.toggle-active {
+  background-position: -27px -859px;
+}
+
+#toolbar div.toolbar-menu ul li a[data-drawer] {
+  background-image: none;
+  position: relative;
+}
+
+#toolbar div.toolbar-menu ul li a[data-drawer]:after {
+  content: '';
+  background-image: url('../images/scholarbase-sprite.png');
+  background-position: -16px -850px;
+  position: absolute;
+  width: 10px;
+  height: 5px;
+  margin: auto;
+  top: 0;
+  bottom: 0;
+  right: 10px;
+}
+
+#toolbar div.toolbar-menu ul#toolbar-help li a {
+  background-image: none;
+  position: relative;
+}
+
+#toolbar div.toolbar-menu ul#toolbar-help li a:before {
+  content: '';
+  position: absolute;
+  background-image: url('../images/scholarbase-sprite.png');
+  background-position: 0 -885px;
+  height: 15px;
+  width: 15px;
+  margin: auto;
+  top: 0;
+  bottom: 0;
+  left: 10px;
+}

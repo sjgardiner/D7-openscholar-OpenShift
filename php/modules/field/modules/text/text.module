@@ -71,7 +71,7 @@ function text_field_settings_form($field, $instance, $has_data) {
       '#default_value' => $settings['max_length'],
       '#required' => TRUE,
       '#description' => t('The maximum length of the field in characters.'),
-      '#element_validate' => array('_element_validate_integer_positive'),
+      '#element_validate' => array('element_validate_integer_positive'),
       // @todo: If $has_data, add a validate handler that only allows
       // max_length to increase.
       '#disabled' => $has_data,
@@ -227,7 +227,7 @@ function text_field_formatter_settings_form($field, $instance, $view_mode, $form
       '#type' => 'textfield',
       '#size' => 10,
       '#default_value' => $settings['trim_length'],
-      '#element_validate' => array('_element_validate_integer_positive'),
+      '#element_validate' => array('element_validate_integer_positive'),
       '#required' => TRUE,
     );
   }
@@ -417,6 +417,10 @@ function text_summary($text, $format = NULL, $size = NULL) {
   // If the first paragraph is too long, split at the end of a sentence.
   $break_points[] = array('. ' => 1, '! ' => 1, '? ' => 1, '。' => 0, '؟ ' => 1);
 
+  // If the first sentence is too long, split at the first word break
+  $word_breaks = array(' ' => 0, "\t" => 0);
+  $break_points[] = $word_breaks;
+
   // Iterate over the groups of break points until a break point is found.
   foreach ($break_points as $points) {
     // Look for each break point, starting at the end of the summary.
@@ -432,6 +436,11 @@ function text_summary($text, $format = NULL, $size = NULL) {
     if ($min_rpos !== $max_rpos) {
       // Don't slice with length 0. Length must be <0 to slice from RHS.
       $summary = ($min_rpos === 0) ? $summary : substr($summary, 0, 0 - $min_rpos);
+
+      // Append ellipsis if we broke a sentence
+      if (in_array($point, array_keys($word_breaks))) {
+        $summary .= '&hellip;';
+      }
       break;
     }
   }
@@ -480,7 +489,7 @@ function text_field_widget_settings_form($field, $instance) {
       '#title' => t('Size of textfield'),
       '#default_value' => $settings['size'],
       '#required' => TRUE,
-      '#element_validate' => array('_element_validate_integer_positive'),
+      '#element_validate' => array('element_validate_integer_positive'),
     );
   }
   else {
@@ -489,7 +498,7 @@ function text_field_widget_settings_form($field, $instance) {
       '#title' => t('Rows'),
       '#default_value' => $settings['rows'],
       '#required' => TRUE,
-      '#element_validate' => array('_element_validate_integer_positive'),
+      '#element_validate' => array('element_validate_integer_positive'),
     );
   }
 

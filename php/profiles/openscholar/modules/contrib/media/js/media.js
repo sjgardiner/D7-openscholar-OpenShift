@@ -23,6 +23,7 @@ Drupal.behaviors.mediaElement = {
       //options = Drupal.settings.media.fields[this.id];
       var fidField = $('.fid', this);
       var previewField = $('.preview', this);
+      var launcherButton = $('a.launcher', this);
       var editButton = $('.edit', this);
       var removeButton = $('.remove', this);
 
@@ -35,7 +36,7 @@ Drupal.behaviors.mediaElement = {
       }
 
       // When someone clicks the link to pick media (or clicks on an existing thumbnail)
-      $('.launcher', this).bind('click', function () {
+      $('.launcher', this).bind('click', function (e) {
         // Launch the browser, providing the following callback function
         // @TODO: This should not be an anomyous function.
         Drupal.media.popups.mediaBrowser(function (mediaFiles) {
@@ -49,17 +50,17 @@ Drupal.behaviors.mediaElement = {
           // Set the preview field HTML.
           previewField.html(mediaFile.preview);
         }, globalOptions);
-        return false;
+        e.preventDefault();
       });
 
       // When someone clicks the Remove button.
-      $('.remove', this).bind('click', function () {
+      $('.remove', this).bind('click', function (e) {
         // Set the value of the filefield fid (hidden) and trigger change.
         fidField.val(0);
         fidField.trigger('change');
         // Set the preview field HTML.
         previewField.html('');
-        return false;
+        e.preventDefault();
       });
 
       // Show or hide the edit/remove buttons if the field has a file or not.

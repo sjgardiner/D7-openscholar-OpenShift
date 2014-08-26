@@ -544,20 +544,20 @@ class csl_name extends csl_format {
   function render($names, $mode = NULL) {
     $text = '';
     $authors = array();
-    $count = 0;
     $auth_count = 0;
     $et_al_triggered = FALSE;
     $initialize_with = $this->{'initialize-with'};
 
     if (!$this->attr_init || $this->attr_init != $mode) $this->init_attrs($mode);
 
+    $iteration_count = 0;
     foreach ($names as $rank => $name) {
       if (empty($name['literal'])) {
         if (!isset($name['lastname'])) {
           module_load_include('inc', 'biblio', '/includes/biblio.contributors');
           $name = biblio_parse_author($name); // this is needed for form preview to fill in all fields
         }
-        $count++;
+        $iteration_count++;
         if (!empty($name['firstname']) && isset($initialize_with)) {
           $name['firstname'] = preg_replace("/([$this->upper])[$this->lower]+/$this->patternModifiers", '\\1', $name['firstname']);
           $name['firstname'] = preg_replace("/(?<=[-$this->upper]) +(?=[-$this->upper])/$this->patternModifiers", "", $name['firstname']);
@@ -605,7 +605,7 @@ class csl_name extends csl_format {
           }
           else {
             switch ($this->{'name-as-sort-order'}) {
-              case 'first':
+              case 'first' && $rank == 0:
               case 'all':
                 $text = $name['lastname'] . $this->sort_separator . $given;
                 break;
@@ -623,8 +623,16 @@ class csl_name extends csl_format {
 
       $authors[] = $this->format($text);
 
-      if (isset($this->{'et-al-min'}) && $count >= $this->{'et-al-min'}) break;
+      // If the number of names matches or exceeds the number set on et-al-min,
+      // stop the count. The rendered name list is truncated after reaching the
+      // number of names set on et-al-use-first.
+      if (isset($this->{'et-al-min'}) && $iteration_count >= $this->{'et-al-min'}) {
+        break;
+      }
     }
+    // This is the number of authors of the publication.
+    $count = count($names);
+
     if (isset($this->{'et-al-min'}) &&
     $count >= $this->{'et-al-min'} &&
     isset($this->{'et-al-use-first'}) &&
@@ -1117,7 +1125,7 @@ class csl_text extends csl_format {
     $text = '';
     switch ($this->source) {
       case 'variable':
-        if (!isset($data->{$this->variable}) || empty($data->{$this->variable})) return;
+        if (!isset($data->{$this->variable}) || empty($data->{$this->variable}) || trim($data->{$this->variable}) == FALSE) return;
         if ($this->variable == 'biblio_url') {
           $text = l($data->{$this->variable},  $data->{$this->variable});
         }
@@ -1136,6 +1144,10 @@ class csl_text extends csl_format {
         }
         // We don't want to display any urls in the citation.
         if($macro == 'access') {
+          $text = '';
+        }
+        // If no page(s) are added, do not display the p suffix.
+        if($macro == 'pages' && isset($data->biblio_pages) && $data->biblio_pages == '') {
           $text = '';
         }
         break;
@@ -1196,7 +1208,21 @@ class csl_label extends csl_format {
     if (empty($text)) {
     foreach ($variables as $variable) {
       $t = (array)$data;
-      if (isset($t[$this->citeproc->map_field($variable)]) && ($term = $this->citeproc->get_locale('term', $variable, $form, $plural))) {
+      if (empty($t['nid'])) {
+        // Data is a Biblio contributor.
+        $show_term = TRUE;
+      }
+      else {
+        // Data is a Biblio node, so check if the field is not empty.
+        $show_term = isset($t[$this->citeproc->map_field($variable)]) && trim($t[$this->citeproc->map_field($variable)]) != FALSE;
+      }
+
+      // If we print a range of pages change plural to multiple.
+      if ($variable == 'page' && !is_int($data->biblio_pages)) {
+        $plural = 'multiple';
+      }
+      
+      if ($show_term && $term = $this->citeproc->get_locale('term', $variable, $form, $plural)) {
         $text = $term;
         break;
       }

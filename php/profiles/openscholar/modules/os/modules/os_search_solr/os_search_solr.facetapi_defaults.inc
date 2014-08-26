@@ -123,14 +123,14 @@ function os_search_solr_facetapi_default_facet_settings() {
   $facet = new stdClass();
   $facet->disabled = FALSE; /* Edit this to true to make a default facet disabled initially */
   $facet->api_version = 1;
-  $facet->name = $searcher_name.'block:sm_og_group_ref';
+  $facet->name = $searcher_name . ':block:sm_og_group_ref';
   $facet->searcher = $searcher_name;
   $facet->realm = 'block';
   $facet->facet = 'sm_og_group_ref';
   $facet->enabled = TRUE;
   $facet->settings = array(
     'weight' => 0,
-    'widget' => 'facetapi_links',
+    'widget' => 'os_search_solr_other_sites_links',
     'filters' => array(),
     'active_sorts' => array(
       'active' => 'active',
@@ -161,6 +161,64 @@ function os_search_solr_facetapi_default_facet_settings() {
     'submit_realm' => 'Save and go back to realm settings',
   );
   $export[$searcher_name.':block:sm_og_group_ref'] = $facet;
+
+  $facet = new stdClass();
+  $facet->disabled = FALSE; /* Edit this to true to make a default facet disabled initially */
+  $facet->api_version = 1;
+  $facet->name = $searcher_name . ':block:sm_og_vocabulary';
+  $facet->searcher = $searcher_name;
+  $facet->realm = 'block';
+  $facet->facet = 'sm_og_vocabulary';
+  $facet->enabled = TRUE;
+  $facet->settings = array(
+    'weight' => 0,
+    'widget' => 'facetapi_links',
+    'filters' => array(),
+    'active_sorts' => array(
+      'active' => 'active',
+      'count' => 'count',
+      'display' => 'display',
+    ),
+    'sort_weight' => array(
+      'active' => -50,
+      'count' => -49,
+      'display' => -48,
+    ),
+    'sort_order' => array(
+      'active' => 3,
+      'count' => 3,
+      'display' => 4,
+    ),
+    'empty_behavior' => 'none',
+    'soft_limit' => 20,
+    'nofollow' => 1,
+    'show_expanded' => 0,
+  );
+
+  $export[$searcher_name . ':block:sm_og_vocabulary'] = $facet;
+
+  $facet = new stdClass();
+  $facet->disabled = FALSE; /* Edit this to true to make a default facet disabled initially */
+  $facet->api_version = 1;
+  $facet->name = $searcher_name . '::sm_og_vocabulary';
+  $facet->searcher = $searcher_name;
+  $facet->realm = '';
+  $facet->facet = 'sm_og_vocabulary';
+  $facet->enabled = FALSE;
+  $facet->settings = array(
+    'operator' => 'and',
+    'hard_limit' => '75',
+    'dependencies' => array(
+      'roles' => array(),
+      'bundle' => 'none',
+      'bundle_selected' => array(),
+    ),
+    'facet_mincount' => 1,
+    'facet_missing' => '0',
+    'flatten' => 0,
+    'query_type' => 'term',
+  );
+  $export[$searcher_name . '::sm_og_vocabulary'] = $facet;
 
   return $export;
 }

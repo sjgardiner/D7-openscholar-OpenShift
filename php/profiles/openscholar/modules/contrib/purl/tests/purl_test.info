@@ -7,9 +7,10 @@ package = "Testing"
 files[] = purl.test
 files[] = purl_test.module
 
-; Information added by drupal.org packaging script on 2012-03-06
-version = "7.x-1.0-beta1+5-dev"
+
+; Information added by drush on 2014-08-08
+version = "7.x-1.0-beta1+11-dev"
 core = "7.x"
 project = "purl"
-datestamp = "1331037648"
+datestamp = "1407525405"
 

@@ -27,7 +27,7 @@ class MenuUpgradePathTestCase extends UpgradePathTestCase {
    * Test a successful upgrade.
    */
   public function testMenuUpgrade() {
-    $this->assertTrue($this->performUpgrade(), t('The upgrade was completed successfully.'));
+    $this->assertTrue($this->performUpgrade(), 'The upgrade was completed successfully.');
 
     // Test the migration of "Default menu for content" setting to individual
     // node types.
@@ -74,5 +74,10 @@ class MenuUpgradePathTestCase extends UpgradePathTestCase {
     $this->drupalGet('admin/structure/menu/settings');
     $this->assertOptionSelected('edit-menu-main-links-source', 'secondary-menu');
     $this->assertOptionSelected('edit-menu-secondary-links-source', 'main-menu');
+
+    // Check that both primary/secondary links blocks are visible.
+    $this->drupalGet('node');
+    $this->assertText('My Primary Links', '(Formerly) Primary Links block is still visible');
+    $this->assertText('My Secondary Links', '(Formerly) Secondary Links block is still visible');
   }
 }

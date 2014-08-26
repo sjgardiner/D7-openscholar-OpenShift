@@ -14,8 +14,10 @@ dependencies[] = vsite_layout
 dependencies[] = vsite_register
 dependencies[] = vsite_access
 dependencies[] = vsite_vocab
+dependencies[] = vsite_preset
 dependencies[] = og
-dependencies[] = os_subsites
+dependencies[] = og_moderation
+dependencies[] = views_og_cache
 
 ;Depends on og/vsite
 dependencies[] = os_activity

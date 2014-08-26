@@ -251,7 +251,7 @@ class space_og extends space_type_purl {
    * Override of excluded_paths().
    * Adds og, og/* paths.
    */
-  protected function excluded_paths(){
+  protected static function excluded_paths(){
     $excluded = parent::excluded_paths();
     $excluded[] = 'og';
     $excluded[] = 'og/my';

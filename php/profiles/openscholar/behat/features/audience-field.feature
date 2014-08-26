@@ -1,9 +1,9 @@
 Feature:
   Testing the appearance of OG audience field
 
-  @api
+  @api @first
   Scenario: Check that the OG audience field will be shown when editing content.
-    Given I am logged in as a user with the "administrator" role
+    Given I am logging in as "john"
       And I visit "john/blog"
       And I click "First blog"
       And I click "Edit"

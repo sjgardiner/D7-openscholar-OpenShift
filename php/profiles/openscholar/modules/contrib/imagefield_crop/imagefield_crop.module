@@ -91,6 +91,8 @@ function imagefield_crop_field_update($entity_type, $entity, $field, $instance, 
   // deletion of previous file usages are necessary.
   $scale = NULL;
   if ($instance['widget']['settings']['resolution']) {
+    $context = array('entity' => $entity);//'form' => $form);
+    drupal_alter('imagefield_crop_instance', $instance, $context);    
     list($scale['width'], $scale['height']) = explode('x', $instance['widget']['settings']['resolution']);
   }
   // Create a bare-bones entity so that we can load its previous values.
@@ -496,7 +498,9 @@ function imagefield_crop_widget_process($element, &$form_state, $form) {
 
   $instance = field_widget_instance($element, $form_state);
 
-  $settings = $instance['settings'];
+  $context = array('form' => $form);
+  drupal_alter('imagefield_crop_instance', $instance, $context);
+  
   $widget_settings = $instance['widget']['settings'];
   $element['#theme'] = 'imagefield_crop_widget';
   $element['#description'] = t('Click on the image and drag to mark how the image will be cropped');
@@ -636,6 +640,10 @@ function imagefield_crop_widget_preview_process($element, &$form_state, $form) {
   $parents = array_slice($element['#array_parents'], 0, -1);
   $parent = drupal_array_get_nested_value($form, $parents);
   $instance = field_widget_instance($parent, $form_state);
+  
+  $context = array('form' => $form);
+  drupal_alter('imagefield_crop_instance', $instance, $context);
+  
   list($width, $height) = !empty($instance['widget']['settings']['resolution']) ? explode('x', $instance['widget']['settings']['resolution']) : array(0, 0);
 
   $image_info = image_get_info(drupal_realpath($file->uri));
@@ -824,6 +832,11 @@ function imagefield_crop_upload_validate($file, $field, $instance) {
         $errors[] = t('The image is too small; the minimum dimensions are %dimensions pixels.', array('%dimensions' => $widget_settings['resolution']));
       }
   }
+
+  if ($instance['settings']['max_filesize'] && parse_size($instance['settings']['max_filesize']) < $file->filesize) {
+    $errors[] = t('This image is too large.  The maximum size is !max', array('!max' => $instance['settings']['max_filesize']));
+  }
+
   return $errors;
 }
 

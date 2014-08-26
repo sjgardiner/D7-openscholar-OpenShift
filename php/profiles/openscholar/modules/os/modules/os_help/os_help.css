@@ -1,7 +1,3 @@
-.os_help-nofloat {
-  float: none;
-}
-
-dd {
-  margin-left: 20px;
+.os-help-link span {
+    display: none;
 }

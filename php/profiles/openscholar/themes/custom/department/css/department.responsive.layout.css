@@ -1,6 +1,4 @@
 
-/* bigscreen three_col_grail */
-@media only screen and (min-width:1025px) {
 .container {width:970px}
 #content-column,.content-column,div.sidebar {float: left; clear: none}
 .two-sidebars .content-inner {margin-left: 195px; margin-right: 240px}
@@ -18,4 +16,34 @@
 .region-header-first {width:195px; margin-left:-100%;}
 .region-header-third {width:420px; margin-left:-420px;text-align: right;}
 .region-header-second {width:100%;}
+
+
+.region-content-top .block-inner {
+    margin-left: 4px;
 }
+
+.at-panel .region.region-content-top .region-inner {
+    padding-top: 10px;
+}
+ 
+ 
+.content-left.content-right .at-panel .region.region-content-first {
+    border-right: none;
+}
+
+.content-left.content-right .at-panel .region.region-content-first, 
+.content-left.content-right .at-panel .region.region-content-second,
+.content-left.content-right .at-panel .region.region-content-bottom {
+    clear: none;
+    display: inline;
+    float: left;
+    margin: 15px 0;
+    width: 32%;
+}
+
+.content-left.content-right .at-panel .region.region-content-first, 
+.content-left.content-right .at-panel .region.region-content-second {
+  margin-right: 15px;
+  }
+
+.at-panel .region.region-content-top {float:none;}

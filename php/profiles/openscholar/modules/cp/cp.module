@@ -1,9 +1,10 @@
 <?php
-// $Id$
 
 /**
  * @file
  * Code for OpenScholar Control Panel.
+ *
+ * @todo fix form redirect (should go to CP > Menu, not default redirect path).
  */
 
 include_once ('cp.features.inc');
@@ -11,6 +12,19 @@ include_once ('cp.features.inc');
 define('CP_MENU_OFF', 'off');
 define('CP_MENU_MINI', 'mini');
 define('CP_MENU_FULL', 'full');
+
+
+/**
+ * Theme callback for admin pages when the CP theme isn't applied.
+ */
+function cp_theme_name() {
+  return 'cp_theme';
+}
+
+/**
+ * Defines the default maximum number of allowed URL redirects per site.
+ */
+define('CP_REDIRECT_MAX_DEFAULT', 15);
 
 /**
  * Loads an include file based on a $_GET.
@@ -42,8 +56,15 @@ function cp_init() {
  */
 function cp_menu() {
   $items = array();
-
   $spaces_path = drupal_get_path('module', 'spaces');
+
+  $items['admin/config/openscholar/cp'] = array(
+    'title' => 'Control Panel',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cp_admin_form'),
+    'file' => 'cp.admin.inc',
+    'access arguments' => array('administer site configuration'),
+  );
 
   $items["cp/build"] = array(
     'title' => 'Apps',
@@ -76,6 +97,7 @@ function cp_menu() {
     'weight' => 10,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('taxonomy_overview_vocabularies'),
+    'access callback' => 'vsite_og_user_access',
     'access arguments' => array('administer taxonomy'),
     'file' => 'taxonomy.admin.inc',
     'file path' => drupal_get_path('module', 'taxonomy'),
@@ -86,35 +108,14 @@ function cp_menu() {
     'title' => 'Add vocabulary',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('taxonomy_form_vocabulary'),
+    'access callback' => 'vsite_og_user_access',
     'access arguments' => array('administer taxonomy'),
     'type' => MENU_LOCAL_ACTION,
     'file' => 'taxonomy.admin.inc',
     'file path' => drupal_get_path('module', 'taxonomy'),
   );
 
-  $items["cp/build/taxonomy"] = array(
-    'title' => 'Taxonomy',
-    'type' => MENU_NORMAL_ITEM,
-    'weight' => 10,
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('taxonomy_overview_vocabularies'),
-    'access arguments' => array('administer taxonomy'),
-    'file' => 'taxonomy.admin.inc',
-    'file path' => drupal_get_path('module', 'taxonomy'),
-    'description' => t('Manage your site\'s vocabularies')
-  );
-
-  $items["cp/build/taxonomy/add"] = array(
-    'title' => 'Add vocabulary',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('taxonomy_form_vocabulary'),
-    'access arguments' => array('administer taxonomy'),
-    'type' => MENU_LOCAL_ACTION,
-    'file' => 'taxonomy.admin.inc',
-    'file path' => drupal_get_path('module', 'taxonomy'),
-  );
-
-  // Provides a customize form for each OS App.
+  // Provides a customize form for each OS App and a version that will load in a modal
   $apps = spaces_features('site');
   foreach ($apps as $name => $app) {
     $items['cp/build/features/' . $name] = array(
@@ -138,7 +139,7 @@ function cp_menu() {
     'description' => t('Control various settings of your site, such as making your site private or configuring your site to integrate with 3rd party services.'),
   );
 
-  if(module_exists('contact')) {
+  if (module_exists('contact')) {
     $items['cp/support'] = array(
       'title' => 'Support',
       'description' => 'Contact the OpenScholar support team.',
@@ -177,6 +178,30 @@ function cp_menu() {
     ),
   );
 
+  // Allow user to add URL redirects.
+  if (module_exists('redirect')) {
+    $path = drupal_get_path('module', 'redirect');
+    $items['cp/redirect/add'] = array(
+      'type' => MENU_LOCAL_ACTION,
+      'title' => 'Add URL redirect',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('redirect_edit_form'),
+      'access callback' => TRUE,
+      'access callback' => 'cp_create_redirect_access',
+      'file' => 'redirect.admin.inc',
+      'file path' => $path,
+    );
+    $items['cp/redirect/delete/%redirect'] = array(
+      'title' => 'Delete redirect',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('redirect_delete_form', 3),
+      'access callback' => 'redirect_access',
+      'access arguments' => array('delete', 3),
+      'file' => 'redirect.admin.inc',
+      'file path' => $path,
+    );
+  }
+
   return $items;
 }
 
@@ -184,17 +209,38 @@ function cp_menu() {
  * Implements hook_menu_alter().
  */
 function cp_menu_alter(&$items) {
-  // make them all part of 'cp' menu
-  foreach ($items as $path => $item) {
-    if (strpos($path, 'cp') === 0) {
-      if (!array_key_exists('menu_name', $item)) {
-        $items[$path]['menu_name'] = 'cp';
-      }
+  foreach ($items as $path => &$item) {
+    if (strpos($path, 'cp/') !== 0) {
+      // Not CP menu item.
+      continue;
+    }
 
-      // @todo maybe provide our own permission instead ?
-      if (!array_key_exists('access callback', $item)) $items[$path]['access arguments'] = array(
+    if (!isset($item['menu_name'])) {
+      // Make all menu items with path like "cp/*" part of the same "cp" menu.
+      $item['menu_name'] = 'cp';
+    }
+
+    if (!isset($item['access callback']) && !isset($item['access arguments'])) {
+      // No access callback and arguments, default to "access control panel".
+      $item['access arguments'] = array(
         'access control panel',
       );
+    }
+  }
+
+  // Prevent VSite admins from accessing all sitewide redirects.
+  $restricted = array(
+    'admin/config/search/redirect',
+    'admin/config/search/redirect/list',
+    'admin/config/search/redirect/add',
+    'admin/config/search/redirect/edit/%redirect',
+    'admin/config/search/redirect/delete/%redirect',
+    'admin/config/search/redirect/settings',
+  );
+  foreach ($restricted as $path) {
+    if (isset($items[$path])) {
+      $items[$path]['access callback'] = 'user_access';
+      $items[$path]['access arguments'] = array('administer site settings');
     }
   }
 }
@@ -243,6 +289,12 @@ function cp_permission() {
     'access control panel' => array(
       'title' => t('Access Control Panel'),
     ),
+    'clear vsite cache' => array(
+      'title' => t('Clear Vsite Varnish Cache'),
+    ),
+    'set maximum redirects' => array(
+      'title' => t('Set the maximum of allowed redirects'),
+    ),
   );
 }
 
@@ -257,16 +309,22 @@ function cp_custom_theme() {
 }
 
 /**
+ * @function cp_use_cp_theme()
+ *
  * Returns TRUE/FALSE, whether or not to use cp theme.
  */
 function cp_use_cp_theme() {
-  if ((arg(0) == 'cp') ||
-    (arg(0) == 'os') ||
-    (arg(0) == 'media') ||
-    ((arg(0) == 'node' || arg(0) == 'file') && (arg(1) == 'add' || arg(2) == 'edit' || arg(2) == 'delete'))
-  ) {
+  $ops = array('edit', 'usage', 'delete', 'devel');
+  if (in_array(arg(0), array('cp', 'os', 'media'))) {
     return TRUE;
   }
+  elseif (in_array(arg(0), array('file', 'node'))) {
+    return (arg(1) == 'add' || in_array(arg(2), $ops));
+  }
+  elseif (arg(0) == 'taxonomy') {
+    return (arg(2) == 'add' || in_array(arg(3), $ops));
+  }
+
   return FALSE;
 }
 
@@ -274,7 +332,14 @@ function cp_use_cp_theme() {
  * Implements hook_admin_paths().
  */
 function cp_admin_paths() {
-  return array('cp/build/features/*' => TRUE, 'cp/support' => TRUE);
+  $items = array(
+    'cp/build/features/*' => TRUE,
+    'cp/support' => TRUE,
+    'cp/redirect/add' => TRUE,
+    'cp/redirect/delete/*'
+  );
+
+  return $items;
 }
 
 /**
@@ -304,9 +369,11 @@ function cp_form_spaces_features_form_alter(&$form, &$form_state, $form_id) {
     $spaces_features_available = FALSE;
   }
 
+  cp_sort_features_by_human_name($form);
+
   foreach (array_keys($form['spaces_features']) as $app_name) {
     // Skips render array markup.
-    if ($app_name[0] == '#') {
+    if (!element_child($app_name)) {
       continue;
     }
 
@@ -350,6 +417,41 @@ function cp_form_spaces_features_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
+ * Sort features on the form based on human names.
+ *
+ * @param $form
+ *   spaces_features form.
+ */
+function cp_sort_features_by_human_name(&$form) {
+  $original_features = $form['spaces_features'];
+  $ordered_features = array();
+  $spaces_features = spaces_features();
+  $new_form_spaces_features = array();
+
+  foreach ($original_features as $app_name => $value) {
+    // Skips render array markup.
+    if (!element_child($app_name)) {
+      $new_form_spaces_features[$app_name] = $value;
+      continue;
+    }
+
+    $human_name = $spaces_features[$app_name]->info['name'];
+    $ordered_features[$human_name] = $app_name;
+  }
+
+  // Sort by the human name.
+  ksort($ordered_features);
+
+  // Put elements back in the new order.
+  foreach ($ordered_features as $human_name => $app_name) {
+    $new_form_spaces_features[$app_name] = $original_features[$app_name];
+  }
+
+  // Override form element.
+  $form['spaces_features'] = $new_form_spaces_features;
+}
+
+/**
  * Gets all the settings a module could define for a site
  *
  * There aren't enough of to have its own page.
@@ -369,8 +471,8 @@ function cp_get_setting_forms() {
  * Allows user to switch between full and mini cp menus on the front view
  */
 function cp_cp_settings() {
-  $setting = array();
-  $setting['cp_admin_menu'] = array(
+  $settings = array();
+  $settings['cp_admin_menu'] = array(
     'group' => array(
       '#title' => t('Admin Menu'),
       '#id' => 'admin-menu',
@@ -384,33 +486,138 @@ function cp_cp_settings() {
     ),
   );
 
-  return $setting;
+  if (module_exists('redirect')) {
+    $settings['redirects'] = array(
+      'group' => array(
+        '#title' => t('URL Redirects'),
+        '#id' => 'redirects',
+      ),
+      'form' => array(
+        '#title' => t('Manage redirects'),
+      ),
+      'after_build' => array('_cp_settings_form_redirects_build'),
+    );
+    $settings['cp_redirect_max'] = array(
+      'group' => array(
+        '#title' => t('URL Redirects'),
+        '#id' => 'redirects',
+      ),
+      'form' => array(
+        '#type' => 'textfield',
+        '#title' => 'Number of maximum redirects',
+        '#size' => 15,
+        '#weight' => 2,
+        '#default_value' => variable_get('cp_redirect_max', CP_REDIRECT_MAX_DEFAULT),
+        '#element_validate' => array('element_validate_integer_positive'),
+        '#access' => user_access('set maximum redirects'),
+      ),
+    );
+  }
+
+  if (module_exists('vsite') && module_exists('expire')) {
+    $settings['cp_clear_cache'] = array(
+      'group' => array(
+        '#title' => t('Maintenance'),
+        '#id' => 'os-maintenance',
+      ),
+      'form' => array(
+        '#type' => 'submit',
+        '#value' => t('Clear site cache'),
+        '#suffix' => "<div class=\"description\">".t('Clear the cache to so anonymous users see the most recent updates. This removes the normal ~15 minute delay for new/updated posts to show up in lists but can slow the site down for your visitors.')."</div>",
+        '#submit' => array('cp_clear_site_cache'),
+        '#access' => user_access('clear vsite cache'),
+      ),
+    );
+
+    // Grant permission to those without it.
+    if ($vsite = vsite_get_vsite()) {
+    	$settings['cp_clear_cache']['form']['#access'] = ($settings['cp_clear_cache']['form']['#access'] || og_user_access('node', $vsite->group->nid, 'clear site cache', NULL, FALSE, TRUE));
+    }
+  }
+
+  return $settings;
 }
 
 /**
+ * Submit handler; Clear a vsite's page cache.
+ */
+function cp_clear_site_cache() {
+  $vsite = vsite_get_vsite();
+  if (!$vsite) {
+    return FALSE;
+  }
+  ctools_include('cache','os');
+
+  //Internal URL's are all that work with wildcards, use <front> for the sites front page
+  //The expire module uses "|wildcard" for wildcards, go figure
+  $wildcard = "<front>|wildcard";
+
+  // Clear the cache at the front page of this vsite
+  // Ex. http://host/site1/
+  //     http://mysite.com/
+  os_remove_cache($wildcard);
+
+  drupal_set_message(t('Site cache is clearing.'));
+}
+
+/**
+ * @function cp_site_sitewide_contact()
+ *
  * Menu callback page for cp/support.
  */
 function cp_site_sitewide_contact() {
+  $id = variable_get('cp_support_getsatisfaction_widget');
+
+  //show getsatisfaction form.
+  if ($id) {
+    $loading = drupal_get_path('theme', 'os_basetheme') . '/images/throbber.gif';
+    $image = theme('image', array('path' => $loading));
+    $description =<<<EOF
+<p>Every question you ask adds to the power of our OpenScholar Community. Type
+  your question below and click the Continue button. You will need to login or
+  create an account to finish posting.</p>
+<p>If you don't want to post publicly to the community, click Send Privately</p>
+EOF;
+    return array(
+      'div' => array(
+        '#type' => 'markup',
+        '#markup' => '<div class="getsat-widget" id="getsat-widget-'.$id.'"><span class="description">'. $description . '</span><span class="gsfn-loading">Loading...'.$image.'</span></div>',
+
+
+      ),
+      '#attached' => array(
+        'js' => array(
+          'https://loader.engage.gsfn.us/loader.js',
+          'if (typeof GSFN !== "undefined") { GSFN.loadWidget('.$id.',{"containerId":"getsat-widget-'.$id.'"}); }' => array('type' => 'inline'),
+        ),
+        'css' => array(
+          drupal_get_path('module', 'cp') . '/theme/cp-support.css',
+        ),
+      )
+    );
+  }
+
+  //no getsatisfaction form, so use the original one.
+
   module_load_include('inc', 'contact', 'contact.pages');
   // Check to make sure the site email address are set.
   $results = db_query('SELECT cid, recipients FROM {contact} WHERE category = :category',array(':category'=>'Website feedback'))->fetchAssoc();
-  if($results['recipients'] == '') {
+  if ($results['recipients'] == '') {
     // The recipient email isn't set, set them.
     $query = db_select('contact', 'c');
     $query->fields('c', array('cid', 'recipients'));
     $contact_result = $query->execute();
-    while($contact = $contact_result->fetchAssoc()) {
-      if($contact['recipients'] == '') {
-        // Update the record.
-        db_update('contact') // Table name no longer needs {}
-    	  ->fields(array(
-     		'recipients' => variable_get('site_mail',''),
-  		  ))
-  		->condition('cid', $contact['cid'], '=')
-  	    ->execute();
+    while ($contact = $contact_result->fetchAssoc()) {
+      if ($contact['recipients'] == '') {
+          // Update the record.
+          db_update('contact') // Table name no longer needs {}
+            ->fields(array('recipients' => variable_get('site_mail','')))
+            ->condition('cid', $contact['cid'], '=')
+            ->execute();
       }
     }
   }
+
   // Return the contact_site_form.
   $contact_site_form = drupal_get_form('contact_site_form');
   $output = "<p>Use the form below to send us your comments or report any problems you experienced using your website. We read all feedback carefully and will respond quickly.</p>";
@@ -427,4 +634,276 @@ function _cp_app_settings_page_title($feature_name) {
 
   $title = t('@app Settings', array('@app' => $feature_title));
   return $title;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for redirect_edit_form.
+ *
+ * Modifies purl values if the form is being loaded inside a vsite.
+ *
+ * Stores the vsite's purl modifier as a hidden field, updates the "From" field
+ * prefix and makes additional UI modifications.
+ *
+ * @see purl.admin.inc
+ * @see purl_redirect_edit_validate()
+ */
+function cp_form_redirect_edit_form_alter(&$form, &$form_state, $form_id) {
+  // Only alters the form if we are on a vsite.
+  $vsite = vsite_get_vsite();
+  if (empty($vsite)) {
+    return;
+  }
+
+  // Include the `purl.admin.inc` file to invoke validate callback for when
+  // users rebuild the form to confirm adding a URL redirect whose source
+  // URL is an existing menu item.
+  $form_state['build_info']['files'][] = array(
+    'type' => 'inc',
+    'module' => 'purl',
+    'name' => 'purl.admin',
+  );
+
+  // Determines this vsite's purl modifier value.
+  if (empty($form['purl']['modifier']['#default_value'])) {
+    $default_value = "{$vsite->purl_provider}:{$vsite->id}";
+  }
+  else {
+    $default_value = $form['purl']['modifier']['#default_value'];
+  }
+
+  // Prevents form from loading if the purl modifier is not an available choice.
+  if (!array_key_exists($default_value, $form['purl']['modifier']['#options'])) {
+    drupal_set_message(t('Sorry, no redirects may be added at this time.'), 'error');
+    $form = array();
+    return;
+  }
+
+  // Stores this vsite's purl modifier as a hidden value.
+  $form['purl']['modifier']['#value'] = $default_value;
+  $form['purl']['#type'] = 'hidden';
+
+  // Prefixes the "From" field with this vsite's front page full path.
+  $vsite_base_url = rtrim(url('<front>', array('absolute' => TRUE)), '/');
+  $form['source']['#field_prefix'] = "{$vsite_base_url}/";
+
+  // Hides the default fieldset that provides settings like 3xx status code.
+  $form['advanced']['#type'] = 'hidden';
+
+  // Updates field descriptions to replace Drupal-specific wording.
+  $description = t('Enter any non-existing path from your site to trigger a redirect on. Fragment anchors (e.g. #anchor) are not allowed');
+  $form['source']['#description'] = $description;
+  $description = t('Enter any existing destination URL (like http://example.com/) to redirect to.');
+  $form['redirect']['#description'] = $description;
+
+  // Adds redirect behavior to return to CP > Settings.
+  $form['#submit'][] = 'cp_form_redirect';
+}
+
+/**
+ * Implmements hook_form_BASE_FORM_ID_alter() for node_edit_form.
+ */
+function cp_form_node_form_alter(&$form, &$form_state, $form_id) {
+  // Hides the default redirect form section from displaying.
+  _cp_form_alter_remove_redirect_element($form);
+}
+
+/**
+ * Implmements hook_form_FORM_ID_alter() for taxonomy_term_edit_form.
+ */
+function cp_form_taxonomy_form_term_alter(&$form, &$form_state, $form_id) {
+  // Hides the default redirect form section from displaying.
+  _cp_form_alter_remove_redirect_element($form);
+}
+
+/**
+ * Hides the default redirect form section from displaying.
+ *
+ * @see cp_form_node_form_alter()
+ * @see cp_form_taxonomy_form_term_alter()
+ */
+function _cp_form_alter_remove_redirect_element(&$form) {
+  if (isset($form['redirect'])) {
+    $form['redirect']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Activates the cp context on any entity edit form except comment forms.
+ */
+function cp_form_alter(&$form, $form_state) {
+  if (isset($form['#entity_type']) && $form['#entity_type'] != 'comment' && isset($form['#bundle'])) {
+    if ($plugin = context_get_plugin('condition', 'node')) {
+      // we want some of the node condition, but it only works for actual node types
+      // fake it for every entity form.
+      $plugin->execute((object)array('type' => 'page'), 'form');
+    }
+  }
+}
+
+/**
+ * Returns a render array for listing all of this site's redirects.
+ */
+function _cp_settings_form_redirects_build($form) {
+  $rids = cp_redirect_get_redirects();
+  $redirects = redirect_load_multiple(array_keys($rids));
+  $build = _cp_settings_redirect_build_element($redirects);
+
+  $form['redirects']['redirects'] += $build;
+  return $form;
+}
+
+/**
+ * Returns an array of redirect IDs for this site.
+ */
+function cp_redirect_get_redirects() {
+  $rids = array();
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'redirect');
+  if (module_exists('vsite') && $vsite = vsite_get_vsite()) {
+    $gid = $vsite->id;
+    $len = strlen((string) $gid);
+    // Matches a serialized array key/value pair like `array('id' => $gid)`.
+    $match = '%' . db_like(";s:2:\"id\";s:{$len}:\"{$gid}\";") . '%';
+    $query->propertyCondition('redirect_options', $match, 'LIKE');
+  }
+  $result = $query->execute();
+  if (isset($result['redirect'])) {
+    $rids += $result['redirect'];
+  }
+
+  return $rids;
+}
+
+/**
+ * Returns TRUE when the number of current redirects is less than the maximum.
+ */
+function cp_create_redirect_access() {
+  if (!module_exists('redirect')) {
+    return FALSE;
+  }
+  if (!redirect_access('create', 'redirect')) {
+    return FALSE;
+  }
+  $max = variable_get('cp_redirect_max', CP_REDIRECT_MAX_DEFAULT);
+  $rids = cp_redirect_get_redirects();
+  return count($rids) < $max;
+}
+
+/**
+ * Returns a build array containing "Add new" and list of existing redirects.
+ */
+function _cp_settings_redirect_build_element($redirects) {
+  $title = t('URL Redirects');
+  $path = drupal_get_path('module', 'cp');
+  $description = t('URL redirects allow you to send users from a non-existing path on your site, to any other URL. You might want to use this to create a short link, or to transition users from an old URL that no longer exists to the new URL. Each site may only have a limited number of URL redirects.');
+  $build = array(
+    'description' => array(
+      '#markup' => "<p class=\"description\">{$description}</p>",
+      '#weight' => 0,
+    ),
+    'redirects' => array(
+      '#theme' => 'item_list',
+      '#attributes' => array(
+        'class' => array(
+          'redirect-item-list',
+        ),
+        'id' => 'cp-menu-redirects-list',
+      ),
+      '#items' => array(),
+      '#weight' => 2,
+    ),
+    '#attached' => array(
+      'css' => array(
+        "{$path}/theme/cp.redirect.css",
+      ),
+    ),
+  );
+
+  // Provides a link to add more redirects if the user hasn't yet hit the max.
+  if (cp_create_redirect_access()) {
+    $link = l(t('+ Add new redirect'), 'cp/redirect/add');
+    $build['add_new'] = array(
+      '#markup' => "<div id=\"cp-menu-add-new-redirect\">{$link}</div>",
+      '#weight' => 1,
+    );
+  }
+
+  foreach ($redirects as $redirect) {
+    if (!is_object($redirect) || !isset($redirect->rid)) {
+      continue;
+    }
+
+    $source_url = redirect_url($redirect->source, $redirect->source_options);
+    $redirect_url = redirect_url($redirect->redirect, array_merge($redirect->redirect_options, array('alias' => TRUE)));
+    $options = array('query' => array('destination' => 'cp/settings'));
+    $item = array(
+      'class' => array('redirect-item', "redirect-{$redirect->rid}"),
+      'children' => array(
+        0 => array(
+          'data' => $source_url,
+          'class' => array('redirect-property', 'redirect-source'),
+        ),
+        1 => array(
+          'data' => '&nbsp;',
+          'class' => array('redirect-property', 'redirect-icon'),
+        ),
+        2 => array(
+          'data' => $redirect_url,
+          'class' => array('redirect-property', 'redirect-destination'),
+        ),
+        3 => array(
+          // @todo implement delete callback.
+          'data' => l(t('delete'), "cp/redirect/delete/{$redirect->rid}", $options),
+          'class' => array('redirect-property', 'redirect-delete'),
+        ),
+      ),
+    );
+
+    $build['redirects']['#items'][$redirect->rid] = $item;
+  }
+
+  return $build;
+}
+
+/**
+ * Submit callback; sends user back to CP > Settings page.
+ *
+ * @see cp_form_redirect_edit_form_alter()
+ */
+function cp_form_redirect($form, &$form_state) {
+  switch ($form['#form_id']) {
+    case 'redirect_edit_form':
+      $form_state['redirect'] = 'cp/settings';
+      break;
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function cp_module_implements_alter(&$implementations, $hook) {
+  if ($hook != 'form_alter') {
+    return;
+  }
+
+  if (empty($implementations['cp'])) {
+    return;
+  }
+
+  // Ensures that cp_form_redirect() occurs after redirect_edit_form_submit().
+  $group = $implementations['cp'];
+  unset($implementations['cp']);
+  $implementations['cp'] = $group;
+}
+
+/**
+ * Implements hook_og_permission().
+ */
+function cp_og_permission() {
+  return array(
+    'clear site cache' => array(
+      'title' => t('Clear site cache'),
+      'description' => t('Allow the user to clear the site cache for this site.'),
+    ),
+  );
 }

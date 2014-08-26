@@ -44,29 +44,10 @@ function boxes_menu() {
 }
 
 /**
- * Function to support legacy code
+ * Access check for whether current user is able to edit boxes.
  */
-function boxes_access_edit($box = null) {
-  return boxes_access('edit', $box);
-}
-
-/**
- * Checks access for a given operation against a given box.
- * if the box isn't set or the user doesn't have that permission,
- * we check if user has administer boxes
- */
-function boxes_access($op, $box = null) {
-  $box_type_check = false;
-  if (isset($box)) {
-    $box_type_check = user_access($op.' '.$box->plugin_key.' box type');
-  }
-
-  $spaces_check = true;
-  if (module_exists('spaces') && !spaces_access_admin()) {
-    $space_check = false;
-  }
-
-  return ($box_type_check || user_access($op.' boxes') || user_access('administer boxes')) && $spaces_check;
+function boxes_access_edit() {
+  return user_access('administer boxes') || user_access('edit boxes');
 }
 
 /**
@@ -80,44 +61,16 @@ function boxes_access_admin() {
  * Implements hook_permission().
  */
 function boxes_permission() {
-  $perms = array();
-  ctools_include('plugins');
-  $plugins = ctools_get_plugins('boxes', 'plugins');
-  foreach ($plugins as $name => $info) {
-    $perms += array(
-      'create '.$name.' box type' => array(
-        'title' => t('Create !type Box', array('!type' => isset($info['title'])?$info['title']:$name)),
-        'description' => t('Create boxes of type !type', array('!type' => isset($info['title'])?$info['title']:$name)),
-      ),
-      'edit '.$name.' box type' => array(
-        'title' => t('Edit !type Boxes', array('!type' => isset($info['title'])?$info['title']:$name)),
-        'description' => t('Edit boxes of type !type', array('!type' => isset($info['title'])?$info['title']:$name)),
-      ),
-      'delete '.$name.' box type' => array(
-        'title' => t('Delete !type Boxes', array('!type' => isset($info['title'])?$info['title']:$name)),
-        'description' => t('Delete boxes of type !type', array('!type' => isset($info['title'])?$info['title']:$name)),
-      ),
-    );
-  }
-
   return array(
-    'create boxes' => array(
-      'title' => t('Create boxes'),
-      'description' => t('Create a box of any kind'),
-    ),
     'edit boxes' => array(
       'title' => t('Edit boxes'),
-      'description' => t('Edit a box of any kind'),
-    ),
-    'delete boxes' => array(
-      'title' => t('Delete boxes'),
-      'description' => t('Delete a box of any kind'),
+      'description' => t('Edit existing boxes'),
     ),
     'administer boxes' => array(
       'title' => t('Administer boxes'),
       'description' => t('Administer boxes'),
     ),
-  ) + $perms;
+  );
 }
 
 /**
@@ -229,7 +182,7 @@ function boxes_block_view($delta) {
     // Generate content and provide an editing form if user has proper
     // permissions.
     $block = $box->render();
-    if (boxes_access_edit($box)) {
+    if (boxes_access_edit()) {
       if (variable_get('boxes_edit_location', BOXES_EDIT_IN_PLACE) == BOXES_EDIT_IN_PLACE) {
         $edit_link = array(
           'title' => t('Edit Box'),
@@ -308,7 +261,6 @@ function boxes_footer() {
       $plugin_key = $_GET['plugin_key'];
       $delta = $_GET['boxes_delta'];
       $box = boxes_box_load($delta);
-      if (!boxes_access_edit($box)) exit;
       if (!$box && $plugin_key) {
         $box = boxes_factory($plugin_key, array('delta' => $delta));
         $form_state = array(
@@ -333,20 +285,20 @@ function boxes_footer() {
       if (!empty($errors)) { /* validation error */
         $msg_and_form = theme('status_messages') . drupal_render($form);
         $output[] = array(
-          'command' => 'showBoxForm',
-          'method' => 'html',
-          'selector' => '#block-boxes-' . $delta,
-          'data' => $msg_and_form,
+          'command' => 'showBoxForm', 
+          'method' => 'html', 
+          'selector' => '#block-boxes-' . $delta, 
+          'data' => $msg_and_form, 
           'settings' => NULL,
         );
       }
       //  if we are comming from a init form and need to continue then lets render the form again
       else if (empty($form_state['submitted']) || isset($_GET['init_form_continue'])) {
         $output[] = array(
-          'command' => 'showBoxForm',
-          'method' => 'html',
-          'selector' => '#boxes-box-' . $delta,
-          'data' => drupal_render($form),
+          'command' => 'showBoxForm', 
+          'method' => 'html', 
+          'selector' => '#boxes-box-' . $delta, 
+          'data' => drupal_render($form), 
           'settings' => NULL,
         );
       }
@@ -552,15 +504,15 @@ function boxes_box_form($form, &$form_state) {
  */
 function boxes_form_alter(&$form, &$form_state, $form_id) {
   $path = implode('/', array_slice(arg(), 0, 5));
-  if (($form_id != 'block_admin_configure' || $path != 'admin/structure/block/manage/boxes') &&
+  if (($form_id != 'block_admin_configure' || $path != 'admin/structure/block/manage/boxes') && 
       ($form_id != 'boxes_add_form' || arg(3) != 'box-add')) {
     return;
   }
-
+  
   // Use the Box form submit handler and properly redirect to the correct admin page
   $form['#submit'][0] = 'boxes_box_form_submit';
   $form['#action'] = '?destination=admin/structure/block';
-
+  
   // Cancel behavior is different here
   unset($form['cancel']['#attributes']);
   $form['cancel']['#submit'] = array('boxes_block_cancel_submit');
@@ -581,8 +533,8 @@ function boxes_box_form_submit($form, $form_state) {
   }
   // Let's set the additional_classes as an option
   $box->options['additional_classes'] = isset($form_state['values']['additional_classes']) ?
-  $form_state['values']['additional_classes'] : array();
-
+    $form_state['values']['additional_classes'] : array();
+    
   if (module_exists('spaces') && $space = spaces_get_space()) {
     $space->controllers->boxes->set($box->delta, $box);
   }
@@ -611,20 +563,20 @@ function boxes_form_block_admin_configure_alter(&$form, &$form_state) {
         '#submit' => array('boxes_block_delete_submit'),
       );
     }
-
+    
     // Cancel behavior is different on admin/structure page
     unset($form['settings']['cancel']);
     $form['actions']['cancel'] = array(
       '#type' => 'submit',
       '#value' => t('Cancel'),
       '#submit' => array('boxes_block_cancel_submit'),
-    );
+    );    
   }
 }
 
 /**
  * Submit handler for box cancel from the block/manage/boxes/[MACHINE-NAME]/configure
- */
+ */ 
 function boxes_block_cancel_submit($form, &$form_state) {
   if (module_exists('overlay')) {
     overlay_close_dialog();

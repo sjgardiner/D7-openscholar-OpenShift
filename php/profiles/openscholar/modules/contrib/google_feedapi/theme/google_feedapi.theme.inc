@@ -15,16 +15,23 @@ function theme_google_feedapi_formatter_google_feedapi($info){
     $info['delta'],
     $info['num_to_show'],
     $info['content_summary'],
-    $info['show_content']
+    $info['show_content'],
+    $info['time_display']
   ));
+
+  $url_options = array('external' => true);
+  if(isset($info['element']['query'])){
+    $url_options['query'] = $info['element']['query'];
+  }
 
   drupal_add_js(array(
     'googleFeedAPI' => array(
       $feed_div_id => array(
-        'url' => $info['element']['url'],
+        'url' => url($info['element']['url'],$url_options),
         'num_feeds' => $info['num_to_show'],
         'content_summary' => $info['content_summary'],
-        'show_content' => $info['show_content']
+        'show_content' => $info['show_content'],
+        'time_display' => $info['time_display'],
       )
     )
   ), 'setting');
@@ -32,18 +39,15 @@ function theme_google_feedapi_formatter_google_feedapi($info){
   return "<div id='{$feed_div_id}'></div>";
 }
 
-function _google_feedapi_load_common_feed_js(){
+/**
+ * Statically loads the common required javascript libraries.
+ */
+function _google_feedapi_load_common_feed_js() {
   static $common_js;
-  if (! isset($common_js)) {
-    $common_js = true;
-    drupal_add_js('https://www.google.com/jsapi?autoload=' . urlencode('{"modules" : [{"name" : "feeds","version" : "1"}]}'), array(
-      'type' => 'external',
-      'scope' => 'header',
-      'group' => JS_LIBRARY,
-      'weight' => - 25
-    ));
-
-    // Add required JavaScript and Stylesheets for the google feeds
-    drupal_add_library('google_feedapi', 'google-feeds');
+  if (!isset($common_js)) {
+    $common_js = TRUE;
+    // Adds this modules formatter behaviors, which depends on
+    // the external Google FeedAPI Integration files.
+    drupal_add_library('google_feedapi', 'google_feedapi');
   }
 }

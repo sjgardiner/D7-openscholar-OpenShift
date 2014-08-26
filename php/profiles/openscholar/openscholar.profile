@@ -6,9 +6,9 @@
 function openscholar_install_tasks($install_state) {
   $tasks = array();
 
-  // OS flavors (production, development, etc)
+  // OS flavors (production, development, etc).
   $tasks['openscholar_flavor_form'] = array(
-    'display_name' => t('Choose a enviroment'),
+    'display_name' => t('Choose environment'),
     'type' => 'form'
   );
 
@@ -59,6 +59,12 @@ function openscholar_flavor_form($form, &$form_state) {
     '#default_value' => 'development'
   );
 
+  $form['intranet_site'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Intranet Site'),
+    '#description' => t('If checked, all sites created will be private and have private files, public websites will not be available.'),
+  );
+
   $form['dummy_content'] = array(
     '#type' => 'checkbox',
     '#title' => t('Add dummy content'),
@@ -76,7 +82,14 @@ function openscholar_flavor_form($form, &$form_state) {
     '#value' => t('Next'),
   );
 
-  return $form;
+  if (defined('DRUSH_BASE_PATH')) {
+    // Set some sane defaults for Drush/Aegir non-interactive install
+    variable_set('os_profile_flavor', 'production');
+    variable_set('os_dummy_content', FALSE);
+  }
+  else {
+    return $form;
+  }
 }
 
 
@@ -101,7 +114,13 @@ function openscholar_install_type($form, &$form_state) {
     '#value' => t('Submit'),
   );
 
-  return $form;
+  if (defined('DRUSH_BASE_PATH')) {
+    // Set some sane defaults for Drush/Aegir non-interactive install
+    variable_set('os_profile_type', 'vsite');
+  }
+  else {
+    return $form;
+  }
 }
 
 
@@ -113,8 +132,16 @@ function openscholar_flavor_form_submit($form, &$form_state) {
   variable_set('os_profile_flavor', $form_state['input']['os_profile_flavor']);
 
   // Define dummy content migration.
-  if ($form_state['input']['dummy_content']) {
+  if (!empty($form_state['input']['dummy_content'])) {
     variable_set('os_dummy_content', TRUE);
+  }
+
+  // Define dummy content migration.
+  if (!empty($form_state['input']['intranet_site'])) {
+    variable_set('file_default_scheme', 'private');
+
+    $private_path = variable_get('file_private_path', '/private');
+    variable_set('file_private_path', $private_path);
   }
 }
 
@@ -127,8 +154,6 @@ function openscholar_install_type_submit($form, &$form_state) {
     variable_set('os_profile_type', $form_state['input']['os_profile_type']);
   }
 }
-
-
 
 function openscholar_vsite_modules_batch(&$install_state){
   //@todo this should be in an .inc file or something.
@@ -153,9 +178,10 @@ function openscholar_vsite_modules_batch(&$install_state){
     if (variable_get('os_dummy_content', FALSE)) {
       $modules[] = 'os_migrate_demo';
     }
+    $modules[] = 'harvard_activity_reports';
   }
 
-  return _opnescholar_module_batch($modules);
+  return _openscholar_module_batch($modules);
 }
 
 /**
@@ -196,7 +222,7 @@ function _openscholar_migrate_content($class, $type, &$context) {
  * @see
  *   http://api.drupal.org/api/drupal/includes%21install.core.inc/function/install_profile_modules/7
  */
-function _opnescholar_module_batch($modules) {
+function _openscholar_module_batch($modules) {
   $t = get_t();
 
   $files = system_rebuild_module_data();
@@ -252,9 +278,22 @@ function _opnescholar_module_batch($modules) {
     'operations' => $operations,
     'title' => st('Installing @needed modules.', array('@needed' => $additions)),
     'error_message' => st('The installation has encountered an error.'),
-    'finished' => '_install_profile_modules_finished'
+    'finished' => '_openscholar_install_profile_modules_finished'
   );
   return $batch;
+}
+
+
+/**
+ * 'Finished' callback after all modules have been installed.
+ */
+function _openscholar_install_profile_modules_finished($success, $results, $operations) {
+  _install_profile_modules_finished($success, $results, $operations);
+
+  if (variable_get('file_default_scheme', 'public') == 'private'){
+    //Disallow indexing for this install. (Uses already enabled robotstxt module)
+    variable_set('robotstxt', "User-agent: *\nDisallow: /");
+  }
 }
 
 /**
@@ -276,11 +315,6 @@ function openscholar_install_finished(&$install_state) {
     $output .= '<p>'. st('<a href="@url">Visit your new site</a> or <a href="@settings" class="overlay-exclude">change Openscholar settings</a>.', array('@url' => url(''), '@settings' => url('admin/config/openscholar', array('query' => array('destination' => ''))))) . '</p>';
   }
 
-  // Flush all caches to ensure that any full bootstraps during the installer
-  // do not leave stale cached data, and that any content types or other items
-  // registered by the install profile are registered correctly.
-  drupal_flush_all_caches();
-
   // Remember the profile which was used.
   variable_set('install_profile', drupal_get_profile());
 
@@ -296,6 +330,9 @@ function openscholar_install_finished(&$install_state) {
 
   // Remove the variable we used during the installation.
   variable_del('os_dummy_content');
+
+  // Grant permission to view unpublished group content.
+  os_grant_unpublished_viewing_permission();
 
   // Run cron to populate update status tables (if available) so that users
   // will be warned if they've installed an out of date Drupal version.

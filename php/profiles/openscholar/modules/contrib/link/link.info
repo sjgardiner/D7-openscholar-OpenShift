@@ -18,3 +18,11 @@ files[] = tests/link.validate.test
 ; Views Handlers
 files[] = views/link_views_handler_argument_target.inc
 files[] = views/link_views_handler_filter_protocol.inc
+
+
+; Information added by drush on 2014-08-08
+version = "7.x-1.0+10-dev"
+core = "7.x"
+project = "link"
+datestamp = "1407525415"
+

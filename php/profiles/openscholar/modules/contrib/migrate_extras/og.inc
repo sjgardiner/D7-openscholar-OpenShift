@@ -5,8 +5,8 @@
  * Import Organic group memberships.
  */
 
-//If OG has been updated to include this destinaion then use that
-if(class_exists('MigrateDestinationOGMembership')){
+//If OG has been updated to include this destination then use that
+if (class_exists('MigrateDestinationOGMembership')){
   return;
 }
 

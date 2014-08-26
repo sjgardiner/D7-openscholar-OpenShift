@@ -8,3 +8,11 @@ files[] = object_cache.test
 files[] = css.test
 files[] = context.test
 hidden = TRUE
+
+
+; Information added by drush on 2014-08-08
+version = "7.x-1.2+7-dev"
+core = "7.x"
+project = "ctools"
+datestamp = "1407525439"
+

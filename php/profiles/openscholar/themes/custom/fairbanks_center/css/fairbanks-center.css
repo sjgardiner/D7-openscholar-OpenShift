@@ -67,6 +67,18 @@ h4 {
 	margin-top: 32px;
 	margin-bottom: -4px;
 	}
+	
+.block-boxes-os_sv_list_box h1.node-title {
+line-height: 0;
+border-top: none;
+margin: 0px 0 16px 0;
+}	
+	
+.sub_title {
+    font-size: 0.8em;
+    margin-top: -5px;
+}	
+	
 
 p {
 	margin-bottom: 20px;
@@ -75,10 +87,16 @@ p {
 .node-type-event .node-event .field-name-body p {
     clear: both;
 }
+
+.page-calendar .field h2.field-label {
+	    border-top: medium none !important;
+    	display: block;
+    	padding-top: 0 !important;
+}
 	
 	
-.node-type-event .node-event .field-name-body p img.image-style-os-files-large,
-.node-type-event .node-event .field-name-body p img.image-style-os-files-xlarge {padding:0 15px 15px 0;}
+.node-type-event .node-event .field-name-body p img.file-os-files-large,
+.node-type-event .node-event .field-name-body p img.file-os-files-xlarge {padding:0 15px 15px 0;}
 
 
 

@@ -73,7 +73,7 @@ function boxes_delete_form_submit($form, &$form_state) {
  */
 function theme_boxes_box($variables) {
   $block = $variables['block'];
-
+  
   $empty = '';
   //show something if the block is empty but the user has rights to edit it
   if (empty($block['title']) && empty($block['content']) && boxes_access_edit()) {

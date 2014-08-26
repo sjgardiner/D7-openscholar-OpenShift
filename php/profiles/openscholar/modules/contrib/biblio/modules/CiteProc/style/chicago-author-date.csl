@@ -42,7 +42,7 @@
    <macro name="container-contributors">
       <choose>
          <if type="chapter paper-conference" match="any">
-            <group prefix="," delimiter=", ">
+            <group prefix=", " delimiter=", ">
                <choose>
                   <if variable="author">
                      <names variable="editor">
@@ -208,6 +208,12 @@
             <text variable="volume" prefix=", "/>
             <text variable="container-title" prefix=" "/>
             <text variable="page" prefix=" "/>
+         </else-if>
+         <else-if type="patent">
+            <group prefix=". ">
+              <text variable="section" suffix=" Patent"/>
+              <text variable="volume" prefix=" "/>
+            </group>
          </else-if>
          <else-if type="bill book graphic legal_case motion_picture report song" match="any">
             <group prefix=". " delimiter=". ">
@@ -405,7 +411,7 @@
          </group>
       </layout>
    </citation>
-   <bibliography hanging-indent="true" et-al-min="11" et-al-use-first="7" subsequent-author-substitute="———" entry-spacing="0">
+   <bibliography hanging-indent="false" et-al-min="11" et-al-use-first="7" subsequent-author-substitute="———" entry-spacing="0">
       <sort>
          <key macro="contributors"/>
          <key macro="anon"/>
@@ -413,22 +419,38 @@
          <key variable="issued"/>
       </sort>
       <layout suffix=".">
-         <text macro="contributors" suffix=". "/>
-         <text macro="anon"/>
-         <text macro="recipient"/>
-         <text macro="date" suffix=". "/>
-         <text macro="title"/>
-         <text macro="description"/>
-         <text macro="secondary-contributors" prefix=". "/>
-         <text macro="container-title" prefix=". "/>
-         <text macro="container-contributors"/>
-         <text macro="locators-chapter"/>
-         <text macro="edition" prefix=". "/>
-         <text macro="locators"/>
-         <text macro="collection-title" prefix=". "/>
-         <text macro="issue"/>
-         <text macro="locators-article"/>
-         <text macro="access" prefix=". "/>
+        <choose>
+          <if type="patent">
+            <text macro="contributors" suffix=". "/>
+            <text macro="anon"/>
+            <text macro="title"/>
+            <text macro="description"/>
+            <text macro="secondary-contributors" prefix=". "/>
+            <text macro="container-title" prefix=". "/>
+            <text macro="container-contributors"/>
+            <text macro="locators"/>
+            <text macro="issue"/>
+            <text macro="date" prefix=", filed " suffix="."/>
+          </if>
+          <else>
+            <text macro="contributors" suffix=". "/>
+            <text macro="anon"/>
+            <text macro="recipient"/>
+            <text macro="date" suffix=". "/>
+            <text macro="title"/>
+            <text macro="description"/>
+            <text macro="secondary-contributors" prefix=". "/>
+            <text macro="container-title" prefix=". "/>
+            <text macro="container-contributors"/>
+            <text macro="locators-chapter"/>
+            <text macro="edition" prefix=". "/>
+            <text macro="locators"/>
+            <text macro="collection-title" prefix=". "/>
+            <text macro="issue"/>
+            <text macro="locators-article"/>
+            <text macro="access" prefix=". "/>
+          </else>
+        </choose>
       </layout>
    </bibliography>
 </style>

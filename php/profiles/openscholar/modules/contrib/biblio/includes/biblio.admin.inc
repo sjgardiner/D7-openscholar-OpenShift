@@ -2180,7 +2180,7 @@ function biblio_admin_orphans_form($form, &$form_state) {
       '#options' => $options,
       '#empty' => t('No orphaned authors.'),
     );
-    $form['pager']   = array('#markup' => theme('pager'));
+    $form['pager']   = array('#markup' => theme(variable_get('biblio_pager', 'full')));
 //  }
   return $form;
 }

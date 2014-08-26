@@ -9,15 +9,15 @@
 .block-boxes-os_boxes_site_info h2, 
 .block-boxes-os_boxes_site_info p {color:#777;}
 
-.region-header-third #block-os-secondary-menu li a {
+.region-header-third .nice-menu li a {
   color: #293352;
 border-right:1px solid #293352;
 text-decoration: underline !important;
 
  }
  
-.region-header-third #block-os-secondary-menu li {
-
+.region-header-third .nice-menu li.last {
+border-right:none;
   
  }  
  

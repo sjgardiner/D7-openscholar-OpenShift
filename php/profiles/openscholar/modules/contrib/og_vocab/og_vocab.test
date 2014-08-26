@@ -160,7 +160,7 @@ class OgVocabComplexWidgetTestCase extends DrupalWebTestCase {
       og_vocab_relation_save($vocabulary->vid, 'node', $value['nid']);
 
       // Create OG-vocab entity.
-      $og_vocab = og_vocab_create_og_vocab($vocabulary->vid, 'node', 'post', $value['settings']);
+      $og_vocab = og_vocab_create_og_vocab($vocabulary->vid, 'node', 'post', OG_VOCAB_FIELD, $value['settings']);
       $og_vocab->save();
       $og_vocabs[$vocabulary->vid] = $og_vocab;
 
@@ -478,3 +478,115 @@ class OgVocabApiTestCase extends DrupalWebTestCase {
   }
 }
 
+class OgVocabUnbindFromContentType extends DrupalWebTestCase {
+  private $user;
+  private $group;
+  private $first_group_content;
+  private $second_group_content;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'OG vocabulary removing vocabulary from content type.',
+      'description' => 'Check the removing of the vocabulary delete the OG vocabulary term reference from nodes.',
+      'group' => 'Organic groups vocabulary',
+      'dependencies' => array('advancedqueue'),
+    );
+  }
+
+  public function setup() {
+    parent::setUp('og_vocab', 'advancedqueue');
+
+    // Create group.
+    $group_type = $this->drupalCreateContentType();
+    og_create_field(OG_GROUP_FIELD, 'node', $group_type->type);
+
+    $settings = array();
+    $settings['type'] = $group_type->type;
+    $settings[OG_GROUP_FIELD][LANGUAGE_NONE][0]['value'] = 1;
+    $this->group = $this->drupalCreateNode($settings);
+
+    // Create two groups type.
+    $type = $this->drupalCreateContentType();
+    og_create_field(OG_AUDIENCE_FIELD, 'node', $type->type);
+    $this->first_group_content = $this->drupalCreateNode(array(
+      'type' => $type->type,
+    ));
+
+    $wrapper = entity_metadata_wrapper('node', $this->first_group_content);
+    $wrapper->{OG_AUDIENCE_FIELD}->set(array($this->group));
+    $wrapper->save();
+
+    $type = $this->drupalCreateContentType();
+    og_create_field(OG_AUDIENCE_FIELD, 'node', $type->type);
+    $this->second_group_content = $this->drupalCreateNode(array(
+      'type' => $type->type,
+    ));
+
+    $wrapper = entity_metadata_wrapper('node', $this->second_group_content);
+    $wrapper->{OG_AUDIENCE_FIELD}->set(array($this->group));
+    $wrapper->save();
+
+    variable_set('og_use_queue', TRUE);
+  }
+
+  /**
+   * When a vocabulary is related to a bundle and it's term are reference to the
+   * group content, un-bind it from the bundle the terms should not be
+   * reference any more to the node.
+   */
+  public function testUnbindContentType() {
+    $groups_contents = array($this->first_group_content, $this->second_group_content);
+
+    // Create a dummy vocabulary.
+    $vocabulary = new stdClass();
+    $vocabulary->name = "Vocabulary " . $this->group->nid;
+    $vocabulary->machine_name = "vocabulary_" . $this->group->nid;
+    taxonomy_vocabulary_save($vocabulary);
+
+    // Relate vocabulary to group.
+    og_vocab_relation_save($vocabulary->vid, 'node', $this->group->nid);
+
+    // Create the vocabulary.
+    foreach ($groups_contents as $groups_content) {
+      // Create OG vocabulary entity.
+      $og_vocab = og_vocab_create_og_vocab($vocabulary->vid, 'node', $groups_content->type);
+      $og_vocab->save();
+
+      // Create terms in the vocabulary.
+      $terms = array();
+      for ($i = 1; $i < 3; ++$i) {
+        $term = new stdClass();
+        $term->name = "Vocab $vocabulary->vid term $i";
+        $term->vid = $vocabulary->vid;
+        taxonomy_term_save($term);
+        $terms[] = $term->tid;
+      }
+
+      // Reference between the taxonomy terms and the nodes.
+      $wrapper = entity_metadata_wrapper('node', $groups_content);
+      $wrapper->{OG_VOCAB_FIELD}->set($terms);
+      $wrapper->save();
+    }
+
+    // Verify the terms are attached to the nodes.
+    foreach ($groups_contents as $groups_content) {
+      $node = node_load($groups_content->nid);
+      $this->assertTrue(!empty($node->{OG_VOCAB_FIELD}), format_string('Terms are attached to the node @title.', array('@title' => $groups_content->title)));
+    }
+
+    // Delete the last vocabulary.
+    $og_vocab->delete();
+
+    // Execute manually the queue worker.
+    $queue = DrupalQueue::get('og_vocab');
+    $item = $queue->claimItem();
+    og_vocab_remove_referenced_items_queue_worker($item->data);
+
+    // Verify the terms are attached to the nodes.
+    $node = node_load($this->first_group_content->nid);
+    $this->assertTrue(!empty($node->{OG_VOCAB_FIELD}), format_string('Terms are attached to the node @title.', array('@title' => $this->first_group_content->title)));
+
+    $node = node_load($this->second_group_content->nid);
+    $this->assertTrue(empty($node->{OG_VOCAB_FIELD}), format_string('There are no terms attached to the node @title.', array('@title' => $this->second_group_content->title)));
+  }
+}

@@ -13,7 +13,7 @@ function media_gallery_field_formatter_info() {
   return array(
     'media_gallery' => array(
       'label' => t('Gallery media'),
-      'field types' => array('media'),
+      'field types' => array('file'),
       'settings' => array('file_view_mode' => 'media_gallery_thumbnail'),
     ),
   );
@@ -88,11 +88,8 @@ function media_gallery_field_formatter_view($entity_type, $entity, $field, $inst
 
   // Prepare the referenced file entities for viewing.
   $files = array();
-  foreach ($items as $delta => &$item) {
-    if (empty($item['file'])) {
-      $item['file'] = file_load($item['fid']);
-    }
-    $file = $item['file'];
+  foreach ($items as $delta => $item) {
+    $file = (object)$item;
 
     // Pass along formatter reference field values from the gallery to the file.
     foreach ($formatter_reference_fields as $field_name) {
@@ -110,14 +107,16 @@ function media_gallery_field_formatter_view($entity_type, $entity, $field, $inst
 
     $files[$file->fid] = $file;
   }
-  unset($item);
   field_attach_prepare_view('file', $files, $file_view_mode);
   entity_prepare_view('file', $files);
 
   // View each file. We don't use file_view_multiple(), because we need the
   // render array indexed by $delta rather than by file id.
   foreach ($items as $delta => $item) {
-    $element[$delta] = file_view($item['file'], $file_view_mode, $langcode);
+    // Use $file in $files instead of $item,
+    // because $item does not contain the object modifications.
+    $file = (object)$item;
+    $element[$delta] = file_view($files[$file->fid], $file_view_mode, $langcode);
     $element[$delta]['#media_gallery_entity_type'] = $entity_type;
     $element[$delta]['#media_gallery_entity'] = $entity;
     switch ($file_view_mode) {
@@ -147,7 +146,7 @@ function media_gallery_field_formatter_view($entity_type, $entity, $field, $inst
  *
  * During normal gallery node display, the Field Attach API ensures that all of
  * its fields get rendered. Sometimes, however, we need to display just a single
- * media entity (one item from the multi-valued "media_gallery_media" field)
+ * media entity (one item from the multi-valued "media_gallery_file" field)
  * without displaying any other media entities within that field, and without
  * displaying any other gallery node fields, but via a field formatter.
  *
@@ -157,11 +156,11 @@ function media_gallery_field_formatter_view($entity_type, $entity, $field, $inst
 function media_gallery_item_view($gallery_node, $file, $file_view_mode) {
   $display = array('type' => 'media_gallery', 'settings' => array('file_view_mode' => $file_view_mode));
   $id = $gallery_node->nid;
-  $field_name = 'media_gallery_media';
+  $field_name = 'media_gallery_file';
   $field = field_info_field($field_name);
   $instance = field_info_instance('node', $field_name, 'media_gallery');
   $langcode = key($gallery_node->{$field_name});
-  $items = array(0 => array('fid' => $file->fid, 'file' => $file));
+  $items = array(0 => $file);
   $items_multi = array($id => &$items); // Taken by reference, so can't inline.
   $formatter = field_info_formatter_types($display['type']);
   // "prepare_view" function is optional.
@@ -301,7 +300,7 @@ function _media_gallery_get_expose_block_values() {
 
 /**
  * Allowed values callback for field_license list field.
- * 
+ *
  * @todo: should be moved to media_cc module or something.
  */
 function _media_gallery_get_field_license_values() {

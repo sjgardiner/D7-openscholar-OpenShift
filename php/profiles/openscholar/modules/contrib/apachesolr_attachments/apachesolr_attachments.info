@@ -8,9 +8,9 @@ files[] = apachesolr_attachments.admin.inc
 files[] = apachesolr_attachments.install
 files[] = apachesolr_attachments.module
 
-; Information added by drupal.org packaging script on 2012-07-07
-version = "7.x-1.2+0-dev"
+; Information added by drupal.org packaging script on 2012-07-06
+version = "7.x-1.2"
 core = "7.x"
 project = "apachesolr_attachments"
-datestamp = "1341619409"
+datestamp = "1341591675"
 

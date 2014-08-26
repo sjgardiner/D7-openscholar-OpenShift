@@ -1,9 +1,0 @@
-<?php
-
-/**
-* hook_install
-*/
-function os_stats_install() {
-		
-}
-	

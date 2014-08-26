@@ -1,9 +1,9 @@
 Feature:
   Testing the bio teaser widget.
 
-  @api
+  @api @last
   Scenario: Verify the bio teaser widget works fine.
-     Given I am logged in as a user with the "administrator" role
+     Given I am logging in as "john"
        And the widget "Bio" is set in the "Classes" page with the following <settings>:
            | Full Bio                   | edit-teaser-full  | radio     |
            | Display title of your Bio  | check             | checkbox  |

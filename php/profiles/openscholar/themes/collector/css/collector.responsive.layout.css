@@ -1,5 +1,4 @@
-/* bigscreen three_col_grail */
-@media only screen and (min-width:1025px) {
+
 .container {width:982px}
 #content-column,.content-column,div.sidebar {float: left; clear: none}
 .two-sidebars .content-inner {margin-left: 185px; margin-right: 185px}
@@ -17,4 +16,3 @@
 .region-header-first {width:185px; margin-left:-100%;}
 .region-header-third {width:185px; margin-left:-185px;text-align: right;}
 .region-header-second {width:100%;}
-}

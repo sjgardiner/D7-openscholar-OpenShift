@@ -77,19 +77,12 @@ function media_field_widget_settings_form($field, $instance) {
   $settings = $widget['settings'];
   $form = array();
 
-  // Setup type selection form
-  $types = media_type_get_types();
-  $options = array();
-  foreach ($types as $key => $definition) {
-    $options[$key] = $definition->label;
-  }
-
   $streams = file_get_stream_wrappers(STREAM_WRAPPERS_VISIBLE);
 
   $form['allowed_types'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Allowed remote media types'),
-    '#options' => $options,
+    '#options' => file_entity_type_get_names(),
     '#default_value' => $settings['allowed_types'],
     '#description' => t('Media types which are allowed for this field when using remote streams.'),
     '#weight' => 1,
@@ -149,7 +142,9 @@ function media_field_widget_form(&$form, &$form_state, $field, $instance, $langc
   }
 
   $element += array(
-    '#type' => 'media', // Would like to make this a fieldset, but throws some weird warning about element_children... not sure what it is about yet.
+    // @todo This should be a fieldset, but throws a warning about
+    // element_children.
+    '#type' => 'media',
     '#collapsed' => TRUE,
     '#default_value' => $current_value,
     '#required' => $instance['required'],
@@ -185,6 +180,8 @@ function media_field_widget_form(&$form, &$form_state, $field, $instance, $langc
 }
 
 /**
+ * Widget value.
+ *
  * @todo Is this function ever called? If not, remove it. The Field API now
  *   supports automatic serialization / unserialization, so this should no
  *   longer be needed. After verifying with a module that uses the 'data'

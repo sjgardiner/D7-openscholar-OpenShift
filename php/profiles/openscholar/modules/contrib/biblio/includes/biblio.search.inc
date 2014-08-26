@@ -216,7 +216,7 @@ function _biblio_search_page($results) {
       '#module' => 'my_module_name',
     );
   }
-  $output['suffix']['#markup'] = '</ol>' . theme('pager');
+  $output['suffix']['#markup'] = '</ol>' . theme(variable_get('biblio_pager', 'pager'));
 
   return $output;
 }

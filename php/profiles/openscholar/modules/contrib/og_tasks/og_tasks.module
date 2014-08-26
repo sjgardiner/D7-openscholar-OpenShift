@@ -52,6 +52,7 @@ function og_tasks_og_ui_get_group_admin($entity_type, $entity) {
   if (!og_user_access($entity_type, $entity, 'run og tasks')) {
     return;
   }
+
   $items['tasks'] = array(
     'title' => t('Tasks'),
     'description' => t('Common tasks to be run for this group.'),
@@ -67,7 +68,26 @@ function og_tasks_og_ui_get_group_admin($entity_type, $entity) {
 function og_tasks_get_tasks($entity_type, $entity) {
   $tasks = array();
   $info = module_invoke_all('og_tasks_info', $entity_type, $entity);
-  foreach ($info as $key => $task) {    if (is_a($task, 'og_task')) {
+  // Integrates with spaces og presets.
+  if (module_exists('spaces')) {
+    $preset_tasks = array();
+    if ($entity->spaces_preset_og) {
+      $preset = spaces_preset_load($entity->spaces_preset_og, 'og');
+      if (isset($preset->value['og_tasks'])) {
+        $preset_tasks = $preset->value['og_tasks'];
+      }
+    }
+  }
+  foreach ($info as $key => $task) {
+    if (module_exists('spaces')) {
+      if (!in_array($key, $preset_tasks)) {
+        continue;
+      }
+      else {
+        $task->required = TRUE;
+      }
+    }
+    if (is_a($task, 'og_task')) {
       $task->key = $key;
       $tasks[$key] = $task;
     }

@@ -1,41 +1,11 @@
 <?php
 /**
  * @file menu.inc
- * Provides menu management and crud functions
- *
- * os_get_menus
- *  Return a list of menus avalible on the site.
- *
- * os_menu_add
- *  Add a new menu to be used in the OS Menu system.
- *
- * os_menu_del
- *  Delete a menu from the OS Menu system.
- *
- * os_menu_link_load
- *  Load and return a menu link object.
- *
- * os_menu_link_save
- *  Save a new or existing menu link.
- *
- * os_menu_load_link_path
- *  Load return a menu link given a drupal path (ex node/123).
- *
- * os_menu_link_delete
- *  Delete and existing menu link.
- *
- * os_menu_tree
- *  Return a fully themed menu tree for a menu.
- *
- * os_menu_tree_data
- *   Return menu tree object pre-theming.
- *
- * os_menu_overview_form
- *   An override of the standard drupal overview form.
+ * Provides menu management and CRUD API functions.
  */
 
 /**
- * Return the list of menu's that are associated with openscholar
+ * Returns the list of menu names used on all OpenScholar sites.
  */
 function os_get_menus() {
 
@@ -50,7 +20,9 @@ function os_get_menus() {
 }
 
 /**
- * Add a new menu to be used in the OS Menu system.
+ * Creates (inserts) a new menu to be used in the OS Menu system.
+ *
+ * Note: this function does NOT implement hook_menu_insert().
  *
  * @param $title
  *  The human readable menu title.
@@ -62,7 +34,7 @@ function os_get_menus() {
  * @param $description (optional)
  *  The custom menu description.
  */
-function os_menu_add($title, $menu_name = false, $description = '') {
+function os_menu_create($title, $menu_name = false, $description = '') {
 
   if (!$menu_name) {
     // Strip non alphanumeric char's.
@@ -89,11 +61,14 @@ function os_menu_add($title, $menu_name = false, $description = '') {
 }
 
 /**
- * Delete a menu from the OS Menu system.
+ * Removes (deletes) a menu from the OpenScholar menu system.
  *
- * @param $menu_name
+ * Note: this function does NOT implement hook_menu_delete().
+ *
+ * @param string $menu_name
+ *   The machine name of the menu to remove.
  */
-function os_menu_del($menu_name) {
+function os_menu_remove($menu_name) {
 
   $current_menus = os_get_menus();
   //Is this a valid menu to remove?
@@ -121,11 +96,14 @@ function os_menu_del($menu_name) {
 }
 
 /**
- * Revert the OS menu(s) back to defaults.
+ * Reverts the OpenScholar menu(s) back to the default configuration.
  *
- * Menu to revert, or all menus by default.
+ * @param $menu_name
+ *   (Optional) The name of the menu to revert.
+ *   If empty, reverts all menus instead.
  *
- * @param $menu_name (optional)
+ * @return bool
+ *   TRUE if vsite_menu_revert() was invoked.
  */
 function os_menu_revert($menu_name = FALSE) {
 
@@ -148,7 +126,7 @@ function os_menu_revert($menu_name = FALSE) {
 }
 
 /**
- * Returns the menu_tree page data ready for theming by 'menu_tree_output'.
+ * Returns the menu_tree page data ready for theming by menu_tree_output().
  *
  * @param $menu_name
  *
@@ -179,9 +157,9 @@ function os_menu_tree_data($menu_name) {
 }
 
 /**
- * Return an individual openscholar menu object.
+ * Returns an individual rendered OpenScholar menu.
  *
- * Replaces 'menu_tree'
+ * Replaces menu_tree(),
  */
 function os_menu_tree($menu_name) {
 
@@ -195,17 +173,15 @@ function os_menu_tree($menu_name) {
 }
 
 /**
- * Saves an existing or a new menu link.
+ * Creates (inserts) a new menu link or updates an existing menu link.
  *
- * @param $item
- *
- * An associative array representing a menu link item, with elements:
+ * @param array $item
+ *  An associative array representing a menu link item, with elements:
  *  - link_path: (required) The path of the menu item, which should be
  *    normalized first by calling drupal_get_normal_path() on it.
  *  - link_title: (required) Title to appear in menu for the link.
  *  - menu_name: (optional) The machine name of the menu for the link.
- *
- * Defaults to 'navigation'.
+ *    Defaults to 'navigation'.
  *  - weight: (optional) Integer to determine position in menu. Default is 0.
  *  - expanded: (optional) Boolean that determines if the item is expanded.
  *  - options: (optional) An array of options, see l() for more.
@@ -235,15 +211,17 @@ function os_menu_link_save(&$item) {
 }
 
 /**
- * Delete one menu link.
+ * Removes (deletes) one menu link item.
+ *
+ * Note: this function does NOT implement hook_menu_link_delete().
  *
  * @param $menu
- *  A valid menu identifier
+ *   A valid menu identifier
  *
  * @param $mlid
- *  A valid menu link mlid
+ *   A valid menu link mlid
  */
-function os_menu_link_delete($menu, $mlid) {
+function os_menu_link_remove($menu, $mlid) {
 
   if (module_exists('vsite_menu')) {
     // Delete a menu item using the vsite controllers.
@@ -258,7 +236,7 @@ function os_menu_link_delete($menu, $mlid) {
 }
 
 /**
- * Load a menu link.
+ * Loads and returns an individual menu link object.
  *
  * @param $menu
  *  A valid menu identifier
@@ -283,10 +261,10 @@ function os_menu_link_load($mlid, $menu = '') {
 }
 
 /**
- * Load a menu link by path.
+ * Loads and returns a menu link by router path.
  *
  * @param $path
- *  A valid drupal path (not alias).
+ *  A valid drupal path (not alias), i.e. "node/123".
  *
  * @return
  *  A menu link, with $item['access'] filled and link translated for
@@ -320,10 +298,12 @@ function os_menu_load_link_path($path) {
 }
 
 /**
- * Form for editing an entire menu tree at once.
+ * Form builder; presents an entire menu tree at once for editting.
  *
  * Shows for one menu the menu links accessible to the current user and relevant
  * operations.
+ *
+ * An override of the standard drupal overview form.
  */
 function os_menu_overview_form($form, &$form_state, $menu) {
 

@@ -23,7 +23,7 @@ class space_type_purl extends space_type {
   /**
    * Return an array of paths from which the space should never be active.
    */
-  protected function excluded_paths() {
+  protected static function excluded_paths() {
     return array('features', 'features/*', 'admin', 'admin/*');
   }
 
@@ -64,7 +64,7 @@ class space_type_purl extends space_type {
   function deactivate() {
     $this->purge_request_destination();
     $purl_params = array(
-      'query' => drupal_http_build_query(drupal_get_query_parameters($_GET, array('q'))),
+      'query' => drupal_get_query_parameters(),
       'purl' => array(
         'remove' => array("spaces_{$this->type}")
       )

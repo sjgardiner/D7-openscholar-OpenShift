@@ -15,7 +15,6 @@ files[] = name.inc
 files[] = pathauto.inc
 files[] = profile2.inc
 files[] = rules.inc
-#files[] = og.inc
 files[] = privatemsg.inc
 files[] = votingapi.inc
 files[] = user_relationships.inc

@@ -184,7 +184,7 @@ function _fb_social_comments_preprocess_fb_social_plugin(&$variables) {
  * nodeapi_view callback for this plugin
  */
 function _fb_social_comments_nodeapi_view($preset, &$node, $view_mode = 'full') {
-  
+
   // dont disply plugin for unpublished nodes
   if (! ($node->status)) {
     return;
@@ -196,12 +196,12 @@ function _fb_social_comments_nodeapi_view($preset, &$node, $view_mode = 'full') 
       return;
     }
   }
-  
+
   // it's not supposed to be displayed in this view mode ?
   if (empty($preset->settings['plugin_location']['node_view_modes'][$view_mode])) {
     return;
   }
-  
+
   // Existing Drupal comments are present, so don't display Facebook comments
   if (($node->comment_count > 0) && ($node->comment != COMMENT_NODE_HIDDEN)) {
     return;
@@ -213,7 +213,7 @@ function _fb_social_comments_nodeapi_view($preset, &$node, $view_mode = 'full') 
       return;
     }
   }
-  
+
   $preset->fb_attrs['href'] = fb_social_url('node/' . $node->nid);
   $output = fb_social_preset_view($preset);
   $node->content['fb_social_' . $preset->name] = array(

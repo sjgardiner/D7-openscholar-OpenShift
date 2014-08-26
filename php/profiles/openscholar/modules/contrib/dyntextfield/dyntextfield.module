@@ -111,13 +111,17 @@ function dyntextfield_field_formatter_view($entity_type, $entity, $field, $insta
   switch ($display['type']) {
     case 'dyntextfield_default':
       foreach ($items as $delta => $item) {
-        $element[$delta] = array('#markup' => '<span class="dyntext_label field-label">' . check_plain($item['label']) . ':</span>&nbsp;<span class="dyntext_value">' . check_plain($item['value']) . '</span>');
+        // Don't include label/value who have whitespaces only in the field.
+        if(trim($item['label']) == false && trim($item['value']) == false) continue;
+        $element[$delta] = array('#markup' => '<span class="dyntext_label field-label">' . check_plain(trim($item['label'])) . ':</span>&nbsp;<span class="dyntext_value">' . check_plain(trim($item['value'])) . '</span>');
       }
       break;
 
     case 'dyntextfield_plain':
       foreach ($items as $item) {
-        $element[$delta] = array('#markup' => check_plain($item['label'] . ': ' . $item['value']));
+        // Don't include label/value who have whitespaces only in the field.
+        if(trim($item['label']) == true && trim($item['value']) == true) continue;
+        $element[$delta] = array('#markup' => check_plain(trim($item['label']) . ': ' . trim($item['value'])));
       }
       break;
   }
@@ -226,7 +230,6 @@ function dyntextfield_form_biblio_node_form_alter(&$form, $form_state) {
       }
     }
   }
-
   return $form;
 }
 
@@ -245,7 +248,7 @@ function dyntextfield_biblio_bibtex_export_post($pub, &$bibtex) {
   // @todo use field api to access (and set) these values.
   while ($field_info = db_fetch_array($result)) {
     $field_name = $field_info['field_name'];
-    
+
     // Adds these fields to the biblio export
     if (isset($node->$field_name) && is_array($node->$field_name)) {
       foreach ($node->$field_name as $field) {

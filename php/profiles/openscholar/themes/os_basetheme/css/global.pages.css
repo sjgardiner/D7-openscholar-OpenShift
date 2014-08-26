@@ -40,6 +40,10 @@ body {
 	 position: relative;
 }
 
+.page-node #content-column .content-inner /* Adds a little padding to page node when main-content div is not present */ {
+	 padding: 10px;
+}
+
 
 #main-content /* Wraps the main-content-header, the content region and feed-icons. */ {
 	 padding-top: 20px;
@@ -47,7 +51,8 @@ body {
 }
 
 
-#content /* Wraps the content region. */ {
+#content .contextual-links-region {
+	min-height: 10px;
 }
 
 
@@ -63,19 +68,24 @@ body {
 	 padding-top: 15px;
 }
 
-.region-footer .region-inner /* By default this sets up 20px gutters i.e. margin: 0 10px. */ {
+
+.region-page-top .region-inner /* Remove ugly space between branding region and toolbar */{
 	 padding-top: 0;
 }
 
 
 
-.region-inner .region-inner /* Strip nested region-inner margins by default. */ {
+.region-inner .region-inner /* Strip nested region-inner margins by default. */{
   margin: 0;
 }
 
 .region-sidebar-first .block, .region-sidebar-second .block {
     clear: both;
     margin-bottom: 1.5em;
+}
+
+.block {
+  position: relative;
 }
 
 
@@ -102,6 +112,95 @@ div.messages {
   margin-left: 15px;
   margin-right: 15px;
 }
+
+
+/*** COLUMNS WIDGET MARGIN ASSIGNMENTS AND WIDTH OVERRIDES ***/
+.block-boxes-os_boxes_columns .region {
+	margin: 0 1.75%;
+	}
+	
+.block-boxes-os_boxes_columns .panel-row.row-2 .region,	
+.block-boxes-os_boxes_columns .panel-row.row-1 .region,	
+.block-boxes-os_boxes_columns .panel-row .region {
+	margin: 0 3.25%;
+	}
+	
+.block-boxes-os_boxes_columns .five-5x20 .panel-row.row-2 .region {
+	margin: 0 3%;
+	}
+	
+.block-boxes-os_boxes_columns .five-5x20 .panel-row.row-1 .region {
+	margin: 0 4.5%;
+	}	
+	
+.block-boxes-os_boxes_columns .panel-row.row-1 .region:first-of-type,
+.block-boxes-os_boxes_columns .region:first-child {
+	margin-left: 0;
+	}
+
+.block-boxes-os_boxes_columns .panel-row.row-2 .region:last-of-type,
+.block-boxes-os_boxes_columns .region:last-child {
+	margin-right: 0;
+	}
+	
+	
+.five-5x20 > .row-2 > .region {
+	width: 28.3%;
+}
+
+.four-4x25 > .panel-row > .region {
+	width: 45%;
+}
+
+.two-50 > .region {
+width: 48.2%;
+}
+
+.two-66-33 > .region-two-66-33-first,
+.two-33-66 > .region-two-33-66-second {
+width: 63.1%;
+}
+
+.three-3x33 > .region {
+	width: 31%;
+}
+
+.three-50-25-25 > .region-three-50-25-25-first,
+.three-25-50-25 > .region-three-25-50-25-second,
+.three-25-25-50 > .region-three-25-25-50-third,
+.five-5x20 > .row-1 .region {
+width: 43%;
+}
+
+/** FIX'S FOR IE8 **/
+.lt-ie9 .five-5x20 > .row-2 > .region {
+	width: 26.3%;
+}
+
+.lt-ie9 .four-4x25 > .panel-row > .region {
+	width: 43%;
+}
+
+.lt-ie9 .two-50 > .region {
+width: 46.2%;
+}
+
+.lt-ie9 .two-66-33 > .region-two-66-33-first,
+.lt-ie9 .two-33-66 > .region-two-33-66-second {
+width: 61.1%;
+}
+
+.lt-ie9 .three-3x33 > .region {
+	width: 29%;
+}
+
+.lt-ie9 .three-50-25-25 > .region-three-50-25-25-first,
+.lt-ie9 .three-25-50-25 > .region-three-25-50-25-second,
+.lt-ie9 .three-25-25-50 > .region-three-25-25-50-third,
+.lt-ie9 .five-5x20 > .row-1 .region {
+width: 41%;
+}	
+
 
 /*** FRONTPAGE PANELS ***/
 
@@ -131,11 +230,79 @@ div.messages {
 }
 
 
+/* FOR DISPLAYING EMBEDDABLE BLOCK OF CONTENT THROUGH <embed> */
+body#widget {display: inline-block;}
+
+  /* Footer panels */
+
+ .at-panel.footer .region-footer {
+    	width: 100%;
+  	}
+  	
+ .at-panel.footer .region {
+    	display: inline-block;
+  	} 	  	  	
+ 
+ .at-panel.footer .region.region-footer-bottom {
+    	display: block !important;
+  	} 
+ 
+
+  .footer.footer-right .region-footer,
+  .footer-left.footer .region-footer {
+    	width: 74%;
+  	}
+  
+  .footer-left.footer.footer-right .region-footer {width: 49%;}
+
+  .footer-left.footer.footer-right .region-footer-first,
+  .footer-left.footer.footer-right .region-footer-third,
+  .footer.footer-right .region-footer-third,
+  .footer-left.footer .region-footer-first,
+  .footer-left.footer-right .region-footer-first,
+  .footer-left.footer-right .region-footer-third,
+  .footer-left .region-footer-first,
+  .footer-right .region-footer-third {
+	width: 25%;
+	}
+
+  .footer-left.footer-right .at-panel .region.region-footer-third,
+  .footer-right .at-panel .region.region-footer-third {float: right;}
+  
+  
+ /* MAKE IT POSSIBLE TO HAVE WIDGETS IN THE LEFT AND RIGHT HEADER REGIONS ONLY */ 
+.header-left.header-main.header-right .region-header-first,
+.header-left.header-main .region-header-first {margin-left:-100%;}
+
+.header-left.header-right .region-header-first {
+    margin-left: 0;
+}
+
+.header-left.header-right .region-header-third {
+	float:right !important;
+}
+
+.header-left .region-header-first {
+    margin-left: 0;
+}
+  
+.header-right .region-header-third {
+	float:right !important;
+}
+  
 /*
  * Branding
  */
+
+#powerby-login {
+	float:right;
+	clear:both;
+	margin-right:10px;
+	min-width:165px;
+}
+
 .os-powered-link,
-#block-os-powered-by {
+#os-powered-by {
     float: right;
     bottom:-48px;
     position:relative;
@@ -146,24 +313,20 @@ div.messages {
     bottom:-29px;
 }
 
-logged-in.page-cp #block-os-powered-by {
-  
-    bottom:0;
-   
-}
 
-#block-os-powered-by span a,
-.os-powered-link a.os-poweredby {
-    background: url("../images/poweredby.png") no-repeat scroll 0 0 transparent;
-    border: medium none !important;
-    display: block;
-    height: 26px;
-    padding: 0 !important;
-    text-decoration: none !important;
-    text-indent: -999em;
-    width: 85px;
-    margin-top:-25px;
-  }
+#powered-by a {
+  background: url("../images/scholarbase-sprite.png") no-repeat scroll -14px -521px transparent;
+  border: medium none !important;
+  display: block;
+  height: 26px;
+  padding: 0 !important;
+  text-decoration: none !important;
+  text-indent: -999em;
+  width: 85px;
+  margin-right:8px;
+  float:right;
+  display:inline;
+}
 
 
 
@@ -353,16 +516,15 @@ ul.class_material_field_class {
     }
 
 ul.class_material_field_class a.class_material_field_class_anchor {
-    background: url("../images/scholarbase-sprite.png") 0 -492px no-repeat;
-    padding-left: 15px;
-
+  background: url("../images/scholarbase-sprite.png") 0 -489px no-repeat;
+  padding-left: 15px;
 }
 
 /* BLOG COMMENT ICON */
-.links li a.os-add-comment {
-    background: url("../images/scholarbase-sprite.png") 0 -539px no-repeat;
+.links li a.os-add-comment:before {
+    background: url("../images/scholarbase-sprite.png") 0 -538px no-repeat;
     padding-left: 15px;
-
+	content:'';
 }
 
 
@@ -389,6 +551,65 @@ ul.class_material_field_class a.class_material_field_class_anchor {
     padding-left: 17px;
    }
 
+.media-gallery-collection a.media-gallery-thumb, .media-gallery-media a.media-gallery-thumb, .media-gallery-thumb img {
+    display: block;
+    overflow: hidden;
+    position: relative;
+}
+
+.video-indicator {
+	background-image: url("../images/scholarbase-sprite.png");
+  background-position: -44px -85px;
+ 	bottom: 10px;
+  display: block;
+  left: 10px;
+  height: 48px;
+  width: 48px;
+	position: relative;
+  margin-top: -48px;
+}
+
+.media-gallery-item:hover .video-indicator {
+  background-position: -44px -133px;
+}
+
+.draggable-wrapper .draggable-handle {
+  background-image: url("../images/scholarbase-sprite.png");
+  background-position: 0 -45px;
+}
+
+/* VIDEO ATTACHED TO A NODE  */
+
+.node-content .oembed {
+    background: none repeat scroll 0 0 #EEEEEE;
+    border-color: #ccc;
+    border-radius: 0 0 0 0;
+    border-style: solid;
+    border-width: 1px;
+    color: #555555;
+    text-align:center;
+    width: 250px;
+}
+
+.oembed .oembed-title {
+    color:#005C9C;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    text-align: left;
+    text-shadow: none;
+}
+
+.os-files-video-single {
+    max-width: none !important;
+}
+	
+#cboxContent .oembed {
+  float: none !important;
+  text-align: center !important;
+  border: 0;
+  background-color: transparent;
+}
 
 .feed_item {margin-bottom:8px;}
 .feed_item span {font-style:italic;margin-right:4px;}
@@ -410,8 +631,11 @@ ul.class_material_field_class a.class_material_field_class_anchor {
 .views-row {margin-bottom:1.5em;}
 
 
+.block-boxes-os_search_solr_more_like_this .item-list ul li,
 .block-boxes-os_sv_list_box .item-list ul li,
-.block-boxes block-boxes-os_boxes_manual_list  ul li {margin-bottom:1em;}
+.block-boxes .block-boxes-os_boxes_manual_list  ul li {
+	margin-bottom:.75em;
+	}
 
 /*
  * First sidebar (on left in LTR languages, on right in RTL)
@@ -522,24 +746,30 @@ div.ctools-modal-content {
 div.ctools-modal-content .modal-header {
   background: #EFEFEF;
   border-bottom:2px solid #C4C2C2;
- height:24px;
- padding:10px;
-  }
+  height:24px;
+  padding:10px;
+}
 
 div.ctools-modal-content .modal-header a {
-float:right;
-color: transparent;
-background: url('../images/icon-close-window.png') no-repeat;
-width:30px;
-height:30px;
-  }
+  float:right;
+  color: transparent;
+  background: url('../images/scholarbase-sprite.png') no-repeat 0 -772px;
+  width:30px;
+  height:30px;
+}
 
 div.ctools-modal-content .modal-content {
   padding: 12px 12px 0 12px;
   overflow: auto;
   width: 575px;
   height: 400px;
-  }
+  overflow-x: hidden;
+}
+
+div.ctools-modal-content .modal-content .messages {
+  width: 95%;
+  padding: 0;
+}
 
 #modalContent .spaces-customize-form .buttons input.form-submit {
   margin-right: 140px;
@@ -575,11 +805,20 @@ div.ctools-modal-content .modal-content .modal-throbber-wrapper img {
   display: block;
 }
 
+.region-content-top .contextual-links-region:first-child .contextual-links-wrapper{
+  right: 35px;
+}
+
+.node-type-page .region-content-top .contextual-links-region:first-child .contextual-links-wrapper {
+  right: 150px;
+}
 
 /** OVERLAY MODAL OVERRIDES **/
-	
+
+/* The overlay should never be open with os_basetheme. This is here in case we miss
+ * a path that needs the cp_theme activated */
 #overlay-close, #overlay-close:hover {
-    background: url('../images/icon-close-window.png') no-repeat;
+  background: url('../images/scholarbase-sprite.png') no-repeat 0 -770px;
 	width:30px;
 	height:30px;
 	position: relative;
@@ -610,6 +849,84 @@ div.ctools-modal-content .modal-content .modal-throbber-wrapper img {
  	right: 50px;
  }	
  
+ /** MODAL OVERRIDES for OS ORG ROADMAP PAGE **/
+
+.page-roadmap .ui-dialog {
+z-index: 500;
+-webkit-box-shadow: 5px 5px 5px 0px rgba(50, 50, 50, 0.4);
+-moz-box-shadow:    5px 5px 5px 0px rgba(50, 50, 50, 0.4);
+box-shadow:         5px 5px 5px 0px rgba(50, 50, 50, 0.4);
+}	
+	
+.page-roadmap .ui-dialog-titlebar {
+padding: 7px 10px 17px;
+position: relative;
+white-space: nowrap;
+z-index: 100;
+background: #EFEFEF !important;
+border-bottom: 2px solid #C4C2C2;
+height: 24px;
+}
+
+
+.page-roadmap .ui-dialog-title {
+float: left;
+margin: 0;
+padding: 0.3em 0;
+color: #666;
+font-size: 24px;
+font-weight: normal;
+font: "Lucida Grande","Lucida Sans Unicode",sans-serif;
+}
+
+
+.page-roadmap .roadmap-gs-link {
+display:block;
+margin-bottom:20px;
+}
+
+.page-roadmap  .ui-dialog .ui-dialog-content {
+padding: 2em;
+width: 93% !important;
+}
+
+@-moz-document url-prefix() { 
+.page-roadmap  .ui-dialog .ui-dialog-content {
+width: calc(100% - 4em) !important;
+	}
+}
+
+
+.page-roadmap .ui-icon-closethick {
+  background: url('../images/scholarbase-sprite.png') no-repeat 0 -770px;
+  width: 30px;
+  height: 30px;
+  position: relative;
+  margin: -5px -20px;
+}
+
+
+.page-roadmap .ui-button.ui-widget.ui-state-default {
+border: none;
+background: none;
+}
+
+ 
+.page-roadmap strong:first-child {
+font-size:18px;
+} 
+
+
+.page-roadmap .ui-dialog-content {
+max-height: 570px !important;
+}
+
+
+.page-roadmap .ui-dialog-content strong:first-child {
+display: block;
+margin: 15px 0;
+font-size: 16px;
+}
  
 /** MEDIA BROWSER MODAL OVERRIDES **/
 	
@@ -627,9 +944,15 @@ div.ctools-modal-content .modal-content .modal-throbber-wrapper img {
     border-radius: 0;
     border:0;
 } 
+
+
+
+.ui-dialog.ui-front.media-wrapper {
+	z-index:500;
+}
  
  #media-browser-tabset .media-browser-tab {
-    border: NONE;
+    border: none;
 }
 
 #media-browser-tabset .ui-tabs-nav {
@@ -640,12 +963,13 @@ div.ctools-modal-content .modal-content .modal-throbber-wrapper img {
 }
 	
 .ui-widget-header {
-    background:none;
+    background:none !important;
 }	
 	
 /** OS LOGIN CONTAINER STYLES **/	
 /** SLIDER **/
-.slider {
+.sv-list-biblio.sv-list-view-slide_teaser .biblio-abstract-display.os-slider,	
+.os-slider {
   display: none;
   color: black;
   position: static;
@@ -655,33 +979,44 @@ div.ctools-modal-content .modal-content .modal-throbber-wrapper img {
   padding: 1em;
 }
 
-.field-name-og-vocabulary a.toggle {
-	background:url('../images/scholarbase-sprite.png') -12px -197px no-repeat;
-	padding: 1px 0 3px 14px
+.sv-list-view-slide_teaser .os-slider,
+.node-type-faq .os-slider,
+.page-faq .os-slider {
+  border:none;
+  padding: 0;
+  background: none !important;
+  
 }
 
-.field-name-og-vocabulary .slider a {text-decoration:underline !important;}
+
+.sv-list-biblio.sv-list-view-slide_teaser .biblio-abstract-display.os-slider {
+	background: #F1F1F1 !important;
+}
+
+div.toggle {
+	cursor:pointer;
+}
+
+.sv-list-person.sv-list-view-slide_teaser .toggle h1.node-title {color: #215990;}
+
+.block-boxes-os_sv_list_box .sv-list-class.sv-list-view-slide_teaser .os-slider li {
+list-style: none !important;
+}
 
 
-.not-logged-in.page-user #columns {
+.field-name-og-vocabulary a.toggle:before {
+background: url('../images/scholarbase-sprite.png') -12px -194px no-repeat;
+padding: 1px 0 3px 14px;
+content:'';
+}
+
+.field-name-og-vocabulary .os-slider a {text-decoration:underline !important;}
+
+
+
+.not-logged-in.page-user #footer {
 	width:540px;
-	border-radius:5px;
-	-moz-border-radius:5px;
-	border-radius:5px;
-	 margin: 100px auto 0;
-	border:1px solid #8996A0;
-	background:#F7F7F7;
-}
-
-.not-logged-in.page-user #columns h1 {
-	width:530px;
-	background:#555;
-	color:#FFF;
-	height:35px;
-	margin:-20px 0 0 -15px;
-	padding:5px 0 0 10px;
-	border-top-left-radius:5px;
-	border-top-right-radius:5px;
+	margin: 0 auto;
 }
 
 
@@ -722,12 +1057,91 @@ border-top:1px solid #ccc;
     padding: 0.15em 1em;
      text-decoration: none !important;
   }
+  
+   .ui-tabs-nav.ui-helper-reset {
+	line-height:1.3;
+}
 
 .page-cp #tabs,
 .page-cp #tabs .links {
 	border:none;
 	border-bottom:none;
 }	
+
+/* ACCORDION OVERRIDES */
+.ui-accordion .ui-accordion-content {
+    padding: 0.7em;
+}
+
+.accordion .ui-corner-all, 
+.accordion .ui-corner-bottom, 
+.accordion .ui-corner-right, 
+.accordion .ui-corner-br,
+.accordion .ui-corner-top, 
+.accordion .ui-corner-tr {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+}
+.accordion .ui-corner-all, 
+.accordion .ui-corner-bottom, 
+.accordion .ui-corner-left, 
+.accordion .ui-corner-bl,
+.accordion .ui-corner-left, 
+.accordion .ui-corner-tl,
+.accordion .ui-corner-top {
+    border-bottom-left-radius: 0;
+    border-top-left-radius: 0;
+}
+
+
+.ui-accordion .ui-accordion-header .ui-accordion-header-icon {
+    left: 0.2em;
+}
+
+.ui-accordion .ui-accordion-icons {
+    padding-left: 1.55em;
+}
+
+.accordion .ui-widget-content {
+    background: #fafafa;
+    border: none;
+    color: #333;
+}
+
+.accordion .ui-state-default, 
+.accordion .ui-widget-content .ui-state-default, 
+.accordion .ui-widget-header .ui-state-default,
+.accordion .ui-state-active, 
+.accordion .ui-widget-content .ui-state-active, 
+.accordion .ui-widget-header .ui-state-active {
+    background: #EEE;
+    border: none;
+    color: #333;
+}
+
+
+.accordion .ui-widget-content {
+     color: inherit;
+}
+
+.accordion .ui-widget-content a {
+     color: #215990;
+}
+
+
+.ui-widget-content {
+     color: inherit;
+}
+
+.ui-helper-reset {
+     font-size: 1em;
+      line-height: inherit;
+}
+
+.ui-widget {
+     font-family: inherit;
+     font-size: 1em;
+}
 	
 /* JCAROUSEL OVERRIDE STYLES */
 
@@ -750,47 +1164,46 @@ border:1px solid #CCC;
 }
 
 
-.jcarousel-container a.jcarousel-next,
-.jcarousel-container a.jcarousel-next:hover {
- 			background-image: url('../images/jcarou-next-horizontal.png'); 
- 			background-color:none;
- 			right: -14px; 
- 			top: 46px;
- 			width:22px;
- 			height:22px;
- 			background-position: -3px -3px;
- 			}
+.jcarousel-container a.jcarousel-next {
+  background-image: url('../images/scholarbase-sprite.png');
+  background-color: transparent;
+  background-position: -30px 0;
+  right: -15px;
+  top: 46px;
+  width: 22px;
+  height: 22px;
+}
 
-.jcarousel-container a.jcarousel-prev,
+.jcarousel-container a.jcarousel-next:hover {
+  background-position: -30px 0;
+}
+
+.jcarousel-container a.jcarousel-prev {
+  background-image: url('../images/scholarbase-sprite.png');
+  background-position: -54px 0;
+  left: -15px;
+  top: 46px;
+  width: 22px;
+  height: 22px;
+}
+
 .jcarousel-container a.jcarousel-prev:hover {
-			background-image: url('../images/jcarou-prev-horizontal.png');
-			left: -15px; 
-			top: 46px;
-			width:22px;
-			height:22px;
-			background-position: -1px -3px;
-	       }
+  background-position: -54px 0;
+}
 	       
 	
 /* Recent Images Widget */
 
-.block-boxes-os_sv_list_box .item-list ul.recent-images-list li {list-style-image:none;}
-
-ul.recent-images-list li {
-  list-style: none;
-  padding: 0;
+img.recent-images-list {
+  padding: 4px;	
+  background-color: white;	
+  border: 1px solid #ADADAD;
   float: left;
   clear: none;
   margin: 0 5px 5px 0; 
 }
-	
-ul.recent-images-list li img {
-  padding: 4px;	
-  background-color: white;	
-  border: 1px solid #ADADAD;
-}
 
-ul.recent-images-list li a:hover img {
+img.recent-images-list:hover {
      background-color: yellow;
  
 }
@@ -810,22 +1223,76 @@ ul.recent-images-list li a:hover img {
  background: none;
 }
 
-.image-style-os-files-large, .image-style-os-files-xlarge {padding-right:10px;}
+img.media-element.file-default {
+	padding-right:15px;
+	}
 
-/**
- * "News" node-type styles.
- *
- * @todo These rules SHOULD be stored in the os_news module. 
- *
- * The original CSS file intermittently failed to load:
- * @see /profiles/openscholar/modules/os_features/os_news/os_news.css
- */
+.lt-ie9	img.media-element.file-default[style*="FLOAT:"][style*="RIGHT;"],
+img.media-element.file-default[style*="float:"][style*="right;"] {
+	padding-left:15px;
+	padding-right:0;
+	}	
+	
+article.node-media-gallery.node-teaser .node-content {
+   height: 275px;
+ }	
+
+.block-boxes-os_sv_list_box .os_sv_list_box.sv-list-link.sv-list-view-links h1 a {
+	font-weight:normal;
+	font-size:initial;
+	}
+
+.node-news .field-name-field-photo.view-mode-sidebar_teaser,
 .node-news.node-teaser .field-name-field-photo {
   float: left;
   margin: 0 1.5em .5em 0;
+ }
+
+/**
+LIST OF POSTS - PERSON TEASER IN SIDEBAR
+ */
+
+.block-boxes-os_sv_list_box h1.node-title {
+    margin-bottom: 0;
 }
 
-.page-node.node-type-news .field-name-body .field-name-field-photo {
-  float: right;
-  margin-left: 1em;
+
+.block-boxes-os_sv_list_box .sv-list-person.sv-list-view-full h1.node-title {
+    font-size: 1.5em;
 }
+
+
+.block-boxes-os_sv_list_box .node.node-news.node-promoted .field-type-image.view-mode-sidebar_teaser,
+.block-boxes-os_sv_list_box .node.node-person.article.with-person-photo .pic-bio,
+.block-boxes-os_sv_list_box .node.node-person.article.modified-in-os_profiles_process_node .pic-bio,
+.node.node-person .field-name-field-person-photo {
+ 	float:left;
+     margin-right: 1em;
+}
+
+
+.sidebar .block-boxes-os_sv_list_box .node.node-person.article.modified-in-os_profiles_process_node .pic-bio {
+ 	float:none;
+}
+
+.sidebar .block-boxes-os_sv_list_box .node.node-person.article.modified-in-os_profiles_process_node .pic-bio.people-sidebar-teaser {
+ 	float:left;
+}
+
+
+
+
+.block-boxes-os_sv_list_box .node.node-news.node-promoted.article .field-type-image ~ .node-content {
+	display:block;
+	margin-left: 85px;
+}
+
+
+.block-boxes-os_sv_list_box .node.node-news.node-promoted.article .field-type-image ~ .node-content {
+	 margin-left: 65px;
+	}
+
+.block-boxes-os_sv_list_box .node.node-news.node-promoted.article .node-header ~ .node-content {
+	 margin-left: 0;
+}
+

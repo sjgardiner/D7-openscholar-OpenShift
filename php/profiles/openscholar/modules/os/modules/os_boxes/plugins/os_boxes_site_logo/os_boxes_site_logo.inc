@@ -32,6 +32,7 @@ class os_boxes_site_logo extends os_boxes_default {
       $height = $this->options['height'];
       $width = $this->options['width'];
       $ratio = 0;
+      $description = '';
       if (module_exists('vsite') && $vsite = spaces_get_space()) {
         $file = field_get_items('node', $vsite->group, 'field_site_logo');
         $file = $file[0];
@@ -46,16 +47,25 @@ class os_boxes_site_logo extends os_boxes_default {
           $ratio = explode('x', $instance['widget']['settings']['resolution']);
           $ratio = $ratio[0]/$ratio[1];
         }
+        $description = $instance['description'];
       }
-
+      $allowed_file_types = 'gif png jpg jpeg';
       $form['file'] = array(
         '#type' => 'managed_file',
         '#title' => t('Site Logo'),
-        '#description' => t('Upload a photo and position the cropping tool over it if necessary.'),
+        '#description' => t('Upload a photo and position the cropping tool over it if necessary.<br/>Allowed file types: <strong>@file_types</strong><br />@description',
+          array(
+            '@file_types' => $allowed_file_types,
+            '@description' => $description,
+          )
+        ),
         '#process' => array(
           '_os_boxes_site_logo_process',
         ),
         '#default_value' => $fid,
+        '#upload_validators' => array(
+          'file_validate_extensions' => array($allowed_file_types),
+        ),
         '#dimensions' => array(
           'x' => !empty($x)?$x:0,
           'y' => !empty($y)?$y:0,
@@ -71,6 +81,10 @@ class os_boxes_site_logo extends os_boxes_default {
           )
         )
       );
+      
+      if (function_exists('imagefield_crop_upload_validate')) {
+        $form['file']['#upload_validators']['imagefield_crop_upload_validate'] = array(null, $instance);
+      }
 
       if (module_exists('vsite') && $space = spaces_get_space()) {
         $form['file']['#upload_location'] = 'public://'.$space->group->purl.'/files';
@@ -90,7 +104,7 @@ class os_boxes_site_logo extends os_boxes_default {
       return $form;
     }
 
-    function options_submit($form, $form_state) {
+    public function options_submit($form, $form_state) {
       // do the cropping bit now
       $file_data = $form_state['input']['file'];
 
@@ -103,18 +117,34 @@ class os_boxes_site_logo extends os_boxes_default {
     }
 
     function render() {
+      if (module_exists('vsite') && !vsite_get_vsite()) {
+        return;
+      }
       $block = parent::render();
 
+      // get the title of the site so we can use it in an alt attribute
+      $site_info = boxes_box_load('site_info');
+      $site_title = $site_info->options['site_title'];
+      
+      // if we happen to be in a vsite, load the logo from their field
       $fid = $this->options['fid'];
       if (module_exists('vsite') && $vsite = spaces_get_space()) {
         $fid = field_get_items('node', $vsite->group, 'field_site_logo');
         $fid = $fid[0]['fid'];
+        // if the site title is the default, use the vsite's title
+        if ($site_title == 'Your Name') {
+          $site_title = $vsite->group->title;
+        }
       }
+
+      $width = 180;
+      $height = 140;
 
       try {
         if (!empty($fid) && $file = file_load($fid)) {
           $path = $file->uri;
-          $block['content'] = l(render($output), '<front>', array('html' => true));
+          $width = $file->image_dimensions['width'];
+          $height = $file->image_dimensions['height'];
         }
         else {
           $path = drupal_get_path('module', 'os_boxes').'/plugins/os_boxes_site_logo/default_logo.jpg';
@@ -124,7 +154,7 @@ class os_boxes_site_logo extends os_boxes_default {
         $path = drupal_get_path('module', 'os_boxes').'/plugins/os_boxes_site_logo/default_logo.jpg';
       }
 
-      $output = theme('image', array('path' => $path));
+      $output = theme('image', array('path' => $path, 'alt' => $site_title, 'width' => $width, 'height' => $height));
       $block['content'] = l($output, '<front>', array('html' => true));
 
       return $block;
@@ -208,7 +238,8 @@ function os_boxes_site_logo_submit($form, $form_state) {
 
 function _os_boxes_site_logo_process($element, $form_state, $form) {
   $element = file_managed_file_process($element, $form_state, $form);
-  $element['remove_button']['#submit'][] = '_os_boxes_site_logo_remove_handler';
+  $element = os_files_imagefield_crop_process($element, $form_state, $form);
+  $element['remove_button']['#submit'][] = '_os_image_remove_handler';
 
   $fid = isset($element['#value']['fid']) ? $element['#value']['fid'] : 0;
 
@@ -326,25 +357,4 @@ function _os_boxes_site_logo_preview_process($element, $form_state, $form) {
   $element['#imagefield_crop']['#height'] = isset($scale)?$scale['height']:0;
 
   return $element;
-}
-
-function _os_boxes_site_logo_remove_handler($form, $form_state) {
-  $parents = $form_state['triggering_element']['#array_parents'];
-  $button_key = array_pop($parents);
-  $element = drupal_array_get_nested_value($form, $parents);
-
-  // @see: file_managed_file_submit
-  if (isset($element['#file'])) {
-    $orig = _imagefield_crop_file_to_crop($element['#file']->fid);
-    file_usage_delete($orig, 'imagefield_crop', null, null, 0);
-    file_usage_delete($element['#file'], 'os_boxes', null, null, 0);
-    file_delete($orig);
-    file_delete($element['#file']);
-    $element['#value']['fid'] = null;
-    unset($element['#file']);
-
-    $values_element = $element['#extended'] ? $element['fid'] : $element;
-    form_set_value($values_element, NULL, $form_state);
-    drupal_array_set_nested_value($form_state['input'], $values_element['#parents'], NULL);
-  }
 }

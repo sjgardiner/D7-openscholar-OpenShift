@@ -1,15 +1,6 @@
 <?php
 
 /**
- * Implements hook_boot().
- * This hook is declared simply to ensure that PURL is loaded early enough for
- * url_alter detect its presence. (http://drupal.org/node/729862).
- */
-function purl_boot() {
-  _purl_cache_q($_GET['q']);
-}
-
-/**
  * Implements hook_theme().
  */
 function purl_theme($existing, $type, $theme, $path) {
@@ -184,6 +175,9 @@ function purl_inited($set = NULL) {
  * Rewrites an incoming drupal path (&$path) removing PURL modifiers.
  */
 function purl_url_inbound_alter(&$path, $original_path, $path_language) {
+  if(!purl_inited()){
+    _purl_cache_q($original_path);
+  }
   $path = purl_inited() ? purl_get_normal_path($path) : $path;
 }
 
@@ -390,10 +384,15 @@ function purl_modifiers($requested_method = NULL, $reset = FALSE) {
   static $values;
   global $language;
 
+  if ($reset) {
+    $values = array();
+  }
+
   if (!isset($values) && !$reset) {
     $cache = cache_get('purl_modifiers_' . $language->language);
     if ($cache) {
       $values = $cache->data;
+      return (isset($values[$requested_method]) ? $values[$requested_method] : array());
     }
   }
 
@@ -401,6 +400,7 @@ function purl_modifiers($requested_method = NULL, $reset = FALSE) {
     $cache = cache_get("purl_modifiers:$requested_method");
     if ($cache) {
       $values[$requested_method] = $cache->data;
+      return (isset($values[$requested_method]) ? $values[$requested_method] : array());
     }
   }
 
@@ -920,23 +920,6 @@ function _purl_skip($e, $o) {
 }
 
 /**
- * Hold a version of the querystring to act on from before inbound processing
- *
- * @param $q
- *
- * @return string the original querystring
- */
-function _purl_cache_q($q = false){
-	static $querystring;
-
-	if($q){
-		$querystring = $q;
-	}
-
-	return $querystring;
-}
-
-/**
  * Generate a array of purl_path_elements objects from parsed values.
  *
  * @param $processor
@@ -1045,4 +1028,21 @@ function purl_purl_processor() {
     ),
   );
   return $info;
+}
+
+/**
+ * Hold a version of the querystring to act on from before inbound processing
+ *
+ * @param $q
+ *
+ * @return string the original querystring
+ */
+function _purl_cache_q($q = false){
+  static $querystring;
+
+  if($q){
+    $querystring = $q;
+  }
+
+  return $querystring;
 }

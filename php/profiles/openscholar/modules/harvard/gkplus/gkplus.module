@@ -7,6 +7,11 @@
  */
 
 /**
+ * Defines the site ID to enable these custom features on.
+ */
+define('GKPLUS_SID', 3633);
+
+/**
  * Implements hook_menu().
  */
 function gkplus_menu() {
@@ -38,12 +43,12 @@ function gkplus_menu() {
  * @ingroup nodeorder
  */
 function gkplus_nodeorder_form($js = NULL, $tid = NULL) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   // Gracefully degrades if $js is not set.
   if (!$js) {
-    return drupal_get_form('nodeorder_admin_display_form', $tid);
+    return drupal_get_form('gkplus_nodeorder_admin_display_form', $tid);
   }
 
   ctools_include('ajax');
@@ -58,7 +63,7 @@ function gkplus_nodeorder_form($js = NULL, $tid = NULL) {
     ),
   );
 
-  $output = ctools_modal_form_wrapper('nodeorder_admin_display_form', $form_state);
+  $output = ctools_modal_form_wrapper('gkplus_nodeorder_admin_display_form', $form_state);
 
   if ($form_state['submitted'] && form_get_errors() == FALSE) {
     $output = array();
@@ -66,6 +71,69 @@ function gkplus_nodeorder_form($js = NULL, $tid = NULL) {
   }
   print ajax_render($output);
   exit;
+}
+
+/**
+ * Generate main nodeorder administration form.
+ *
+ * @see nodeorder_admin_display_form
+ * This is a copy of the above form using custom OS ordering
+ */
+function gkplus_nodeorder_admin_display_form($form, &$form_state, $tid) {
+  global $pager_page_array, $pager_total, $pager_total_items;
+
+  $page            = isset($_GET['page']) ? $_GET['page'] : 0;
+  $page_increment  = variable_get('taxonomy_terms_per_page_admin', 100);  // Number of terms per page.
+  $page_entries    = 0;   // Elements shown on this page.
+  $before_entries  = 0;   // Elements at the root level before this page.
+  $after_entries   = 0;   // Elements at the root level after this page.
+  $root_entries    = 0;   // Elements at the root level on this page.
+
+  $term = taxonomy_term_load($tid);
+  // Build form tree
+  $form = array(
+    '#tree' => TRUE,
+    '#parent_fields' => FALSE,
+    '#term' => $term,
+  );
+  drupal_set_title(t('Order nodes for <em>%term_name</em>', array('%term_name' => $term->name)), PASS_THROUGH);
+
+  $bundles = os_taxonomy_og_vocabulary_bundles($term->vid, GKPLUS_SID);
+  $bundles = array_map(function($o) {return $o->bundle;}, $bundles);
+  $nodes_attached = os_taxonomy_list_attached_entities($tid, $bundles);
+  $nodes = array();
+  foreach ($nodes_attached as $info) {
+  	if($info['entity_type'] == 'node') {
+  	  $nodes[] = node_load($info['entity_id']);
+  	}
+  }
+  $node_count = count($nodes);
+
+  // Weights range from -delta to +delta, so delta should be at least half
+  // of the amount of blocks present. This makes sure all blocks in the same
+  // region get an unique weight.
+  $weight_delta = round($node_count / 2);
+
+  foreach ($nodes as $node) {
+    $form[$node->nid]['#node'] = $node;
+    $form[$node->nid]['title'] = array(
+      '#markup' => check_plain($node->title));
+    $form[$node->nid]['weight'] = array(
+      '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $node->title)),
+      '#title_display' => 'invisible',
+      '#delta' => 10,
+      '#default_value' => $node->weight,
+    );
+  }
+
+  $form['#theme'] = 'nodeorder_admin_display_form';
+  $form['#submit'] = array('nodeorder_admin_display_form_submit');
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save order'),
+  );
+  return $form;
 }
 
 /**
@@ -93,8 +161,27 @@ function gkplus_upload_filefield_page() {
   $loc = 'public://gking/files/';
   $exists_and_writable = file_prepare_directory($loc, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
   if ($exists_and_writable) {
-    $file = file_save_data($_POST['contents'], $loc . $filename, FILE_EXISTS_REPLACE);
-    if (!$file) {
+    // Write the file data.
+    if ($uri = file_unmanaged_save_data($_POST['contents'], $loc . $filename, FILE_EXISTS_REPLACE)) {
+      // Create a file object.
+      $file = new stdClass();
+      $file->fid = NULL;
+      $file->uri = $uri;
+      $file->filename = drupal_basename($uri);
+      $file->filemime = file_get_mimetype($file->uri);
+      $file->uid      = $user->uid;
+      $file->status   = FILE_STATUS_PERMANENT;
+      // When replacing an existing file re-use its database record.
+      $existing_files = file_load_multiple(array(), array('uri' => $uri));
+      if (count($existing_files)) {
+        $existing = reset($existing_files);
+        $file->fid = $existing->fid;
+        $file->filename = $existing->filename;
+        $file->origname = $existing->origname;
+      }
+      $file = file_save($file);
+    }
+    else {
       print "Error: could not upload file. Debug info:<br/><br/>";
       print print_r(var_dump($_POST));
       exit();
@@ -133,8 +220,7 @@ function _gkplus_upload_filefield_access($compare = 'af485c726a866b57f1a53519226
   $filename = $_POST['filename'];
   $uri = db_select('file_managed', 'f')
     ->fields('f', array('uri'))
-    ->condition('origname', $filename, '=')
-    ->condition('uri', '%' . db_like('gking/files') . '%', 'LIKE')
+    ->condition('uri', '%' . db_like("gking/files/$filename"), 'LIKE')
     ->range(0, 1)
     ->orderBy('fid')
     ->execute()
@@ -173,7 +259,7 @@ function gkplus_term_access($term) {
   }
 
   // Checks for possible redirects on gking site only.
-  if (_gkplus_check_purl() && arg(3) !== 'edit') {
+  if (_gkplus_check_sid() && arg(3) !== 'edit') {
     _gkplus_term_check_redirect($term);
   }
 
@@ -243,27 +329,10 @@ function gkplus_strongarm() {
  * Implements hook_init().
  */
 function gkplus_init() {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   drupal_add_css(drupal_get_path('module', 'gkplus') . '/gkplus.css', array('every_page' => TRUE));
-}
-
-/**
- * Impements hook_cron().
- */
-function gkplus_cron() {
-  $options = array(
-    'tree' => TRUE,
-    'max_depth' => 3,
-    'description' => TRUE,
-    'nodeorder' => TRUE,
-  );
-
-  variable_set('os_taxonomy_term_page_options', $options);
-
-  // Adjust system weight for module gkplus to be after nodeorder.
-  _gkplus_adjust_module_weight(array('gkplus'), '>', array('nodeorder'));
 }
 
 /**
@@ -272,7 +341,7 @@ function gkplus_cron() {
  * Removes pager from the People page on Gary's website only.
  */
 function gkplus_views_pre_build(&$view) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   if ($view->name !== 'os_profiles') {
@@ -287,7 +356,7 @@ function gkplus_views_pre_build(&$view) {
  * Implements hook_node_insert().
  */
 function gkplus_node_insert($node) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || !$node->nid) {
+  if (!_gkplus_check_sid() || !$node->nid || !isset($node->gkplus_minitheme)) {
     return;
   }
   _gkplus_entity_setting_update($node->nid, 'minitheme_nodes', $node->gkplus_minitheme);
@@ -297,7 +366,7 @@ function gkplus_node_insert($node) {
  * Implements hook_node_update().
  */
 function gkplus_node_update($node) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || !$node->nid) {
+  if (!_gkplus_check_sid() || !$node->nid || !isset($node->gkplus_minitheme)) {
     return;
   }
   _gkplus_entity_setting_update($node->nid, 'minitheme_nodes', $node->gkplus_minitheme);
@@ -307,7 +376,7 @@ function gkplus_node_update($node) {
  * Implements hook_node_presave().
  */
 function gkplus_node_presave($node) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || strlen($node->title) > 0) {
+  if (!_gkplus_check_sid() || $node->type !== 'page' || strlen($node->title) > 0) {
     return;
   }
   $node->title = 'BLANK_TITLE';
@@ -317,7 +386,7 @@ function gkplus_node_presave($node) {
  * Implements hook_node_view().
  */
 function gkplus_node_view($node, $view_mode, $langcode) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || $node->title !== 'BLANK_TITLE') {
+  if (!_gkplus_check_sid() || $node->type !== 'page' || $node->title !== 'BLANK_TITLE') {
     return;
   }
   $node->title = '';
@@ -327,7 +396,7 @@ function gkplus_node_view($node, $view_mode, $langcode) {
  * Implements hook_node_view_alter().
  */
 function gkplus_node_view_alter(&$build, $type) {
-  if (!_gkplus_check_purl()) return;
+  if (!_gkplus_check_sid()) return;
 
   if ($build['#node']->type == 'biblio' && isset($build['og_vocabulary'])) {
     $i = 5;
@@ -348,7 +417,7 @@ function gkplus_node_view_alter(&$build, $type) {
       $values[] = l($term->name, $url['path']);
     }
 
-    $vocab[0] = array('#markup' => 'In: '.implode(', ', $values));
+    $vocab[0] = array('#markup' => 'See also: '.implode(', ', $values));
   }
 }
 
@@ -356,7 +425,7 @@ function gkplus_node_view_alter(&$build, $type) {
  * Implements hook_node_prepare().
  */
 function gkplus_node_prepare($node) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || $node->title !== 'BLANK_TITLE') {
+  if (!_gkplus_check_sid() || $node->type !== 'page' || $node->title !== 'BLANK_TITLE') {
     return;
   }
   $node->title = '';
@@ -366,7 +435,7 @@ function gkplus_node_prepare($node) {
  * Implements hook_node_validate().
  */
 function gkplus_node_validate($node, $form, $form_state) {
-  if (!_gkplus_check_purl() || $node->type !== 'page' || strlen($node->title) > 0) {
+  if (!_gkplus_check_sid() || $node->type !== 'page' || strlen($node->title) > 0) {
     return;
   }
   $vocab_name = "Research Interests";
@@ -424,7 +493,7 @@ function _gking_empty_terms($terms) {
  * @ingroup term_display_options
  */
 function gkplus_form_taxonomy_form_term_alter(&$form, &$form_state, $form_id) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   $form['advanced']['gkplus'] = array(
@@ -465,13 +534,12 @@ function gkplus_form_taxonomy_form_term_submit($form, &$form_state) {
 /**
  * Implements hook_form_FORM_ID_alter() for taxonomy_form_vocabulary.
  *
- * Hides nodeorder's "Orderable" checkbox on the vocabulary edit form.
- *
- * @see gkplus_enable()
+ * @see gkplus_module_implements_alter()
  *
  * @ingroup nodeorder
  */
 function gkplus_form_taxonomy_form_vocabulary_alter(&$form, &$form_state, $form_id) {
+  // Hides nodeorder's "Orderable" checkbox on the vocabulary edit form.
   if (isset($form['settings']['orderable'])) {
     $form['settings']['orderable']['#type'] = 'value';
   }
@@ -481,7 +549,7 @@ function gkplus_form_taxonomy_form_vocabulary_alter(&$form, &$form_state, $form_
  * Implements hook_form_BASE_FORM_ID_alter() for node_form.
  */
 function gkplus_form_node_form_alter(&$form, &$form_state, $form_id) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid() || ($form['#bundle'] == 'biblio' && !$form['biblio_type']['#default_value'])) {
     return;
   }
   $default_value = (isset($form['#node']->nid)) ? _gkplus_entity_setting($form['#node']->nid, 'minitheme_nodes') : 0;
@@ -490,7 +558,9 @@ function gkplus_form_node_form_alter(&$form, &$form_state, $form_id) {
     '#access' => TRUE,
     '#title' => t('Custom theme settings'),
     '#weight' => 98,
-    '#group' => 'additional_settings'
+    '#group' => 'additional_settings',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
   );
   $form['gkplus']['gkplus_minitheme'] = array(
     '#title' => t('Remove branding'),
@@ -505,7 +575,7 @@ function gkplus_form_node_form_alter(&$form, &$form_state, $form_id) {
  * Implements hook_form_FORM_ID_alter() for page_node_form.
  */
 function gkplus_form_page_node_form_alter(&$form, &$form_state, $form_id) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   $form['title']['#required'] = FALSE;
@@ -517,7 +587,7 @@ function gkplus_form_page_node_form_alter(&$form, &$form_state, $form_id) {
  * Adds the miniteme (gking-alt) class attribute to configured node view pages.
  */
 function gkplus_preprocess_html(&$vars) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   $object = menu_get_object();
@@ -537,7 +607,7 @@ function gkplus_preprocess_html(&$vars) {
  * @ingroup nodeorder
  */
 function gkplus_preprocess_taxonomy_term(&$vars) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
 
@@ -565,12 +635,13 @@ function gkplus_preprocess_taxonomy_term(&$vars) {
  * @ingroup term_display_options
  */
 function gkplus_preprocess_os_taxonomy_tagged_nodes(&$vars) {
-  if (!_gkplus_check_purl()) {
+  if (!_gkplus_check_sid()) {
     return;
   }
   if (!isset($vars['taxonomy_term']->tid) || !isset($vars['taxonomy_term']->vid)) {
     return;
   }
+
   $vocab = taxonomy_vocabulary_load($vars['taxonomy_term']->vid);
   if ($vocab->name !== 'Research Interests') {
     return;
@@ -650,64 +721,30 @@ function _gkplus_entity_setting_update($etid, $setting, $value) {
 /**
  * Returns TRUE if the purl of the current vsite is "gkplus".
  */
-function _gkplus_check_purl($purl = 'gking') {
+function _gkplus_check_sid($sid = GKPLUS_SID) {
   $vsite = vsite_get_vsite();
-  return ($vsite && $vsite->group->purl == $purl);
+  return ($vsite && $vsite->id == $sid);
 }
 
 /**
- * Adjusts module weights to ensure greater/lesser weight.
+ * Implements hook_module_implements_alter().
  *
- * @param array $update
- * @param string $condition
- * @param array $compare
+ * Ensures that gkplus module will implement it's hook before nodeorder.
  *
- * @see gkplus_cron()
+ * @ingroup nodeorder
  */
-function _gkplus_adjust_module_weight($update, $condition, $compare) {
-  if (!$update || !$condition || !$compare) {
-    return;
-  }
-
-  // Continues only if we are comparing with less than or greater than.
-  switch ($condition) {
-    case '>':
-      $sort = 'DESC';
-      break;
-    case '<':
-      $sort = 'ASC';
-      break;
-    default:
+function gkplus_module_implements_alter(&$implementations, $hook) {
+  // Moves gkplus_form_alter() to the end of the list,
+  // Ensures it will execute after nodeorder_form_alter().
+  if ($hook == 'form_alter') {
+    // module_implements() goes thru $implementations with a loop in the order
+    // that the items were added, so to move an item to the end of the array,
+    // we remove it, then then add it.
+    if (!isset($implementations['gkplus'])) {
       return;
+    }
+    $group = $implementations['gkplus'];
+    unset($implementations['gkplus']);
+    $implementations['gkplus'] = $group;
   }
-
-  // Finds the highest weight among the compared modules.
-  $weight = db_select('system', 's')
-    ->fields('s', array('weight'))
-    ->condition('name', $compare, 'IN')
-    ->range(0, 1)
-    ->orderBy('weight', $sort)
-    ->execute()
-    ->fetchField();
-  if ($weight === FALSE) {
-    return;
-  }
-
-  // Continues only if we are comparing with less than or greater than.
-  switch ($condition) {
-    case '>':
-      $weight = $weight + 1;
-      break;
-    case '<':
-      $weight = $weight - 1;
-      break;
-    default:
-      return;
-  }
-
-  // Updates the given module with the new increased or decreased weight.
-  db_update('system')
-    ->fields(array('weight' => $weight))
-    ->condition('name', 'gkplus', '=')
-    ->execute();
 }

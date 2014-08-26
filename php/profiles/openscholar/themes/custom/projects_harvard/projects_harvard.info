@@ -4,7 +4,7 @@
   name        = Projects @ Harvard
   description = Theme for 'projects' installation of OpenScholar at Harvard
   core        = 7.x
-  base theme  = os_basetheme
+  base theme  = os_default
   release     = 7.x-3.x
   engine      = phptemplate
   screenshot  = screenshot.png

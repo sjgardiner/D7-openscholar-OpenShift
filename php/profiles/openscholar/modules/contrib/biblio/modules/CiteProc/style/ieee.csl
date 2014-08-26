@@ -216,8 +216,9 @@
             </else-if>
             <else-if type="patent">
                <text macro="title" suffix=", "/>
-               <text variable="number" prefix="U.S. Patent "/>
-               <text macro="issued"/>
+               <text variable="section" suffix=" Patent:"/>
+               <text variable="volume" prefix=" "/>
+               <text macro="issued" prefix=", "/>
             </else-if><!-- Generic/Fallback Formats -->
             <else-if type="bill book graphic legal_case motion_picture report song" match="any">
                <group delimiter=", " suffix=". ">

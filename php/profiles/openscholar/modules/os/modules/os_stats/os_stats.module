@@ -1,237 +1,397 @@
 <?php
 
+/** Defines the default API version to use when URL doesn't specify */
+define('OS_STATS_API_VERSION_DEFAULT', 1);
+
 /**
- * Implementation of hook_block_info()
+ * Implements hook_menu().
+ */
+function os_stats_menu() {
+  $items = array();
+
+  $items['stats'] = array(
+    'title' => 'Stats',
+    'page callback' => 'os_stats_page',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  $items['geckoboard'] = array(
+    'title' => 'Geckoboard Widget',
+    'page callback' => 'os_stats_page',
+    'page arguments' => array('geckoboard', 'websites'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for os_settings_form.
  *
+ * Allows admins to set which sitewide stats are visible.
+ */
+function os_stats_form_os_settings_form_alter(&$form, &$form_state, $form_id) {
+  $form['os_stats'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Sitewide Statistics'),
+    '#weight' => 3,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['os_stats']['os_stats_enabled'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Enabled stats'),
+  	'#weight' => 0,
+    '#options' => drupal_map_assoc(array('filesize', 'filesize_bytes', 'users', 'websites', 'posts', 'publications', 'files'), 'ucfirst'),
+    '#default_value' => variable_get('os_stats_enabled', ''),
+    '#description' => t('Enables specific statistics to visitors on the "OpenScholar Stats" (os_stats) block. All statistics are available on the <a href="/stats">Stats JSON endpoint</a>.'),
+  );
+}
+
+/**
+ * Implements hook_block_info().
  */
 function os_stats_block_info() {
-	$blocks['os_stats'] = array(
-		'info' => t('OpenScholar Stats'),
-	);
-	return $blocks;
-}// end function
-
-/**
- * Implementation of hook_block_view()
- *
- */
-function os_stats_block_view($delta='') {
-	$block = array();
-	switch ($delta) {
-		case 'os_stats':
-			$block['title'] = t('OpenScholar Stats');
-			$block['content'] = os_stats_content();
-			break;
-	}// end switgh
-	return $block;
+  $blocks['os_stats'] = array(
+    'info' => t('OpenScholar Stats'),
+  );
+  return $blocks;
 }
 
 /**
- * Implementation of hook_block_configure()
- *
+ * Implements hook_block_view().
  */
-function os_stats_block_configure($delta='') {
-	$form = array();
-	$tablerows = array();
-	if($delta == 'os_stats'){
-		$form['os_stats_cache_expiration'] = array(
-   			'#type' => 'textfield',
-  			'#title' => 'OpenScholar Statistics cache expiration (in seconds)',
-  			'#default_value' => variable_get('os_stats_cache_expiration', 3600*24),
-  		);
-  		$form['os_stats_select'] = array(
-  			'#type' => 'fieldset',
-  			'#title' => 'Choose statistics to display',
-  			'#collapsible' => TRUE,
-  			'#collapsed' => FALSE,
-  		);
-  		$stats = _os_stats();
-  		$enabled = unserialize(variable_get('os_stats_enabled', FALSE));
+function os_stats_block_view($delta = '') {
+  $block = array();
+  switch ($delta) {
+    case 'os_stats':
+      $block['title'] = t('OpenScholar Stats');
+      $block['content'] = os_stats_content();
+      break;
+  }
 
-  		foreach($stats as $stat => $def) {
-  			$form['os_stats_select']['os_stat_'.$stat] = array(
-  			//$form['os_stats_select']['os_stats_'.$stat] = array(
-  				'#type' => 'checkbox',
-  				'#title' => $def['description'],
-  				'#default_value' => (isset($enabled[$stat])) ? $enabled[$stat] : TRUE,
-  			);
-  		}//end for each
-	}// enf if
-
-	return $form;
-
-}// end function
+  return $block;
+}
 
 /**
- * Implementation of hook_block_save()
- *
- */
-function os_stats_block_save($delta='',$edit = array()) {
-	if ($delta == 'os_stats') {
-  		variable_set('os_stats_cache_expiration', (int)$edit['os_stats_cache_expiration']);
-
-  		$enabled_stats = array();
-  		foreach(_os_stats() as $stat => $def) {
-  			//variable_set('os_stats_stat_'.$stat, (bool)$edit['os_stats_stat_'.$stat]);
-  			$enabled[$stat] = (bool)$edit['os_stat_' . $stat];
-  		}// end foreach
-
-  		variable_set('os_stats_enabled', serialize($enabled));
-  		cache_clear_all('os_stats_data', 'cache');
-	}// end if
-}// end function
-
-/**
- * Custom HTML Block
- *
+ * Block content callback; returns <dl> definition list HTML element.
  */
 function os_stats_content() {
-	$data = array();
+  $items = array();
 
-	//check cache
-	if ($cache = cache_get('os_stats_data')) {
-	  	if ($cache->expire < time()) {
-	    	cache_clear_all('os_stats_data', 'cache'); //clear the expired data.  still using it for this run though.
-	  	}// end if
-		$data = unserialize($cache->data);
-	} else {
-  		$stats = _os_stats();
-  		function _stats_weight($a, $b) {
-  	  		return ($a['weight'] > $b['weight']);
-  		}// end if
-  		uasort($stats, '_stats_weight');
-  		$enabled = unserialize(variable_get('os_stats_enabled', FALSE));
+  // Check cache.
+  if ($cache = cache_get('os_stats_data')) {
+    if ($cache->expire < time()) {
+      // Clears expired data, but uses it for this run.
+      cache_clear_all('os_stats_data', 'cache');
+    }
+    $items = unserialize($cache->data);
+  }
+  else {
+    $queries = _os_stats_queries();
+    $enabled = variable_get('os_stats_enabled', FALSE);
+    foreach ($queries as $query => $info) {
+      if (!isset($enabled[$query]) || !$enabled[$query]) {
+        continue;
+      }
+      // Runs query, handling arguments if present.
+      if (!empty($info['args'])) {
+        $result = db_query($info['query'], $info['args'])->fetchField();
+      }
+      else {
+        $result = db_query($info['query'])->fetchField();
+      }
+      if ($result) {
+        // Applies optional formatting callback.
+        if (isset($info['callback']) && function_exists($info['callback'])) {
+          $result = $info['callback']($result);
+        }
 
-  		foreach($stats as $stat => $def) {
-  	  		//$args = (isset($def['query_args']) && is_array($def['query_args'])) ? $def['query_args'] : array();
-  			if (!empty($enabled[$stat]) || !isset($enabled[$stat])) {
-  	 		 	// if the query has an array, assign it
- 				if((!empty($def['query_args'])) && (!empty($def['query_args_type']))) {
- 					$type = $def['query_args_type'];
- 					$queryArray = $def['query_args'];
- 					// new query
- 					$result = db_query($def['query'], array($type => $queryArray))->fetchField();
- 				}else {
- 					$result = db_query($def['query'])->fetchField();
- 				}// end if
-  	 		  	if($result) {
-  	    			// apply optional callback.  necessary for file size labels.
-  	  				if (isset($def['callback']) && function_exists($def['callback'])) {
-    					$result = $def['callback']($result);
-    				}// end if
+        $items[] = array('term' => $info['title'], 'definition' => $result);
+      }
+    }
+    cache_set('os_stats_data', serialize($items), 'cache', time() + variable_get('os_stats_cache_expiration', 24 * 3600));
+  }
 
-    				$data[$def['title']] = $result;
-  	 		  	}// end if
-  	  		}// end if
-  		}// end foreach
-  		cache_set('os_stats_data', serialize($data), 'cache', time() + variable_get('os_stats_cache_expiration', 24*3600));
-	}// end if
-
-	return _theme_os_stats_item_dt($data);
-}// end function
-
-/**
- * Function to check to make sure the tables exist we
- * want to pull stats from
- *
- */
-function os_stats_check_table($table) {
-	if(db_table_exists($table)) {
-		return true;
-	}else {
-		return false;
-	}
+  return _theme_os_stats_item_dt($items);
 }
 
 /**
- * function to list stat, title, description, query, [callback] for stats to display
+ * Page callback; outputs object containing requested statistics.
  *
+ * @param string $version
+ *  - A version string like "1" (default)
+ * @param string $type
+ *  - What type of stats to query. One of "websites" (default)
+ * @param string $format
+ *  - What format to return the data. One of: "json" (default)
+ * @param string $style
+ *  - What style to return the data. One of "default" (default), "geckoboard"
+ *
+ * @return NULL
+ * - Content printed directly to screen without rendering page.
  */
-function _os_stats() {
-  	$content_type = variable_get('scholar_content_type', 'vsite');
-  	$group_types = og_get_all_group_bundle();
-  	$group_types = array_keys($group_types['node']);
-  	if (empty($group_types)) {
-  	  $group_types = array('personal');
-  	}
+function os_stats_page($style = FALSE, $type = FALSE) {
+  // Sets defaults for possible query parameters.
+  $version_default = OS_STATS_API_VERSION_DEFAULT;
+  $style_default   = 'default';
+  $type_default    = 'all';
+  $format_default  = 'json'; // One day: xml?
+  // Fetches query parameters and sets defaults.
+  $version = isset($_GET['version']) ? $_GET['version'] : $version_default;
+  // Only supports version 1.
+  if ($version != 1) {
+    drupal_not_found();
+    return NULL;
+  }
+  if (!$type) {
+    $type = isset($_GET['type']) ? $_GET['type'] : $type_default;
+  }
+  $format = isset($_GET['format']) ? $_GET['format'] : $format_default;
+  if (!$style) {
+    $style = isset($_GET['style']) ? $_GET['style'] : $style_default;
+  }
+  $cid = 'os_stats_' . $version . '_' . $type . '_' . $format . '_' . $style;
 
-  	$statsArray = array();
+  // Checks cache
+  if ($cache = cache_get($cid)) {
+    if ($cache->expire < time()) {
+      // Clears expired data, but uses it for this run.
+      cache_clear_all($cid, 'cache');
+    }
+    $output = $cache->data;
+  }
+  else {
+    if ($format == 'json') {
+      $output = _os_stats_v1_json($type, $style);
+    }
+    else {
+      $output = "os_stats_page(): Unknown format requested: $format";
+    }
+    cache_set($cid, $output, 'cache', time() + variable_get('os_stats_cache_expiration', 24 * 3600));
+  }
 
-	if(os_stats_check_table('node')==true) {
-		$statsArray['Publications'] = array(
-			'title' => t('Publications'),
-			'description' => t('Biblio publications'),
-			'query' => 	'SELECT COUNT(nid) FROM {node} WHERE type=\'biblio\'',
-			'weight' => 20
-		);
-		$statsArray['Vsites'] = array(
-			'title' => t('Websites'),
-			'description' => t('Virtual sites in this OS installation'),
-		  	'query' => 'SELECT COUNT(nid) FROM {node} WHERE type IN (:typeVal) ',
-		  	//'query_args' => array(variable_get('scholar_content_type', 'vsite')),
-		    'query_args' => $group_types,
-			'query_args_type' => ':typeVal',
-		  	'weight' => 0
-		);
-		$statsArray['Nodes'] = array(
-			'title' => t('Posts'),
-			'description' => t('Drupal nodes'),
-			'query' => 'SELECT COUNT(nid) FROM {node}',
-			'weight' => 10,
-		);
-	}
-	if(os_stats_check_table('files')==true) {
-		$statsArray['Files'] = array(
-			'title' => t('Uploaded Files'),
-			'description' => t('Files uploaded by users'),
-			'query' => 'SELECT COUNT(fid) FROM {files}',
-			'weight' => 30,
-		);
-		$statsArray['Filesize'] = array(
-			'title' => t('Total uploaded'),
-			'description' => t('Size of all files uploaded by users'),
-			'query' => 'SELECT SUM(filesize) FROM {files}',
-			'callback' => '_os_stats_file_units',
-		  	'weight' => -10,
-			//should the callback be in a specific file so it doesn't have to load all the time?
-		);
-	}
-	if(os_stats_check_table('users')==true) {
-		$statsArray['Users'] = array(
-		  	'title' => t('Users'),
-		  	'description' => t('User accounts'),
-		  	'query' => 'SELECT COUNT(uid) FROM {users}',
-			'weight' => -10,
-		);
-	}
-	return $statsArray;
-}// end function
+  // Outputs just the JSON data, then skips normal page rendering.
+  if ($style == 'geckoboard') {
+    echo json_encode($output);
+  }
+  else if ($format == 'json') {
+    drupal_json_output($output);
+  }
+  else {
+    // Should not get here unless an unknown format was requested.
+    echo $output;
+  }
+
+  return NULL;
+}
 
 /**
- *  function to convert bytes to biggest unit of file types, appends abbreviation
- *
- **/
-function _os_stats_file_units($fs) {
-	$units = array('b', 'kb', 'mb' ,'gb', 'tb', 'pb');
-	$c = 0;
-	while ($fs >= 1024 && $c < sizeof($units)-1)  {
-		$c++;
-		$fs = $fs/1024.0;
-	}
-	return round($fs, 1) . $units[$c];
-}// end function
+ * Prepares array to be output as JSON.
+ */
+function _os_stats_v1_json($type, $style) {
+  // Throws error if $type or $format is an unexpected value.
+  $output = _os_stats_v1_json_init($type, $style);
+
+  $queries = _os_stats_queries();
+
+  // Enables the appropriate queries.
+  if ($output['success']) {
+    switch ($type) {
+      case 'websites':
+        $enabled = array('websites');
+        break;
+      case 'all';
+        $enabled = variable_get('os_stats_enabled', array_keys($queries));
+        break;
+    }
+
+    foreach ($queries as $query => $info) {
+      if (!in_array($query, $enabled)) {
+        continue;
+      }
+      // Runs query, handling arguments if present.
+      if (!empty($info['args'])) {
+        $result = db_query($info['query'], $info['args'])->fetchField();
+      }
+      else {
+        $result = db_query($info['query'])->fetchField();
+      }
+      if (isset($result)) {
+        // Applies optional formatting callback.
+        if (isset($info['callback']) && function_exists($info['callback'])) {
+          $result = $info['callback']($result);
+        }
+
+        $output[$query] = array('value' => $result, 'text' => $info['title']);
+      }
+    }
+  }
+
+  // Adds current URL request as the "href" value in our JSON object.
+  global $base_url;
+  $path = $base_url . '/stats';
+  $output['href'] = url($path, array('query' => array('version' => '1','format' => 'json', 'type' => $type, 'style' => $style)));
+
+  // Adds current OpenScholar version to JSON object, like "7.x-1.0".
+  $info = system_get_info('module','openscholar');
+  $output['os_version'] = $info['os_version'];
+
+  if ($style == 'geckoboard') {
+    $items = array();
+    switch ($type) {
+      case 'websites':
+        $output['websites']['text'] = '';
+        $items['item'][] = array('value' => $output['websites']['value'], 'text' => $output['websites']['text']);
+        break;
+    }
+    $output = $items;
+  }
+
+  return $output;
+}
 
 /**
- * @function _theme_item_dt
- * function that returns definition list from an associative array
+ * Returns TRUE if both $type and $format are expected values.
+ *
+ * @param string $type
+ * @param string $format
  */
-function _theme_os_stats_item_dt($data) {
-  	$out = '<dl>';
-  	foreach ($data as $dt => $dd) {
-    	$out .= '  <dt>' . $dt . ':</dt>';
-    	$out .= '    <dd>' . $dd . '</dd>';
-  	}// end foreach
-  	$out .= '</dl>';
+function _os_stats_v1_json_init($type, $style) {
+  $errors = array();
+  $types = variable_get('os_stats_enabled',array('websites'));
+  $styles = array('default', 'geckoboard');
 
-  	return $out;
-}// end function
+  if ($type != 'all' && !in_array($type, $types)) {
+    $errors[] = "Unknown type parameter: $type";
+  }
+  if (!in_array($style, $styles)) {
+    $errors[] = "Unknown style parameter: $style";
+  }
+  if (!empty($errors)) {
+    $output = array();
+    $output['success'] = FALSE;
+    $output['errors'] = $errors;
+  }
+  else {
+    $output = array();
+    $output['success'] = TRUE;
+  }
+  return $output;
+}
+
+/**
+ * Returns an indexed array containing all possible queries to run.
+ */
+function _os_stats_queries() {
+  $group_types = array_keys(array_intersect(module_invoke_all('vsite_og_node_type_info'), array('group')));
+  $day_duration = 60 * 60 * 24;
+  $yesterday = time() - ($day_duration);
+  $queries = array();
+
+  $queries['filesize'] = array(
+    'title' => t('Total uploaded'),
+    'description' => t('Size of all files uploaded by users'),
+    'query' => 'SELECT SUM(filesize) FROM {file_managed}',
+    'callback' => 'format_size',
+    'weight' => -10,
+  );
+  $queries['filesize_bytes'] = array(
+    'title' => t('Total uploaded bytes'),
+    'description' => t('Size of all files uploaded by users'),
+    'query' => 'SELECT SUM(filesize) FROM {file_managed}',
+    'weight' => -10,
+  );
+  $queries['users'] = array(
+    'title' => t('Users'),
+    'description' => t('User accounts'),
+    'query' => 'SELECT COUNT(uid) FROM {users}',
+    'weight' => -10,
+  );
+  $queries['new_users'] = array(
+    'title' => t('New users'),
+    'description' => t('User accounts registered in the past 72 hours'),
+    'query' => 'SELECT COUNT(uid) FROM {users} WHERE created > :three_days_ago',
+    'args' => array(
+      ':three_days_ago' => $yesterday,
+    ),
+    'weight' => -10,
+  );
+  $queries['websites'] = array(
+    'title' => t('Websites'),
+    'description' => t('Virtual sites registered'),
+    'query' => 'SELECT COUNT(nid) FROM {node} WHERE type IN (:group_types) ',
+    'args' => array(
+      ':group_types' => $group_types,
+    ),
+    'weight' => 0,
+  );
+  $queries['new_websites'] = array(
+    'title' => t('New websites'),
+    'description' => t('Virtual sites registered in the past 72 hours'),
+    'query' => 'SELECT COUNT(nid) FROM {node} WHERE type IN (:group_types) AND created > :three_days_ago',
+    'args' => array(
+      ':group_types' => $group_types,
+      ':three_days_ago' => $yesterday,
+    ),
+    'weight' => 0,
+  );
+  $queries['posts'] = array(
+    'title' => t('Posts'),
+    'description' => t('Drupal nodes'),
+    'query' => 'SELECT COUNT(nid) FROM {node}',
+    'weight' => 10,
+  );
+  $queries['new_posts'] = array(
+    'title' => t('New posts'),
+    'description' => t('Drupal nodes in the past 72 hours'),
+    'query' => 'SELECT COUNT(nid) FROM {node} WHERE created > :three_days_ago',
+    'args' => array(
+      ':three_days_ago' => $yesterday,
+    ),
+    'weight' => 10,
+  );
+  $queries['publications'] = array(
+    'title' => t('Publications'),
+    'description' => t('Biblio publications'),
+    'query' => 'SELECT COUNT(nid) FROM {node} WHERE type=\'biblio\'',
+    'weight' => 20,
+  );
+  $queries['new_publications'] = array(
+    'title' => t('New publications'),
+    'description' => t('Biblio publications in the past 72 hours'),
+    'query' => 'SELECT COUNT(nid) FROM {node} WHERE type=\'biblio\' AND created > :three_days_ago',
+    'args' => array(
+      ':three_days_ago' => $yesterday,
+    ),
+    'weight' => 20,
+  );
+  $queries['files'] = array(
+    'title' => t('Uploaded files'),
+    'description' => t('Files uploaded by users'),
+    'query' => 'SELECT COUNT(fid) FROM {file_managed}',
+    'weight' => 30,
+  );
+
+  return $queries;
+}
+
+/**
+ * Returns <dl> definition list from an associative array
+ *
+ * @param array $definitions
+ *
+ * @return string $output
+ */
+function _theme_os_stats_item_dt($items) {
+  $output = '<dl>';
+  foreach ($items as $item) {
+    $output .= '<dt>' . $item['term'] . ':</dt>';
+    $output .= '<dd>' . $item['definition'] . '</dd>';
+  }
+  $output .= '</dl>';
+
+  return $output;
+}

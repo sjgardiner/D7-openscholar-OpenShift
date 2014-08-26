@@ -30,6 +30,12 @@ Drupal.wysiwyg.plugins['break'] = {
       var content = '<!--break-->';
     }
     if (typeof content != 'undefined') {
+      // First, removes all existing breaks in the WYSIWYG.
+      var existing = data.node.parentElement.getElementsByClassName('wysiwyg-break');
+      for (var i = 0; i < existing.length; i++) {
+        existing[i].parentElement.removeChild(existing[i]);
+      }
+      // Then, adds the new break at the cursor.
       Drupal.wysiwyg.instances[instanceId].insert(content);
     }
   },

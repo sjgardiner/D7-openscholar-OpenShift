@@ -23,12 +23,17 @@ function os_image_gallery_views_default_views() {
   /* Display: Master */
   $handler = $view->new_display('default', 'Master', 'default');
   $handler->display->display_options['title'] = 'Galleries';
+  $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'spaces_feature';
   $handler->display->display_options['access']['spaces_feature'] = 'os_image_gallery';
-  $handler->display->display_options['cache']['type'] = 'none';
+  $handler->display->display_options['cache']['type'] = 'time_per_gorup';
+  $handler->display->display_options['cache']['results_lifespan'] = '518400';
+  $handler->display->display_options['cache']['results_lifespan_custom'] = '0';
+  $handler->display->display_options['cache']['output_lifespan'] = '518400';
+  $handler->display->display_options['cache']['output_lifespan_custom'] = '0';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
-  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['type'] = 'lite';
   $handler->display->display_options['pager']['options']['items_per_page'] = '10';
   $handler->display->display_options['style_plugin'] = 'list';
   $handler->display->display_options['row_plugin'] = 'fields';
@@ -59,19 +64,19 @@ function os_image_gallery_views_default_views() {
   $handler->display->display_options['fields']['media_gallery_description']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['media_gallery_description']['hide_empty'] = TRUE;
   /* Field: Content: Gallery media */
-  $handler->display->display_options['fields']['media_gallery_media']['id'] = 'media_gallery_media';
-  $handler->display->display_options['fields']['media_gallery_media']['table'] = 'field_data_media_gallery_media';
-  $handler->display->display_options['fields']['media_gallery_media']['field'] = 'media_gallery_media';
-  $handler->display->display_options['fields']['media_gallery_media']['label'] = '';
-  $handler->display->display_options['fields']['media_gallery_media']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['media_gallery_media']['click_sort_column'] = 'fid';
-  $handler->display->display_options['fields']['media_gallery_media']['type'] = 'os_files_image_list';
-  $handler->display->display_options['fields']['media_gallery_media']['settings'] = array(
+  $handler->display->display_options['fields']['media_gallery_file']['id'] = 'media_gallery_file';
+  $handler->display->display_options['fields']['media_gallery_file']['table'] = 'field_data_media_gallery_file';
+  $handler->display->display_options['fields']['media_gallery_file']['field'] = 'media_gallery_file';
+  $handler->display->display_options['fields']['media_gallery_file']['label'] = '';
+  $handler->display->display_options['fields']['media_gallery_file']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['media_gallery_file']['click_sort_column'] = 'fid';
+  $handler->display->display_options['fields']['media_gallery_file']['type'] = 'os_files_image_list';
+  $handler->display->display_options['fields']['media_gallery_file']['settings'] = array(
     'file_view_mode' => 'os_files_link',
   );
-  $handler->display->display_options['fields']['media_gallery_media']['delta_offset'] = '0';
-  $handler->display->display_options['fields']['media_gallery_media']['multi_type'] = 'ul';
-  $handler->display->display_options['fields']['media_gallery_media']['separator'] = ' ';
+  $handler->display->display_options['fields']['media_gallery_file']['delta_offset'] = '0';
+  $handler->display->display_options['fields']['media_gallery_file']['multi_type'] = 'ul';
+  $handler->display->display_options['fields']['media_gallery_file']['separator'] = ' ';
   /* Sort criterion: Content: Sticky */
   $handler->display->display_options['sorts']['sticky']['id'] = 'sticky';
   $handler->display->display_options['sorts']['sticky']['table'] = 'node';
@@ -103,6 +108,7 @@ function os_image_gallery_views_default_views() {
 
   /* Display: Page */
   $handler = $view->new_display('page', 'Page', 'page');
+  $handler->display->display_options['defaults']['hide_admin_links'] = FALSE;
   $handler->display->display_options['path'] = 'galleries';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'Galleries';
@@ -112,6 +118,7 @@ function os_image_gallery_views_default_views() {
 
   /* Display: Feed */
   $handler = $view->new_display('feed', 'Feed', 'feed');
+  $handler->display->display_options['defaults']['hide_admin_links'] = FALSE;
   $handler->display->display_options['pager']['type'] = 'some';
   $handler->display->display_options['style_plugin'] = 'rss';
   $handler->display->display_options['row_plugin'] = 'node_rss';
@@ -135,6 +142,7 @@ function os_image_gallery_views_default_views() {
   /* Display: Master */
   $handler = $view->new_display('default', 'Master', 'default');
   $handler->display->display_options['css_class'] = 'gallery-slideshow';
+  $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';

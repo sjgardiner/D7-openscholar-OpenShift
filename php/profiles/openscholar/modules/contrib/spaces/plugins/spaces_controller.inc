@@ -8,6 +8,7 @@ abstract class spaces_controller {
   var $controller;
   var $space_type;
   var $space_id;
+  var $preset_name;
   var $values;
   protected $loaded;
   protected $loaded_all;
@@ -130,7 +131,7 @@ abstract class spaces_controller {
    */
   protected function load_preset_values($id = NULL) {
     if (!$this->loaded_all['preset']) {
-      $preset_name = variable_get("spaces_preset_{$this->space_type}", NULL);
+      $preset_name = isset($this->preset_name)? $this->preset_name : variable_get("spaces_preset_{$this->space_type}", NULL);
       if ($preset_name && $preset = spaces_preset_load($preset_name)) {
         if (isset($preset->value[$this->controller])) {
           $this->values['preset'] = $preset->value[$this->controller];
@@ -284,6 +285,6 @@ abstract class spaces_controller {
       $environment = array_shift($environments);
     }
 
-    return ($value == NULL);
+    return ($value === NULL);
   }
 }

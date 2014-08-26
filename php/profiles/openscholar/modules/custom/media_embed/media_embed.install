@@ -1,21 +1,7 @@
 <?php
 
 function media_embed_install() {
-  // legacy:
-  $type = new stdClass();
-  $type->name = 'html';
-  $type->label = "Embedded HTML";
-  $type->base = TRUE;
-  $type->type_callback_args = array(
-    'match_type' => 'all',
-    'mimetypes' => array('/^html/'),
-    'extensions' => array(),
-    'streams' => array('embed'),
-  );
-
-  media_type_save($type);
-
-  // add the fields for it
+  // Add the fields for file type.
   try {
     field_create_field(array(
       'field_name' => 'field_html_code',
@@ -60,4 +46,26 @@ function media_embed_uninstall() {
   catch (Exception $e) {
 
   }
+}
+
+/**
+ * Reverts the HTML file type
+ */
+function media_embed_update_7001(&$sandbox) {
+  ctools_include('export');
+  $type = ctools_export_load_object('file_type', 'names', array('html'));
+
+  ctools_export_crud_delete('file_type', $type['html']);
+}
+
+/**
+ * Ensures that all files with the embed:// protocol are not given the undefined file type
+ */
+function media_embed_update_7002(&$sandbox) {
+  $q = db_update('file_managed')
+       ->fields(array(
+         'type' => 'html',
+       ))
+       ->condition('uri', db_like('embed://').'%', 'LIKE')
+       ->execute();
 }

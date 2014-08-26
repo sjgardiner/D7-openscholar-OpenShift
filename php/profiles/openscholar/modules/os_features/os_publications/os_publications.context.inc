@@ -1,7 +1,4 @@
 <?php
-// $Id$
-
-
 /**
  * @file
  * os_publications.context.inc
@@ -14,8 +11,7 @@ function os_publications_context_default_contexts() {
   $export = array();
 
   $context = new stdClass();
-  /* Edit this to true to make a default context disabled initially */
-  $context->disabled = FALSE;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
   $context->name = 'publications_publications';
   $context->description = 'List of publications';
@@ -33,6 +29,7 @@ function os_publications_context_default_contexts() {
       'values' => array(
         'publications' => 'publications',
         'publications/*' => 'publications/*',
+        'browse/publications' => 'browse/publications',
       ),
     ),
   );
@@ -67,4 +64,3 @@ function os_publications_context_default_contexts() {
 
   return $export;
 }
-

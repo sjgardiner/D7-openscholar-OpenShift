@@ -112,7 +112,7 @@
 	  if (Drupal.settings.os_books.settings.toc_type != 'partial') return;
 	  var links = $('a[data-nid="'+active+'"]'),
 	    blocks = links.parents('.block-boxes-os_boxes_booktoc');
-	  blocks.find('li').hide();
+	  blocks.find('.block-content li').hide();
 	  links.parents('.block-boxes-os_boxes_booktoc li').show().siblings().show();
 	  links.parent().find('a[data-nid="'+active+'"] + ul > li').show();
 	}

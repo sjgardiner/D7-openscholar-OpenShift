@@ -39,13 +39,38 @@ class FacetapiWidgetLinks extends FacetapiWidget {
   public function execute() {
     $element = &$this->build[$this->facet['field alias']];
 
-    // Sets each item's theme hook, builds item list.
-    $this->setThemeHooks($element);
-    $element = array(
-      '#theme' => 'item_list',
-      '#items' => $this->buildListItems($element),
-      '#attributes' => $this->build['#attributes'],
-    );
+    $re_group_entity = $this->groupByBundle($element);
+
+    if ($re_group_entity) {
+      $entity_info = entity_get_info($re_group_entity);
+      foreach ($element as $bundle => $values) {
+
+        $this->setThemeHooks($values);
+
+        // Append the ID with the bundle name.
+        $this->build['#attributes']['id'] .= '-'. $bundle;
+
+        $sub_element = array(
+          '#title' => $entity_info['bundles'][$bundle]['label'],
+          '#theme' => 'item_list',
+          '#items' => $this->buildListItems($values),
+          '#attributes' => $this->build['#attributes'],
+        );
+        $new_element[$bundle] = $sub_element;
+      }
+
+      $element = $new_element;
+    }
+    else {
+
+      // Sets each item's theme hook, builds item list.
+      $this->setThemeHooks($element);
+      $element = array(
+        '#theme' => 'item_list',
+        '#items' => $this->buildListItems($element),
+        '#attributes' => $this->build['#attributes'],
+      );
+    }
   }
 
   /**

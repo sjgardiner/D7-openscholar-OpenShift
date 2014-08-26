@@ -78,6 +78,23 @@ function cp_toolbar_view() {
     if (arg(0) == 'user') {
       $links['account']['attributes']['class'][] = 'active';
     }
+
+    if (module_exists('vsite') && user_access('subscribe as support team') && $vsite = vsite_get_vsite()) {
+      if (!og_is_member('node', $vsite->id)) {
+        $links['support_team_subscribe'] = array(
+          'title' => t('Support @purl', array('@purl' => $vsite->group->purl)),
+          'href' => 'group/node/' . $vsite->id . '/subscribe/vsite_support_expire',
+          'description' => t('Subscribe to group for support'),
+        );
+      }
+      else {
+        $links['support_team_unsubscribe'] = array(
+          'title' => t('Unsubscribe @purl' , array('@purl' => $vsite->group->purl)),
+          'href' => 'group/node/' . $vsite->id . '/unsubscribe',
+          'description' => t('Un-Subscribe from group'),
+        );
+      }
+    }
   }
   else {
      $links = array(
@@ -96,16 +113,33 @@ function cp_toolbar_view() {
 
   $base_domain = variable_get('purl_base_domain');
 
-  $links = array(
-    'help' => array(
-      'title' => t('Help'),
-      // 'href' => 'admin/help',
-      'href' => !empty($base_domain) ? $base_domain . '/help/os_help/User-Documentation' : 'help/os_help/User-Documentation',
- 	  // 'query' => array('popup'=>'1'),
-      'html' => TRUE,
-      'description' => t('Get help on various topics'),
-    ),
-  );
+  if (variable_get('vsite_register_welcome_message', FALSE)) {
+    $links = array(
+      'help' => array(
+        'title' => t('Help'),
+        // 'href' => 'admin/help',
+        'href' => '',
+        // 'query' => array('popup'=>'1'),
+        'fragment' => 'overlay=cp/welcome',
+        'external' => TRUE,
+        'html' => TRUE,
+        'description' => t('Get help on various topics'),
+      ),
+    );
+  }
+  else {
+    $links = array(
+      'help' => array(
+        'title' => t('Help'),
+        // 'href' => 'admin/help',
+        'href' => !empty($base_domain) ? $base_domain . '/help/os_help/User-Documentation' : 'help/os_help/User-Documentation',
+        // 'query' => array('popup'=>'1'),
+        'html' => TRUE,
+        'description' => t('Get help on various topics'),
+      ),
+    );
+  }
+
   $build['toolbar_right']['toolbar_help'] = array(
     '#theme' => 'links',
     '#links' => $links,
@@ -136,6 +170,17 @@ function cp_toolbar_view() {
         'data-drawer' => 'content-drawer',
       )
     );
+  }else{
+    //They have access to add content but not list
+    $l = menu_get_item('cp/content/add');
+    if ($l['access']) {
+      $links['content'] = $l + array(
+        '#paths' => array(),
+        'attributes' => array(
+          'data-drawer' => 'content-drawer',
+        )
+      );
+    }
   }
   $l = menu_get_item('cp/build');
   if ($l['access']) {
@@ -229,12 +274,21 @@ function cp_toolbar_fill_drawer() {
 
   $bundles = os_get_bundles(array(1,2));
   asort($bundles);
-
   $links = array();
+  $app_info = os_app_info();
   foreach ($bundles as $type => $name) {
+    foreach ($app_info as $info) {
+      // A link for adding a node in the CP will not be displayed in case it has
+      // a parent node type or it is defined to be hidden from to toolbar.
+      $require_parent_node = !empty($info['require_parent_node'][$type]);
+      $hide_type = !empty($info['hide from toolbar']) && is_array($info['hide from toolbar']) && in_array($type, $info['hide from toolbar']);
+      if ($require_parent_node || $hide_type) {
+        continue 2;
+      }
+    }
     $url_str = str_replace('_', '-', $type);
     foreach ($content as $link) {
-      if ($link['access'] && $link['link_path'] == 'node/add/'.$url_str) {
+      if ($link['access'] && $link['link_path'] == 'node/add/' . $url_str) {
         $links[] = $link;
       }
     }
@@ -266,6 +320,29 @@ function cp_toolbar_fill_drawer() {
     '#links' => $links,
     '#attributes' => array(
       'class' => 'toolbar-list',
+    ),
+  );
+
+  $links = array();
+
+  // Adding the link to the import news.
+  $importers = os_importer_importable_content();
+
+  foreach (array_keys($importers) as $importer) {
+    $l = menu_get_item('cp/os-importer/' . $importer);
+    if ($l['access']) {
+      $links[$importer] = $l;
+    }
+  }
+
+  // Sort alphabetically by title.
+  usort($links, '_cp_toolbar_sort_by_title');
+
+  $drawer['content-drawer']['import'] = array(
+    '#theme' => 'links',
+    '#links' => $links,
+    '#attributes' => array(
+      'class' => 'toolbar-import',
     ),
   );
 
@@ -368,6 +445,13 @@ function cp_toolbar_fill_drawer() {
   $drawer['toolbar_drawer_classes'] = implode(' ', $toolbar_drawer_classes);
 
   return $drawer;
+}
+
+/**
+ * usort callback function for ordering the links in alphabetical order.
+ */
+function _cp_toolbar_sort_by_title($link_a, $link_b) {
+  return strnatcmp($link_a['title'], $link_b['title']);
 }
 
 function theme_cp_toolbar_drawer_section($vars) {

@@ -79,6 +79,13 @@ function og_vocab_schema() {
         'serialize' => TRUE,
         'size' => 'big',
       ),
+      'field_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The name of the field the OG-vocab is associated with.",
+      ),
     ),
     'indexes' => array(
       'id' => array('id'),
@@ -217,4 +224,36 @@ function og_vocab_update_7000(&$sandbox) {
   // Temporary variable to indicate we need to migrate the fields.
   variable_set('og_vocab_7000', TRUE);
   return t('Enable Migrate and OG-vocabulary modules to continue the migration of data.');
+}
+
+/**
+ * Add og_vocab.field_name column.
+ */
+function og_vocab_update_7100(&$sandbox) {
+  $spec = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => "The name of the field holding the group ID, the OG memebership is associated with.",
+  );
+  db_add_field('og_vocab', 'field_name', $spec);
+}
+
+
+/**
+ * Fill in field name for OG vocabularies without a field name.
+ */
+function og_vocab_update_7101() {
+  db_update('og_vocab')
+    ->fields(array('field_name' => OG_VOCAB_FIELD))
+    ->condition('field_name', '', '=')
+    ->execute();
+}
+
+/**
+ * Delete variable related to the deprecated Advanced-queue.
+ */
+function og_vocab_update_7102() {
+  variable_del('og_vocab_use_queue');
 }

@@ -68,6 +68,16 @@ class space {
           $this->controllers->{$c} = new $class($c, $this->type, $this->id);
         }
       }
+
+      // If the preset_name is overridden use that in all controllers.
+      if(isset($this->controllers->variable)){
+        $preset_name = $this->controllers->variable->get("spaces_preset_{$this->type}");
+        foreach (spaces_controllers() as $c => $info) {
+          if(isset($this->controllers->{$c})){
+            $this->controllers->{$c}->preset_name = $preset_name;
+          }
+        }
+      }
     }
   }
 

@@ -1,17 +1,22 @@
 /**
-  * @file vsite_register.js
-  *
-  * Provides events to change display of select current user/create new user in vsite registration form.
-  *
-  * Drupal.behaviors.vsite_register.toggle_user_forms swaps display of the new/existing user form elements.  This is determined
-  * by new user's display state.  So when both elements are showing, toggling will hide one and show the other.
-  *
-  * Attaches a click event to call toggle_user_forms.  Tries to do this only once by inspecting $elem.data.  Ajax calls
-  * will trigger attach again, causing multiple instances of the same click event to be registered if this isn't done.
-  */
+ * @file
+ * vsite_register.js
+ */
 
 (function($) {
+
+  /**
+   * Provides events to change display of select current user/create new user in
+   * vsite registration form.
+   */
   Drupal.behaviors.vsite_register = {
+
+    /**
+     * Swaps display of the new/existing user form elements.
+     *
+     * This is determined by new user's display state. So when both elements are
+     * showing, toggling will hide one and show the other.
+     */
     toggle_user_forms: function() {
       var new_user = $('#new_user_div');
       var old_user = $('#edit-existing-username').parent();
@@ -25,45 +30,45 @@
       }
     },
 
-    attach: function(ctx, settings) {
-      if (typeof Drupal.settings.vsite_register == 'undefined') {
-        Drupal.settings.vsite_register = {new_user_clicked: false};
-      }
-
+    /**
+     * Attaches a click event to call toggle_user_forms.  Tries to do this only once by inspecting $elem.data.  Ajax calls
+     * will trigger attach again, causing multiple instances of the same click event to be registered if this isn't done.
+     */
+    attach: function(context, settings) {
+      // Ensures that focus is not on the "domain" element to the avoid AJAX errors.
       $('#edit-submit').mouseenter(function() {
-        // When the submit button is clicked, make sure the focus is on it and
-        // not on the "domain" element the avoid Ajax errors.
         $(this).focus();
-      })
+      });
 
-      //init display of new user xor existing user
-      if ($('#new_user_div').css('display') == $('#edit-existing-username').parent().css('display')) {
-        Drupal.behaviors.vsite_register.toggle_user_forms();
-      }
-
-      //attach click event to new user link.  only do this once, even if this behavior ahppens again
-      var link = $('#new-user-link');
-      if (link.length) {
-        var link_data = link.data();
-        if ((typeof link_data['events'] == 'undefined') || link_data['events'].click.length < 1) {
-          link.click( function() {
-            $('input[name=create_new_user]').attr('value', 1); //store this so form appears right after refresh
+      // Attaches click event to new user link.
+      // only do this once, even if this behavior happens again.
+      if ($('#new-user-link').length) {
+        // Uses context and jQuery.once() to prevent extra attach events.
+        // @see https://drupal.org/node/756722
+        // @see Drupal.attachBehaviors()
+        $('#new-user-link', context).once('toggleUserForms', function() {
+          // Initializes the new user & existing user display state.
+          Drupal.behaviors.vsite_register.toggle_user_forms();
+          // Toggles display whenever the "Create new user" link is clicked.
+          $('#new-user-link').click(function() {
             Drupal.behaviors.vsite_register.toggle_user_forms();
+            $('input[name=create_new_user]').attr('value', 1); //store this so form appears right after refresh
           });
-        }
+        });
       }
 
-      //http://drupal.org/node/1232416   hide the ajax error that comes up when an ajax call is left dangling
+      // Hides the ajax error that comes up when an ajax call is left dangling.
+      // @see http://drupal.org/node/1232416
       $.ajaxSetup({
         beforeSend: function(jqXHR, settings) {
-          settings.error = function(jqXHR, textStatus, errorThrown) {
-            //{console.log('ajax error: ' + textStatus);};
-          };
+          settings.error = function(jqXHR, textStatus, errorThrown) {};
         }
       });
 
-      Drupal.detachBehaviors($(this)); //we don't want to set up the hidden element on every page load
-
+      // Avoids setting up the hidden element on every page load.
+      Drupal.detachBehaviors($(this));
     }
-  }
+
+  };
+
 })(jQuery);

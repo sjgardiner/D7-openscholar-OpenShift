@@ -32,6 +32,16 @@ function iqss_scholars_front_update_7002(&$sandbox) {
 }
 
 /**
+ * Enable the os_pinserver_auth module.
+ */
+function iqss_scholars_front_update_7003(&$sandbox) {
+  module_enable(array('os_pinserver_auth'));
+
+  //Pinserver should take over registration
+  variable_set('os_pinserver_registration', TRUE);
+}
+
+/**
  * Init mollom to protect the following forms.
  */
 function iqss_scholars_front_init_mollom_forms(){
@@ -134,16 +144,16 @@ function _iqss_scholars_front_fix_files() {
     if (is_readable($filepath) && ($saved = file_save_data($fh, 'public://' . $destpath))) {
       //print 'saved: ' . $filepath . "\n";
       file_usage_add($saved, 'file', 'node', $file->nid);
-      
+
       //add uid
       $saved->uid = $file->uid;
       file_save($saved);
-      
+
       //add group nid
       $entity = entity_metadata_wrapper('file', $saved);
       $entity->og_group_ref = array($file->vsite_id);
       $entity->save();
-      
+
       //update nodes with this file's path in them
       _iqss_scholars_front_update_paths_in_node($file, $saved);
     } else {
@@ -196,8 +206,8 @@ function _iqss_scholars_front_update_paths_in_node($info, $savedfile) {
   // filepath (minus huge prefix and vsite)
   // same for scholar (as opposed to scholar.iq)
   $candidates = array();
- 
-  
+
+
   $candidates[] = $info->dst;
   $candidates[] = str_replace($info->vsite.'/', '', $info->dst);
   $candidates[] = $info->filepath;
@@ -207,11 +217,11 @@ function _iqss_scholars_front_update_paths_in_node($info, $savedfile) {
   $filepath = str_replace('sites/scholar.harvard.edu/files/', '', $info->filepath);
   $candidates[] = $filepath;
   $candidates[] = str_replace($info->vsite.'/', '', $filepath);
-  
+
   # filename, ../filename, files/filename
   $candidates[] = 'files/'.$info->filename;
   $candidates[] = $info->filename;
-  
+
     //gking has some href="../file.pdf"
     //replace these candidates with entire file path, not just fragment
   $file = array_pop(explode('/', $info->dst));
@@ -224,7 +234,7 @@ function _iqss_scholars_front_update_paths_in_node($info, $savedfile) {
   while ($row = $node_body->fetchObject()) {
     $newbody = $row->body_value;
     $replaced = false;
-    
+
     //replace entire string (just ../filenames) with entire path.
     foreach($full_candidates as $oldpath) {
     	if (stripos($newbody, ltrim($oldpath, '/')) !== FALSE) {
@@ -233,7 +243,7 @@ function _iqss_scholars_front_update_paths_in_node($info, $savedfile) {
       	break;
     	}
     }
-    
+
     //replace partial with partial
     if (!$replaced) {
 	    foreach($candidates as $oldpath) {
@@ -244,7 +254,7 @@ function _iqss_scholars_front_update_paths_in_node($info, $savedfile) {
 	    	}
 	    }
     }
-    
+
     //only update when changes took place
     if ($replaced) {
       $update = db_update('field_data_body');

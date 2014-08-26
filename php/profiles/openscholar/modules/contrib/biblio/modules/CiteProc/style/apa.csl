@@ -254,6 +254,15 @@
                <text variable="page"/>
             </group>
          </if>
+         <else-if type="patent">
+           <group prefix=". ">
+             <group>
+               <text variable="section" suffix=" Patent No."/>
+               <text variable="volume" prefix=" " font-style="italic"/>
+               <text variable="issue" prefix=". "/>
+             </group>
+           </group>
+         </else-if>
          <else-if type="bill book graphic legal_case motion_picture report song chapter paper-conference" match="any">
             <group prefix=" (" suffix=")" delimiter=", ">
                <text macro="edition"/>
@@ -292,7 +301,7 @@
          </group>
       </layout>
    </citation>
-   <bibliography hanging-indent="true" et-al-min="8" et-al-use-first="7" entry-spacing="0" line-spacing="2">
+   <bibliography hanging-indent="false" et-al-min="8" et-al-use-first="7" entry-spacing="0" line-spacing="2">
       <sort>
          <key macro="author"/>
          <key macro="issued-year" sort="ascending"/>

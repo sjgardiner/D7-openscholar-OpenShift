@@ -162,6 +162,76 @@ abstract class FacetapiWidget {
   }
 
   /**
+   * Re-group entity reference fields by bundle, for entity reference fields.
+   *
+   * @param $build
+   *   THe $build array passed by reference.
+   *
+   * @todo: Move this to the parent execute() function (and make it non
+   * abstract?)
+   */
+  public function groupByBundle(&$element) {
+    if (!module_exists('entityreference')) {
+      // Entity reference module does not exist.
+      return;
+    }
+    $facet = $this->facet->getFacet();
+    if (empty($facet['field api name'])) {
+      // Facet isn't related to a field.
+      return;
+    }
+
+    $field_name = $facet['field api name'];
+    $field = field_info_field($field_name);
+    if ($field['type'] != 'entityreference') {
+      // Field isn't of type entity reference.
+      return;
+    }
+
+    if (!empty($field['settings']['handler_settings']['target_bundles']) && count($field['settings']['handler_settings']['target_bundles']) == 1) {
+      // Field is referencing a single bundle.
+      return;
+    }
+
+    $target_type = $field['settings']['target_type'];
+    $entity_info = entity_get_info($target_type);
+    if (count($entity_info['bundles']) == 1) {
+      // Entity has only a single bundle (e.g. "user" entity).
+      return;
+    }
+
+    // If we reached this point, it means we need to indicate some values need
+    // to be re-grouped.
+    $ids = array();
+    foreach (array_keys($element) as $value) {
+      $id = explode(':', $value);
+      $ids[] = $id[1];
+    }
+
+    $entities = entity_load($target_type, $ids);
+    $bundle_key = $entity_info['entity keys']['bundle'];
+
+    $found_ids = array_keys($entities);
+    foreach (array_diff($ids, $found_ids) as $bad_id) {
+      $key_name = $target_type . ':' . $bad_id;
+      unset($element[$key_name]);
+    }
+
+    foreach ($entities as $entity_id => $entity) {
+      $key_name = $target_type . ':' . $entity_id;
+      $bundle = $entity->{$bundle_key};
+
+      $element[$bundle][$key_name] = $element[$key_name];
+      unset($element[$key_name]);
+      $element[$bundle][$key_name]['#group_by'] = $bundle;
+    }
+
+    // Indicate we need to re-group. We return the target type, so we
+    // can use this to create titles.
+    return $target_type;
+  }
+
+  /**
    * Executes the widget plugin by altering FacetapiWidget::build.
    *
    * Implementing plugins use this method to transform the initialized render

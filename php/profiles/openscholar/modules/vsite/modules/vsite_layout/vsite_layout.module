@@ -91,8 +91,11 @@ function vsite_layout_cp_layout_form_submit($form, &$form_state) {
     // Reset, Save to preset, or call standard submit handler
     switch ($op) {
       case t('Reset to defaults'):
-        if (os_layout_revert($form_state['values']['context'])) {
-          drupal_set_message(t('The layout %layout has been reset to its default values.', array('%layout' => $form_state['values']['context'])));
+        foreach ($form_state['values']['context'] as $context){
+          os_layout_revert($context);
+        }
+        if (count($form_state['values']['context'])) {
+          drupal_set_message(t('This layout has been reset to its default values.'));
         }
         break;
 

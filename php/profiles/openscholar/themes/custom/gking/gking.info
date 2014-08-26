@@ -28,6 +28,9 @@ os[cp_layout_css] = cp-layout-map.css
 
 ;----------// Theme Settings
 
+  ; Breadcrumb separator settings.
+  settings[breadcrumb_divider]       = '&raquo;' 
+  
   ; Layout settings - Standard bigscreen
   settings[bigscreen_layout]         = 'three_col_grail'
   settings[bigscreen_page_unit]      = '%'

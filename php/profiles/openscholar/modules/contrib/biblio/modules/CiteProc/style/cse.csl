@@ -152,6 +152,19 @@
                   </group>
                </group>
             </else-if>
+            <else-if type="patent">
+              <group suffix="." prefix="; " delimiter=" ">
+                  <date variable="issued">
+                     <date-part name="year"/>
+                  </date>
+               </group>
+               <group prefix=" " suffix="." delimiter=" ">
+                  <text macro="title" suffix="."/>
+               </group>
+               <text variable="edition" prefix=" " suffix=" patent"/>
+               <text variable="section" prefix=" "/>
+               <text variable="volume" prefix=" " suffix="."/>
+            </else-if>
             <else>
                <group suffix=".">
                   <text macro="title" prefix=" "/>

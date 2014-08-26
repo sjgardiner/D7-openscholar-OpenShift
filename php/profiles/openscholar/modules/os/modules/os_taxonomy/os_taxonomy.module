@@ -5,6 +5,21 @@
  * Taxonomy API and custom term page callback for OpenScholar.
  */
 
+/**
+ * Implements hook_menu().
+ */
+function os_taxonomy_menu() {
+
+  $items['vocab/%taxonomy_vocabulary_machine_name'] = array(
+    'title callback' => 'entity_label',
+    'title arguments' => array('taxonomy_vocabulary', 1),
+    'page callback' => 'os_taxonomy_vocab_page',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+  );
+
+  return $items;
+}
 
 /**
  * Implements hook_menu_alter().
@@ -28,29 +43,256 @@ function os_taxonomy_menu_alter(&$items) {
 }
 
 /**
+ * Implements hook_entity_info_alter().
+ */
+function os_taxonomy_entity_info_alter(&$entity_info) {
+  $entity_info['taxonomy_vocabulary']['uri callback'] = 'os_taxonomy_vocabulary_uri';
+  $entity_info['taxonomy_term']['uri callback'] = 'os_taxonomy_taxonomy_term_uri';
+}
+
+/**
+ * OS taxonomy module custom entity URI callback.
+ *
+ * @param $term
+ *  Taxonomy term object.
+ *
+ * @return
+ *  Array contains the path of the term.
+ */
+function os_taxonomy_taxonomy_term_uri($term) {
+  // The property "add_prefix is set to FALSE in
+  // os_taxonomy_taxonomy_term_presave() to avoid adding the bundle prefix only
+  // when inserting a term.
+  if (isset($term->add_prefix) && $term->add_prefix == FALSE) {
+    $path = taxonomy_term_uri($term);
+    return $path;
+  }
+
+  $path = taxonomy_term_uri($term);
+
+  if ($context = og_context()) {
+    // Get the associated bundles with the vocabulary.
+    $bundles = os_taxonomy_og_vocabulary_bundles($term->vid, $context['gid']);
+
+    if (count($bundles) == 1) {
+      $options['bundles'] = array(reset($bundles)->bundle);
+      os_taxonomy_get_prefix_path($options);
+
+      // Change the path by adding the app path.
+      os_taxonomy_term_alias($path['path'], $options);
+    }
+  }
+
+  return $path;
+}
+
+/**
+ * Implements hook_views_query_alter().
+ */
+function os_taxonomy_views_query_alter(&$view, &$query) {
+  if (!$path = os_taxonomy_in_taxonomy_term_context($view)) {
+    return;
+  }
+
+  $group_key = key($query->where);
+  $alias = $query->add_table('field_data_og_vocabulary');
+  $query->set_distinct();
+
+  $tid = str_replace('taxonomy/term/', '', $path);
+  $query->add_where($group_key, "$alias.og_vocabulary_target_id", $tid, '=');
+
+  if ($view_title = $view->get_title()) {
+    $term = taxonomy_term_load($tid);
+    $params = array(
+      '@term' => taxonomy_term_title($term),
+    );
+    $view->set_title(t('@term', $params));
+  }
+
+  os_taxonomy_activate_context($tid);
+}
+
+/**
+ * Verify the user is in a taxonomy term context.
+ *
+ * @param $view
+ *  The current view the user watching, or NULL in order to get the path from
+ *  cache.
+ *
+ * @return mixed
+ *  The path of the term, i.e: taxonomy/term/1.
+ */
+function os_taxonomy_in_taxonomy_term_context($view = NULL) {
+  $path = &drupal_static(__FUNCTION__, FALSE);
+  if (!$view) {
+    // Return path from cache.
+    return $path;
+  }
+  $view_names = array();
+  foreach (os_app_info() as $info) {
+    if (empty($info['views tabs'])) {
+      continue;
+    }
+    $view_names = array_merge($view_names, $info['views tabs']);
+  }
+
+  if (empty($view_names[$view->name])) {
+    return;
+  }
+
+  // Check if we have specified a specific display
+  if ($view_names[$view->name] !== TRUE && !in_array($view->current_display, array_keys($view_names[$view->name]))) {
+    return;
+  }
+
+  $path = '';
+  // Get the path of the view from the OS app info.
+  if (!empty($view_names[$view->name][$view->current_display])) {
+    foreach($view_names[$view->name][$view->current_display] as $views_path) {
+      if ($views_path == $_GET['q']) {
+        $path = $views_path;
+        break;
+      }
+    }
+  }
+  else {
+    // No path form the OS app info, get the path from the view settings.
+    $path = $view->get_path();
+  }
+
+  $item = menu_get_item();
+  $path_elements = count(explode("/", $path));
+
+  if (count($item['original_map']) <= $path_elements) {
+    // We are just looking at view path.
+    return;
+  }
+
+  // Get the term alias, if exists.
+  $path_parts = array_slice($item['original_map'], $path_elements);
+
+  if (!$path = drupal_get_normal_path(implode('/', $path_parts))) {
+    return;
+  }
+
+  // Check the path prefixed with the purl if we are in a vsite.
+  if (module_exists('vsite') && vsite_get_vsite() && $path == implode('/', $path_parts) && strpos($path, 'taxonomy/term/') !== 0) {
+    array_unshift($path_parts, vsite_get_purl());
+    if (!$path = drupal_get_normal_path(implode('/', $path_parts))) {
+      return;
+    }
+  }
+
+  if (strpos($path, 'taxonomy/term/') !== 0) {
+    return;
+  }
+
+  return $path;
+}
+
+
+/**
+ * Page callback; overrides system vocabulary term page.
+ *
+ * @see os_taxonomy_menu_alter()
+ */
+function os_taxonomy_vocab_page($vocabulary) {
+  $options = variable_get('os_taxonomy_term_page_options', array('max_depth' => 0));
+
+  $variables = array(
+    'vocabulary' => $vocabulary,
+    'options' => $options,
+  );
+
+  os_taxonomy_activate_context(FALSE, $vocabulary);
+
+  ctools_include('infinite_scroll', 'os');
+  _os_add_infinite_scroll('os_taxonomy');
+
+  return theme('os_taxonomy_tagged_nodes', $variables);
+}
+
+/**
  * Page callback; overrides system vocabulary term page.
  *
  * @see os_taxonomy_menu_alter()
  */
 function os_taxonomy_term_page($taxonomy_term) {
-  $options = variable_get('os_taxonomy_term_page_options', array());
+  $options = variable_get('os_taxonomy_term_page_options', array('max_depth' => 0));
 
   $variables = array(
     'taxonomy_term' => $taxonomy_term,
     'options' => $options,
   );
-  $context_name = 'os_taxonomy-term-'.$taxonomy_term->tid;
 
-  if(($feature = os_get_active_feature()) && isset($feature->info['features']['node'])){
-    $variables['options']['bundles'] = $feature->info['features']['node'];
-    $context_name .= '-'.$feature->name;
-  }
+  os_taxonomy_activate_context($taxonomy_term);
 
-  if ($ctx = context_load($context_name)) {
-    context_set('context', $ctx->name, $ctx);
-  }
+  ctools_include('infinite_scroll', 'os');
+  _os_add_infinite_scroll('os_taxonomy');
 
   return theme('os_taxonomy_tagged_nodes', $variables);
+}
+
+/**
+ * Store the current active vocab/term for use by preprocess functions
+ * @param object $vocabulary
+ */
+function _os_taxonomy_active_elements($active = array()) {
+  $current = &drupal_static(__FUNCTION__, array());
+
+  //Set the active vocab/term?
+  if(count($active)) {
+    $current = array_merge($current, $active);
+  }
+
+  return $current;
+}
+
+/**
+ * Activate the taxonomy related contexts.
+ */
+function os_taxonomy_activate_context($taxonomy_term = NULL, $vocabulary = NULL) {
+  if(!$taxonomy_term && !$vocabulary){
+    return false;
+  }
+
+  if (isset($taxonomy_term->tid)) {
+    $taxonomy_term = $taxonomy_term->tid;
+  }
+
+  // Setup the vid.
+  if(!$vocabulary){
+    $term = taxonomy_term_load($taxonomy_term);
+    $vocabulary = $term->vid;
+  }
+  elseif (isset($vocabulary->vid)) {
+    $vocabulary = $vocabulary->vid;
+  }
+
+  // Load context for taxonomy term.
+  if ($taxonomy_term) {
+	  $context_name = 'os_taxonomy-term-'.$taxonomy_term;
+	  _os_taxonomy_active_elements(array('tid' => $taxonomy_term));
+
+	  if (($feature = os_get_active_feature()) && isset($feature->info['features']['node'])){
+	    $variables['options']['bundles'] = $feature->info['features']['node'];
+	    $context_name .= '-'.$feature->name;
+	  }
+
+	  if ($ctx = context_load($context_name)) {
+	    context_set('context', $ctx->name, $ctx);
+	  }
+  }
+
+  // Load context for vocab if we are not in a os feature context.
+  if ($vocabulary && !os_get_active_feature()) {
+    $context_name = 'os_taxonomy-vocab-'.$vocabulary;
+    _os_taxonomy_active_elements(array('vid' => $vocabulary));
+
+    if ($ctx = context_load($context_name)) {
+      context_set('context', $ctx->name, $ctx);
+    }
+  }
 }
 
 /**
@@ -107,11 +349,13 @@ function theme_os_taxonomy_term_item($variables) {
   $name = $variables['name'];
   $item_wrapper = !empty($variables['childs']) ? "<div class='term-head'>" : '';
 
-  $name = !$number && !$variables['link_to_empty_terms'] ? $name : l($name, $variables['url_path'], $variables['link_options']);
-  $title = $item_wrapper . $name . $number;
+  $variables['link_options']['html'] = TRUE;
+  $variables['link_options']['attributes']['title'] = filter_xss($variables['description'], array());
+  $name = !$number && !$variables['link_to_empty_terms'] ? $name : l($name . $number, $variables['url_path']['path'], $variables['link_options']);
+  $title = $item_wrapper . $name;
 
   if ($variables['show_term_descriptions'] && !empty($variables['description'])) {
-    $title .= '<div class="description">' . check_plain($variables['description']) . '</div>';
+    $title .= '<div class="description">' . filter_xss($variables['description']) . '</div>';
   }
   // Close div if we there are children.
   $title .= !empty($variables['childs']) ? "</div>" . $variables['childs'] : '';
@@ -134,8 +378,6 @@ function theme_os_taxonomy_term_item($variables) {
  *      - bundles: The bundles type of the tagged node that will include in the
  *        count.
  *      - show_count: Show the number of tagged nodes next to the term
- *      - add_childs: Define if we add the childs tagged node number to the
- *        count.
  *      - show_empty_terms: Show empty terms in the terms list.
  *      - link_to_empty_terms: Show en empty term name as a link to the term.
  *      - show_term_descriptions: Show to term descprition under the title.
@@ -151,130 +393,126 @@ function theme_os_taxonomy_vocabulary_item_list($variables) {
     'depth' => 0,
     'bundles' => array(),
     'show_count' => TRUE,
-    'add_childs' => FALSE,
     'show_childs' => TRUE,
     'tid_active_class' => 0,
     'show_empty_terms' => TRUE,
     'show_term_descriptions' => TRUE,
     'link_to_empty_terms' => TRUE,
   );
-  $vocabulary = taxonomy_vocabulary_load($variables['vid']);
 
-  // Return a selective part of the list.
-  // TODO: Is not supported  when hiding children, in this case hidden child
-  // will also be counted but not displayed.
-  $query = db_select('taxonomy_term_data', 'term');
+  // Due to changes in the code, there are sites that their depth widget
+  // settings is smaller then one(i.e the first level value will be 0 and not 1)
+  // therefore we need to increase the depth value by one.
+  $depth = ($options['depth'] + 1) == 0 ? NULL : $options['depth'] + 1;
 
-  $query
-    ->fields('term', array('tid'))
-    ->condition('term.vid', $options['vocabulary'])
-    ->orderBy('weight');
+  // The taxonomy_get_tree() function returns the tree which is not ordered in a
+  // tree format. The function hierarchical_taxonomy_get_tree() orders the
+  // vocabulary in the tree format. This will ease on the performance side.
 
-  $result = $query->execute();
-
-  $tids = array();
-  while ($row = $result->fetchAssoc()) {
-    $tids[$row['tid']] = $row['tid'];
-  }
-
-  // No result - quit.
-  if (empty($tids)) {
+  if (!$terms = hierarchical_taxonomy_get_tree($variables['vid'], 0, $depth, TRUE)) {
     return;
   }
 
-  // Load all terms.
-  $terms = taxonomy_term_load_multiple($tids);
-  // Arrange term in an array with information about inner tree.
-  $items = os_taxonomy_build_term_items($terms, $options);
-  $path_prefix = '';
-
-  // If there is more than 0 bundles using this vocabulary.
-  if (count($options['bundles'])) {
-    $map = features_get_component_map('node');
-    foreach ($options['bundles'] as $bundle) {
-      if(isset($feature) && isset($map[$bundle]) && count($map[$bundle]) && $feature != current($map[$bundle])) {
-        unset($feature);
-        break;
-      }
-      elseif (isset($map[$bundle]) && count($map[$bundle])) {
-        $feature = current($map[$bundle]);
-      }
-    }
-    $path_prefix = isset($feature) ? strval(os_get_app_path($feature)) : 'taxonomy';
-    if (strlen($path_prefix)) {
-      $path_prefix = $path_prefix . "/";
-    }
+  if (os_taxonomy_terms_determine_sort($terms)) {
+    uasort($terms, 'os_taxonomy_sort_by_weight');
   }
 
-  $data = $options['bundles'] = array();
+  // Arrange term in an array with information about inner tree.
+  $path_prefix = '';
 
+  // If only one bundle is selected put it in an array.
+  if (is_string($options['bundles'])) {
+    $options['bundles'] = array($options['bundles']);
+  }
+
+  // If there is more than 0 bundles using this vocabulary.
+  os_taxonomy_get_prefix_path($options);
+  $data = array();
    // process all root term.
-  foreach($items as $tid => $item) {
-    // Skip on this if we don't display empty children term.
-    if (!$options['show_empty_terms'] && !$item['tagged_items'] && empty($item['child_number'])) {
-      continue;
-    }
-
-    if(strlen($path_prefix) && strpos($item['url']['path'],'taxonomy/') === 0){
-      $item['url']['path'] = str_replace('taxonomy/', $path_prefix, $item['url']['path']);
-    }
-
-    // Don't process terms that are in not in level 0.
-    if ($item['is_child']) {
-      continue;
-    }
+  foreach ($terms as $tid => $term) {
     // The attached number to the term name.
-    $number = null;
-    if ($options['show_count']) {
-      $number = $item['tagged_items'];
-      $number += $options['add_childs'] && isset($item['child_number']) ? $item['child_number'] : 0;
+    $number = NULL;
+    if ($options['show_count'] || !$options['show_empty_terms']) {
+      $number = os_taxonomy_count_term_tagged_items(array($term), $options['bundles']);
     }
 
-    if (!empty($options['widget_type']) && $options['widget_type'] == 'select') {
-      $term_name = $item['term_name'];
-      $data[$tid] = $term_name;
-    }
-    else {
-      // Don't process terms that are in not in level 0.
-      if ($item['is_child']) {
+    if (!$options['show_empty_terms'] && $number == 0) {
+      // Even if we don't display empty terms, the term will be displayed if it
+      // has non-empty children.
+      if (empty($term->below)) {
+        // No children.
         continue;
       }
 
+      if (!os_taxonomy_is_tagged_tree($term, $options['bundles'], $depth)) {
+        // All children are empty.
+        continue;
+      }
+    }
+
+    $term_path = taxonomy_term_uri($term);
+    os_taxonomy_term_alias($term_path['path'], $options);
+
+    if (!empty($path_prefix) && strpos($term_path, 'taxonomy/') === 0) {
+      $term->path = str_replace('taxonomy/', $path_prefix, $term_path);
+    }
+
+    if (!empty($options['widget_type']) && $options['widget_type'] == 'select') {
+      $data[$tid] = '- ' . $term->name;
+      $data += !empty($term->below) ? os_taxonomy_build_child_item($term->below, $term, $options) : array();
+    }
+    else {
       // Check if we need to disable the link to the term base on the child number.
-      $link_options = empty($item['class']) ? array() : array('attributes' => array('class' => $item['class']));
-      $child_content = !empty($item['childs']) ? os_taxonomy_build_child_item($item['childs'], $item, $options) : '';
+      if ($options['show_childs']) {
+        $child_content = !empty($term->below) ? os_taxonomy_build_child_item($term->below, $term, $options) : '';
+      }
+      $link_options = array(
+        'attributes' => array(
+          'class' => array(),
+        ),
+      );
+
+      if (!empty($options['nodetype'])) {
+        $link_options['attributes']['title'] = $options['nodetype'].'s in '.$term->name;
+      }
+      if (!empty($options['tid_active_class']) && $options['tid_active_class'] == $tid) {
+        $link_options['attributes']['class'][] = 'active';
+      }
+
       // Data contain data for term children.
       $data[$tid] = array(
         'data' => theme('os_taxonomy_term_item', array(
-          'number' => $number,
-          'name' => $item['term_name'],
+          'number' => $options['show_count'] ? $number : NULL,
+          'name' => $term->name,
           'link_options' => $link_options,
-          'url_path' => $item['url']['path'],
-          'description' => $item['description'],
+          'url_path' => $term_path,
+          'description' => $term->description,
           'link_to_empty_terms' => $options['link_to_empty_terms'],
           'show_term_descriptions' => $options['show_term_descriptions'],
           'childs' => $child_content,
         )),
-        'class' => array('term-' . drupal_html_class($item['term_name'])),
+        'class' => array('term-' . drupal_html_class($term->name)),
       );
     }
   }
 
-  if (!$data) {
-    return;
-  }
-
   // Make sure we pass the numeric values.
-  if ($options['range']) {
+  if ($options['range'] && $options['range'] > 0) {
     $options['offset'] = intval($options['offset']);
     $options['range'] = intval($options['range']);
 
     $data = array_slice($data, $options['offset'], $options['offset'] + $options['range'], TRUE);
   }
 
+  if (!$data) {
+    return;
+  }
 
   if (!empty($options['widget_type']) && $options['widget_type'] == 'select') {
-    return render(drupal_get_form('os_taxonomy_select_list', $data, $path_prefix));
+    // Calling to a generic form ID.
+    $options['path_prefix'] = empty($options['path_prefix']) ? '' : $options['path_prefix'];
+    $form = drupal_get_form('os_taxonomy_select_list_' . $variables['vid'], $data, $options['path_prefix']);
+    return render($form);
   }
   else {
     return theme('item_list', array('type' => 'ul', 'items' => $data));
@@ -282,7 +520,244 @@ function theme_os_taxonomy_vocabulary_item_list($variables) {
 }
 
 /**
- * Disaply a custom form with a term lists.
+ * Recursive function for checking if a term has any tagged children.
+ *
+ * @param $term
+ *   The parent term, generated by hierarchical_taxonomy_get_tree().
+ * @param $node_bundles
+ *    Node bundles to include in the query.
+ * @param $depth
+ *    Max depth level of terms, starting from 1, defaults to NULL (all levels).
+ * @param $return
+ *    TRUE if found at least one tagged child, defaults to FALSE.
+ *
+ * @return
+ *   TRUE if found at least one tagged child, otherwise FALSE.
+ */
+function os_taxonomy_is_tagged_tree($term, $node_bundles, $depth = NULL, &$return = FALSE) {
+  if (!empty($return)) {
+    // Already found one tagged child, no need to continue searching.
+    return $return;
+  }
+
+  if (!empty($depth) && $depth < $term->depth) {
+    // Reached max depth.
+    return $return;
+  }
+
+  if (os_taxonomy_count_term_tagged_items(array($term), $node_bundles) > 0) {
+    // Found a tagged child.
+    $return = TRUE;
+  }
+
+  if (!empty($term->below)) {
+    // Search in children.
+    foreach ($term->below as $child) {
+      os_taxonomy_is_tagged_tree($child, $node_bundles, $depth, $return);
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Adding path prefix to the $options variable.
+ *
+ *  @param $options
+ *    Referenced array of the options variable from the theme functions.
+ */
+function os_taxonomy_get_prefix_path(&$options) {
+  if (!count($options['bundles'])) {
+    return;
+  }
+  $map = features_get_component_map('node');
+
+  foreach ($options['bundles'] as $bundle) {
+    if (isset($feature) && isset($map[$bundle]) && count($map[$bundle]) && $feature != current($map[$bundle])) {
+      unset($feature);
+      break;
+    }
+    elseif (isset($map[$bundle]) && count($map[$bundle])) {
+      $feature = current($map[$bundle]);
+    }
+  }
+
+  // Counting how much bundles are associated with the vocabulary. If only 1
+  // then use the prefix of the app related to the node bundle.
+  if (!isset($feature) && $og_context = og_context()) {
+    $bundles = os_taxonomy_og_vocabulary_bundles($options['vocabulary'], $og_context['gid']);
+
+    if (count($bundles) === 1) {
+      $bundle = reset($bundles)->bundle;
+      if (isset($map[$bundle]) && count($map[$bundle])) {
+        $feature = current($map[$bundle]);
+      }
+    }
+  }
+
+  $options['path_prefix'] = isset($feature) ? variable_get("os_taxonomy_app_path_{$feature}", strval(os_get_app_path($feature))) : '';
+
+  if (strlen($options['path_prefix'])) {
+    $options['path_prefix'] = $options['path_prefix'] . "/";
+  }
+
+  if (!empty($feature) && ($info = os_app_info($feature)) && !empty($info['nodetypes']))
+  $options['nodetype'] = ucwords($info['nodetypes'][0]);
+}
+
+/**
+ * Implements hook_preprocess_page().
+ *
+ * If we're on a vocab, change the Layout link to point to the right context.
+ */
+function os_taxonomy_preprocess_page(&$page) {
+  $active = _os_taxonomy_active_elements();
+
+  $section_links = array();
+  $links = &$page['title_suffix']['controls']['section_links']['#links'];
+
+  if (!empty($active['vid'])) {
+
+    $ctxs = array_keys(context_active_contexts());
+
+    $section = array_diff($ctxs, array('os_taxonomy-term-'.$active['tid']));
+
+    $section_links['section-header'] = array(
+      'title' => t('This Vocabulary'),
+    );
+
+    $section_links['section-layout'] = array(
+      'title' => t('Layout'),
+      'href' => 'cp/build/layout/'.implode('/', $section),
+      'query' => drupal_get_destination(),
+    );
+    $vocabulary = taxonomy_vocabulary_load($active['vid']);
+    $section_links['section-edit'] = array(
+      'title' => t('Edit'),
+      'href' => 'cp/build/taxonomy/'.$vocabulary->machine_name.'/edit',
+      'query' => drupal_get_destination(),
+    );
+  }
+
+  if (!empty($active['tid'])) {
+    $ctxs = array_keys(context_active_contexts());
+
+    $section_links['page-header'] = array(
+      'title' => t('This Term'),
+    );
+
+    $section_links['page-layout'] = array(
+      'title' => t('Layout'),
+      'href' => 'cp/build/layout/'.implode('/', $ctxs),
+      'query' => drupal_get_destination(),
+    );
+    $section_links['page-edit'] = array(
+      'title' => t('Edit'),
+      'href' => 'taxonomy/term/'.$active['tid'].'/edit',
+      'query' => drupal_get_destination(),
+    );
+  }
+
+  if(count($section_links)) {
+    $links = $section_links;
+  }
+
+}
+
+/**
+ * Get the associated bundles with the vocabulary.
+ *
+ * @param $vocabulary
+ *  The vocabulary ID.
+ * @param $gid
+ *  The group ID.
+ *
+ * @return
+ *  Array of bundles associated with the vocabulary.
+ */
+function os_taxonomy_og_vocabulary_bundles($vocabulary, $gid) {
+
+  $query = db_select('og_vocab', 'ogv');
+  $query->join('og_vocab_relation', 'ogr', 'ogr.vid = ogv.vid');
+  $result = $query
+    ->fields('ogv')
+    ->condition('ogv.vid', $vocabulary)
+    ->condition('ogr.gid', $gid)
+    ->execute()
+    ->fetchAllAssoc('id');
+
+  return $result;
+}
+
+/**
+ * Get the alias of the taxonomy term.
+ *
+ *  @param $term_path
+ *    Referenced variable which holds the path of the taxonomy term.
+ *  @param $options
+ *    array of the options variable from the theme functions.
+ */
+function os_taxonomy_term_alias(&$term_path, $options) {
+  if (!empty($options['path_prefix']) && strlen($options['path_prefix']) && strpos($term_path, 'taxonomy/') === 0) {
+
+    // If in a vsite remove the purl from the path alias.
+    if (module_exists('vsite') && $purl = vsite_get_purl()) {
+      $path_args = explode('/', drupal_get_path_alias($term_path));
+
+      // Remove the value from the front of the query string
+      if (current($path_args) === $purl) {
+        array_shift($path_args);
+      }
+
+      $path_alias = $options['path_prefix'] . implode('/', $path_args);
+    }
+    else {
+      $path_alias = $options['path_prefix'] . drupal_get_path_alias($term_path);
+    }
+
+    // Check that the path alias doesn't exist yet (e.g. a node with the exact
+    // same title).
+    $path_collision = FALSE;
+
+    if (module_exists('vsite') && $purl = vsite_get_purl()) {
+      // On sites without a custom domain (e.g. http://local/os/john) the
+      // node's alias might be prefixed with the VSite name.
+      $path_collision = strpos(drupal_get_normal_path($purl . '/' . $path_alias), 'node/') === 0;
+    }
+    elseif ($path_alias == drupal_get_normal_path($path_alias)) {
+      $path_collision = TRUE;
+    }
+
+    if (!$path_collision) {
+      $term_path = $path_alias;
+    }
+    else {
+      // Use the non-aliased name.
+      $term_path = $options['path_prefix'] . $term_path;
+    }
+  }
+}
+
+/**
+ * Implements hook_forms().
+ *
+ * When having more then one filter by terms widget with a select list formatter
+ * there is a collision between the forms ID. Returning a callback for the
+ * generic form ID that the theme function asked for.
+ */
+function os_taxonomy_forms($form_id, $args) {
+  $forms = array();
+
+  if (strpos($form_id, 'os_taxonomy_select_list_') === 0) {
+    $forms[$form_id] = array(
+      'callback' => 'os_taxonomy_select_list',
+    );
+  }
+  return $forms;
+}
+
+/**
+ * Display a custom form with a term lists.
  *
  *  @param $term_list
  *    Array contain the term list from the vocabulary.
@@ -296,10 +771,24 @@ function os_taxonomy_select_list($form, $form_state, $terms_list, $path) {
   $menu = menu_get_item();
   $form_state['path'] = $path;
 
+  $wrapper = entity_metadata_wrapper('taxonomy_term', reset(array_keys($terms_list)));
+  $form['#vocabulary'] = $wrapper->vocabulary->value();
+
   $form['#attached']['css'][] = drupal_get_path('module', 'os_taxonomy') . '/os_taxonomy.css';
-  $form['terms'] = array(
+  $form['#attached']['js'][] = drupal_get_path('module', 'os_taxonomy') . '/os_taxonomy.js';
+
+  $default_value = NULL;
+  if ($term_path = os_taxonomy_in_taxonomy_term_context()) {
+    $term_path = explode('/', $term_path);
+    $default_value = end($term_path);
+  }
+
+  // Giving a unique name for the form element will allow us coloring it when
+  // there is a problem in the submission of the form.
+  $form['terms_' . $form['#vocabulary']->vid] = array(
     '#type' => 'select',
-    '#options' => array('--none--' => t('Select a term')) + $terms_list,
+    '#options' => array('--none--' => t('Select an item')) + $terms_list,
+    '#default_value' => $default_value,
     '#attributes' => array(
       'class' => array('terms-list'),
     ),
@@ -311,6 +800,9 @@ function os_taxonomy_select_list($form, $form_state, $terms_list, $path) {
   $form['actions'] = array(
     '#type' => 'actions',
     'submit' => array(
+      '#attributes' => array(
+        'class' => array('os-taxonomy-select-submit'),
+      ),
       '#type' => 'submit',
       '#value' => t('Go'),
     ),
@@ -321,69 +813,27 @@ function os_taxonomy_select_list($form, $form_state, $terms_list, $path) {
 
 /**
  * Submit handler - redirect the user to the taxonomy page.
+ *
+ *  @see os_taxonomy_forms().
  */
 function os_taxonomy_select_list_submit($form, &$form_state) {
-  $form_state['redirect'] = $form_state['path'] . 'taxonomy/term/' . $form_state['values']['terms'];
+  $path = 'taxonomy/term/' . $form_state['values']['terms_' . $form['#vocabulary']->vid];
+  os_taxonomy_term_alias($path, array('path_prefix' => $form_state['path']));
+
+  $form_state['redirect'] = $path;
 }
 
 /**
  * Submit handler - verify that the user select a term.
  */
 function os_taxonomy_select_list_validate($form, &$form_state) {
-  if ($form_state['values']['terms'] == '--none--') {
-    form_set_error('terms', t('Please select a term.'));
+  if ($form_state['values']['terms_' . $form['#vocabulary']->vid] == '--none--') {
+    form_set_error('terms_' . $form['#vocabulary']->vid, t('Please select a term.'));
   }
-
-
-  if (!$data) {
-    return;
-  }
-
-  // Make sure we pass the numeric values.
-  $options['offset'] = intval($options['offset']);
-  $options['range'] = intval($options['range']);
-  if($options['range']){
-    $data = array_slice($data, $options['offset'], $options['offset'] + $options['range'], TRUE);
-  }
-
-  return theme('item_list', array('type' => 'ul', 'items' => $data));
 }
 
 /**
- * Return array of items for the function os_taxonomy_term_item().
- *
- *  @param $terms
- *    Array of taxonomy term obejcts.
- *  @param $options
- *    Settings variable of the theme function.
- */
-function os_taxonomy_build_term_items($terms, $options) {
-  $items = array();
-
-  foreach ($terms as $tid => $term) {
-    $items[$tid] = array(
-      'term_name' => $term->name,
-      'description' => $term->description,
-      'url' => entity_uri('taxonomy_term', $term),
-      'class' => $options['tid_active_class'] == $tid ? 'active' : '',
-      'is_child' => taxonomy_get_parents($tid) ? TRUE : FALSE,
-      'tagged_items' => os_taxonomy_count_term_tagged_items(array($term), $options['bundles']),
-    );
-
-    // Add the number of tagged nodes to the children when needed.
-    if ($options['show_childs']) {
-      $childrens = os_taxonomy_get_term_childrens($term->tid, $term->vid, $options);
-      if ($options['add_childs']) {
-        $items[$tid]['child_number'] = os_taxonomy_count_term_tagged_items($childrens, $options['bundles']);
-      }
-      $items[$tid]['childs'] = os_taxonomy_build_term_items($childrens, $options);
-    }
-  }
-  return $items;
-}
-
-/**
- * Loading the taxonomy term childrens and remove all the childrens that their
+ * Loading the taxonomy term childrens and remove all the children's that their
  * depth in the vocabulary is bigger than the require nested level defined in
  * the box settings.
  * Because we are using recursive function for rendering the terms children with
@@ -398,7 +848,7 @@ function os_taxonomy_build_term_items($terms, $options) {
  *    Settings variable of the theme function.
  *
  *  @return
- *    Taxonomy terms childrens ready to be rendered by the theme function.
+ *    Taxonomy terms children's ready to be rendered by the theme function.
  */
 function os_taxonomy_get_term_childrens($tid, $vid, $options) {
   $tree = &drupal_static(__FUNCTION__, array());
@@ -406,7 +856,8 @@ function os_taxonomy_get_term_childrens($tid, $vid, $options) {
     $vocabulary = taxonomy_get_tree($options['vocabulary']);
     foreach ($vocabulary as $term) {
       $tree[$term->tid] = $term->depth;
-    }  }
+    }
+  }
 
   $childrens = taxonomy_get_children($tid, $vid);
 
@@ -432,41 +883,90 @@ function os_taxonomy_get_term_childrens($tid, $vid, $options) {
 function os_taxonomy_build_child_item($items, $parent, $options) {
   $content = array();
 
-  foreach ($items as $item) {
-    $child_content = '';
-    if (!empty($item['childs'])) {
-      $child_content = os_taxonomy_build_child_item($item['childs'], $item, $options);
-    }
-
-    $number = NULL;
-
-    if ($options['show_count']) {
-      $number = $item['tagged_items'];
-      $number += $options['add_childs'] && isset($item['child_number']) ? $item['child_number'] : 0;
-    }
-    $content[] = array(
-      'data' => theme('os_taxonomy_term_item', array(
-        'number' => $number,
-        'name' => $item['term_name'],
-        'link_options' => empty($item['class']) ? array() : array('attributes' => array('class' => $item['class'])),
-        'url_path' => $item['url']['path'],
-        'description' => $item['description'],
-        'link_to_empty_terms' => $options['link_to_empty_terms'],
-        'show_term_descriptions' => $options['show_term_descriptions'],
-        'childs' => $child_content,
-      )),
-      'class' => array('term-' . drupal_html_class($item['term_name'])),
-    );
+  if (os_taxonomy_terms_determine_sort($items)) {
+    uasort($items, 'os_taxonomy_sort_by_weight');
   }
 
-  $params = array(
-    'type' => 'ul',
-    'items' => $content,
-    'attributes' => array(
-       'class' => array('termchild-' . drupal_html_class($parent['term_name'])),
-     ),
-  );
-  return theme('item_list', $params);
+  // Due to changes in the code, there are sites that their depth widget
+  // settings is smaller then one(i.e the first level value will be 0 and not 1)
+  // therefore we need to increase the depth value by one.
+  $depth = ($options['depth'] + 1) == 0 ? NULL : $options['depth'] + 1;
+
+  foreach ($items as $item) {
+    $number = NULL;
+    if ($options['show_count'] || !$options['show_empty_terms']) {
+      $number = os_taxonomy_count_term_tagged_items(array($item), $options['bundles']);
+    }
+
+    $child_content = '';
+    if (!empty($item->below)) {
+      $child_content = os_taxonomy_build_child_item($item->below, $item, $options);
+    }
+
+    if (!$options['show_empty_terms'] && $number == 0) {
+      // Even if we don't display empty terms, the term will be displayed if it
+      // has non-empty children.
+      if (empty($item->below)) {
+        // No children.
+        continue;
+      }
+
+      if (!os_taxonomy_is_tagged_tree($item, $options['bundles'], $depth)) {
+        // All children are empty.
+        continue;
+      }
+    }
+
+    if ($options['widget_type'] == 'select') {
+      $hierarchy = '-';
+      for ($i = 0; $i <= $item->depth; $i++) {
+        $hierarchy .= '-';
+      }
+      $content[$item->tid] = $hierarchy . ' ' . $item->name;
+      if (!empty($item->below)) {
+        $content += os_taxonomy_build_child_item($item->below, $item, $options);
+      }
+    }
+    else {
+      $term_path = taxonomy_term_uri($item);
+      os_taxonomy_term_alias($term_path['path'], $options);
+
+      $content[] = array(
+        'data' => theme('os_taxonomy_term_item', array(
+          'number' => ($options['show_count']) ? $number : NULL,
+          'name' => $item->name,
+          'link_options' => empty($options['tid_active_class']) ? array() : array('attributes' => array('class' => $options['tid_active_class'] == $item->tid ? 'active' : '',)),
+          'url_path' => $term_path,
+          'description' => $item->description,
+          'link_to_empty_terms' => $options['link_to_empty_terms'],
+          'show_term_descriptions' => $options['show_term_descriptions'],
+          'childs' => $child_content,
+        )),
+        'class' => array('term-' . drupal_html_class($item->name)),
+      );
+
+      $params = array(
+        'type' => 'ul',
+        'items' => $content,
+        'attributes' => array(
+           'class' => array('termchild-' . drupal_html_class($parent->name)),
+         ),
+      );
+    }
+  }
+
+  if ($options['widget_type'] == 'select') {
+    // When using a select list widget, we need to return array of the terms.
+    return $content;
+  }
+  elseif (!empty($params)) {
+    // When using the list widget, we need to return the raw HTML output.
+    return theme('item_list', $params);
+  }
+  else {
+    // All of the child terms were empty and are not displayed.
+    return '';
+  }
 }
 
 /**
@@ -495,20 +995,31 @@ function os_taxonomy_build_child_item($items, $parent, $options) {
  * @see gkplus_preprocess_os_taxonomy_tagged_nodes()
  */
 function theme_os_taxonomy_tagged_nodes($variables) {
-  $output = '';
-
   global $language;
+
+  $output = '';
   $direction = $language->direction ? 'margin-right: ' : 'margin-left: ';
 
+  $tagged_item_per_page = variable_get('os_taxonomy_items_per_page', 15);
+  $page = !isset($_GET['page']) ? 0 : $_GET['page'];
+
+  // Show description only if set and if this is first page.
+  $show_descriptioon = FALSE;
+  if ($variables['taxonomy_term']) {
+    if (!$page && $variables['taxonomy_term']->show_description[LANGUAGE_NONE][0]['value']) {
+      $show_descriptioon = TRUE;
+    }
+  }
+
   $options = $variables['options'] + array(
-    'range' => 0,
-    'offset' => 0,
+    'range' => $tagged_item_per_page,
+    'offset' => $page * $tagged_item_per_page,
     'tree' => FALSE,
     'max_depth' => NULL,
     'indentation' => 10,
     'bundles' => array(),
-    'view_mode' => 'full',
-    'description' => FALSE,
+    'view_mode' => 'teaser',
+    'description' => $show_descriptioon,
     'child_element' => TRUE,
     'indentation_type' => 'px',
     'attributes' => array(),
@@ -516,6 +1027,11 @@ function theme_os_taxonomy_tagged_nodes($variables) {
     'nodeorder' => FALSE,
   );
   $taxonomy_term = $variables['taxonomy_term'];
+  $vocabulary = !empty($variables['vocabulary']) ? $variables['vocabulary'] : NULL;
+  if (!$vocabulary && !($vocabulary = taxonomy_vocabulary_load($taxonomy_term->vid))) {
+    // Somthing bad has happened we don't have a vocab or term.
+    return FALSE;
+  }
 
   // Prepares class attributes for the wrapper div around this term.
   if (!isset($options['attributes']['class'])) {
@@ -548,27 +1064,90 @@ function theme_os_taxonomy_tagged_nodes($variables) {
   $build['term_heading'] = array(
     '#prefix' => '<div class="term-listing-heading">',
     '#suffix' => '</div>',
-    'term' => os_taxonomy_term_view($taxonomy_term, 'full', $options['description']),
   );
 
+  if ($taxonomy_term) {
+    //Render the term and description
+    $build['term_heading']['term'] = os_taxonomy_term_view($taxonomy_term, 'full', $options['description']);
+  } elseif ($vocabulary) {
+    //Render the vocab and description
+    $build['term_heading']['vocabulary'] = array();
+
+    if ($options['description']) {
+      $build['term_heading']['vocabulary']['description'] = array(
+        '#markup' => check_markup($vocabulary->description, $vocabulary->format, '', TRUE),
+        '#weight' => 0,
+        '#prefix' => '<div class="taxonomy-term-description">',
+        '#suffix' => '</div>',
+      );
+    }
+  }
+
   // Checks whether there are child terms to display below this one.
-  $children = taxonomy_get_tree($taxonomy_term->vid, $taxonomy_term->tid, 1, TRUE);
+  $children = taxonomy_get_tree($vocabulary->vid, ($taxonomy_term)?$taxonomy_term->tid:0, 1, TRUE);
   $has_children_to_display = (!empty($children) && (is_null($options['max_depth']) || (is_numeric($options['max_depth']) && $options['max_depth'] > $options['cur_depth'])));
 
+  if ($taxonomy_term) {
+    $tid = $taxonomy_term->tid;
+  }
+  else {
+    // This is a vocab aggregate the tid's unless a tree was asked for.
+    if ($has_children_to_display) {
+      // The first level will be the vocab itself so go one deeper.
+      $options['max_depth'] = $options['max_depth'] + 1;
+      $tid = false;
+    }
+    else {
+      // Retrieve all of the terms.
+      $all_terms = taxonomy_get_tree($vocabulary->vid,0);
+      // Aggregate the TID's
+	    foreach ($all_terms as $child){
+	      $tid[] = $child->tid;
+	    }
+	    // Do not display a tree, we are aggregating.
+	    $options['max_depth'] = FALSE;
+    }
+  }
+
   // Attaches list of nodes in this term, or empty message if term is root term.
-  $node_count = os_taxonomy_count_attached_nodes($taxonomy_term->tid, $options['bundles']);
-  if ($node_count) {
+  if($tid) {
+    $entity_count = os_taxonomy_count_attached_entities($tid, $options['bundles']);
+  }
 
-    $nids = os_taxonomy_list_attached_nodes($taxonomy_term->tid, $options['bundles'], $options['range'], $options['offset']);
+  if ($entity_count) {
+    pager_default_initialize($entity_count, $tagged_item_per_page);
+    $pager = theme('pager', array('quantity' => $entity_count));
 
-    $nodes = node_load_multiple($nids);
-    array_walk($nodes, create_function('&$n', '$n->contextual_annotation_key = "tid-'.$taxonomy_term->tid.'";'));
-    $build += node_view_multiple($nodes);
+    //restrict bundles not jsut to widget settings, but vocab settings as well.  we want to avoid collated file/node lists when possible.
+    if (($space = spaces_get_space()) && ($v_bundles = os_taxonomy_og_vocabulary_bundles($vocabulary->vid, $space->id))) {
+      $v_bundles = array_map(function($o) {return $o->bundle;}, $v_bundles);
+      $options['bundles'] = (empty($options['bundles'])) ? $v_bundles : array_intersect($options['bundles'], $v_bundles);
+    }
+
+    $entities = os_taxonomy_list_attached_entities($tid, $options['bundles'], $options['range'], $options['offset']);
+
+    //this array map is only necessary when entity types are mixed.  would it be more efficient to use the TYPE_load_multiple and TYPE_view_multipe options when the bundles are all within one entity?
+    $build += array_map(function ($a) use ($tid, $options) {
+      if ($a['entity_type'] == "node") {
+        //Render a node.
+        $entity = node_load($a['entity_id']);
+        $entity->contextual_annotation_key = 'tid-' . $tid;
+        return node_view($entity, $options['view_mode']);
+      }
+
+      //Render a non-node entity
+      $entity = entity_load_single($a['entity_type'], $a['entity_id']);
+      $entity->contextual_annotation_key = 'tid-' . $tid;
+      return entity_view($a['entity_type'], array($entity), $options['view_mode']);
+    }, $entities);
+
   }
   else if ((int) $options['cur_depth'] === 0 && !$has_children_to_display) {
+    $pager = '';
+    $type = ($taxonomy_term)?"term":"vocabulary";
     $build['no_content'] = array(
       '#prefix' => '<p>',
-      '#markup' => t('There is currently no content classified with this term.'),
+      '#markup' => t('There is currently no content classified with this @type.',array('@type' => $type)),
       '#suffix' => '</p>',
     );
   }
@@ -596,7 +1175,7 @@ function theme_os_taxonomy_tagged_nodes($variables) {
   }
 
   // Closes the wrapper div around this term.
-  $output .= '</div>';
+  $output .= '</div>' . $pager;
 
   return $output;
 }
@@ -617,7 +1196,7 @@ function os_taxonomy_count_term_tagged_items($terms, $node_bundles = array()) {
   $items_number = 0;
 
   foreach ($terms as $term) {
-    $items_number += os_taxonomy_count_attached_nodes($term->tid, $node_bundles);
+    $items_number += os_taxonomy_count_attached_entities($term->tid, $node_bundles);
   }
 
   return $items_number;
@@ -645,19 +1224,55 @@ function os_taxonomy_count_attached_nodes_query_object($tid, $node_bundles = arr
     ->fields('t');
 
   $query->join('node', 'n', 't.nid = n.nid');
-
-  $query->orderBy('n.sticky', 'DESC');
-  if (module_exists('nodeorder')) {
-    $query->orderBy('t.weight', 'ASC');
-  }
-  $query->orderBy('n.created', 'DESC');
-
+  $query->condition('n.status', '1', '=');
   if (!empty($node_bundles)) {
     $query->condition('n.type', $node_bundles, 'IN');
   }
 
   return $query;
 }
+
+/**
+ * Return a query object to get all entities for a term/terms
+ * @param int/array $tid
+ *   One term or an array of terms.
+ * @param array $bundles
+ *
+ * @return SelectQuery
+ */
+function os_taxonomy_count_attached_entities_query_object($tid, $bundles = array()) {
+  $query = db_select('field_data_og_vocabulary', 'ogv');
+  $query->condition('og_vocabulary_target_id', $tid, is_array($tid)?'IN':"=")
+    ->distinct()
+    ->fields('ogv', array('entity_type', 'entity_id'));
+
+  //Join node and file_managed as needed so we can sort by sticky and created dates
+  $entities = _os_taxonomy_bundle_entities($bundles);
+  if (empty($bundles) || in_array('file', $entities)) {
+    $query->leftJoin('file_managed', 'fm', '(ogv.entity_type = :file AND ogv.entity_id = fm.fid)', array(':file' => 'file'));
+
+    $file_published = db_or();
+    $file_published->isNull('fm.fid');
+    $file_published->condition('fm.status', '1', '=');
+    $query->condition($file_published);
+  }
+
+  if (empty($bundles) || in_array('node', $entities)) {
+    $query->leftJoin('node', 'n', '(ogv.entity_id = n.nid AND ogv.entity_type = :node)', array(':node' => 'node'));
+
+    $node_published = db_or();
+    $node_published->isNull('n.nid');
+    $node_published->condition('n.status', '1', '=');
+    $query->condition($node_published);
+  }
+
+  if (!empty($bundles) && is_array($bundles) && reset($bundles) != '--all--') {
+    $query->condition('ogv.bundle', $bundles, 'IN');
+  }
+
+  return $query;
+}
+
 
 /**
  * Count the number of attached node to the taxonomy.
@@ -674,12 +1289,27 @@ function os_taxonomy_count_attached_nodes_query_object($tid, $node_bundles = arr
 function os_taxonomy_count_attached_nodes($tid, $node_bundles = array()) {
   $query = os_taxonomy_count_attached_nodes_query_object($tid, $node_bundles);
 
+  if ($og_context = og_context()) {
+    $query->join('og_membership', 'ogm', "ogm.entity_type = 'node' AND ogm.etid = n.nid");
+    $query->condition("ogm.gid", $og_context['gid']);
+  }
+
   $count = $query
     ->countQuery()
     ->execute()
     ->fetchField();
 
   return $count;
+}
+function os_taxonomy_count_attached_entities($tid, $bundles = array()) {
+  $query = os_taxonomy_count_attached_entities_query_object($tid, $bundles);
+
+  if ($og_context = og_context()) {
+    $query->join('og_membership', 'ogm', " ogm.etid = ogv.entity_id");
+    $query->condition("ogm.gid", $og_context['gid']);
+  }
+
+  return $query->countQuery()->execute()->fetchField();
 }
 
 /**
@@ -698,41 +1328,81 @@ function os_taxonomy_count_attached_nodes($tid, $node_bundles = array()) {
  *  @return array $nids
  *    Array of tagged node IDs.
  */
-function os_taxonomy_list_attached_nodes($tid, $node_bundles = array(), $range = NULL, $offset = NULL) {
-  $query = os_taxonomy_count_attached_nodes_query_object($tid, $node_bundles);
+function os_taxonomy_list_attached_entities($tid, $bundles = array(), $range = NULL, $offset = NULL) {
+  $query = os_taxonomy_count_attached_entities_query_object($tid, $bundles);
 
-  $query->orderBy('n.sticky', 'DESC');
-  if (module_exists('nodeorder')) {
+  // Order by weight only if "nodeorder" is on and order has been set.
+  if (module_exists('nodeorder') && _os_taxonomy_noderoder_exists($tid)) {
+    $query->leftJoin('taxonomy_index', 't', '(ogv.entity_type = :node_order_type AND ogv.entity_id = t.nid)', array(':node_order_type' => 'node'));
     $query->orderBy('t.weight', 'ASC');
   }
+  else {
+    if (count($bundles) == 1){
+      switch(current($bundles)){
+        case 'biblio':
+          $query->leftJoin('biblio', 'b', 'b.vid = n.vid');
+          $query->orderBy('b.biblio_year', 'DESC');
+          break;
+        case 'person':
+          $query->leftJoin('field_data_field_last_name', 'p', 'p.revision_id = n.vid AND p.bundle = \'person\' AND p.entity_type = \'node\' AND p.language = \'und\' AND p.delta = 0');
+          $query->orderBy('n.sticky', 'DESC');
+          $query->orderBy('p.field_last_name_value', 'ASC');
+          break;
+      }
+    }
 
-  if(isset($node_bundles) && count($node_bundles) == 1){
-    switch(current($node_bundles)){
-    	case 'biblio':
-    	  $query->leftJoin('biblio', 'b', 'b.vid = n.vid');
-    	  $query->orderBy('b.biblio_year', 'DESC');
-    	  break;
-    	case 'person':
-    	  $query->leftJoin('field_data_field_last_name', 'p', 'p.revision_id = n.vid AND p.bundle = \'person\' AND p.entity_type = \'node\' AND p.language = \'und\' AND p.delta = 0');
-    	  $query->orderBy('p.field_last_name_value', 'ASC');
-    	  break;
+    // Apply an expensive sort only when it's needed for many bundles.
+    switch (_os_taxonomy_bundle_entities($bundles)) {
+      case array('node'):
+        $query->orderBy('n.sticky', 'DESC');
+        $query->orderBy('n.created', 'DESC');
+        break;
+
+      case array('file'):
+        $query->orderBy('fm.timestamp', 'DESC');
+        break;
+
+      default:
+        //select a date depending on the type of entity, sort by that.  this is slow.
+        $query->addExpression('IF(ogv.entity_type = :node, n.created, fm.timestamp)', 'entity_date', array(':node' => 'node'));
+        $query->orderBy('n.sticky', 'DESC');
+        $query->orderBy('entity_date', 'DESC');
+        break;
     }
   }
 
-  $query->orderBy('n.created', 'DESC');
-
   if ($range) {
-    $query->range($range + $offset, $range);
+    $query->range($offset, $range);
   }
 
   $result = $query->execute();
-  $nodes = array();
+  $entities = array();
   while ($record = $result->fetchAssoc()) {
-    $nodes[$record['nid']] = $record['nid'];
+    $entities[] = array('entity_type' => $record['entity_type'], 'entity_id' => $record['entity_id']);
   }
 
-  $nids = array_keys($nodes);
-  return $nids;
+  return $entities;
+}
+
+/**
+ * Helper function; Checks if an order has been set for a given term using
+ * the "nodeorder" module.
+ *
+ * @param $tid
+ *  The term ID to check for.
+ *
+ * @return bool
+ *  TRUE/FALSE - If an order was set for the given term.
+ */
+function _os_taxonomy_noderoder_exists($tid) {
+  // If the weight is not zero, an order for the term has been set.
+  $query = db_select('taxonomy_index', 't');
+  $query
+    ->condition('tid', $tid)
+    ->condition('weight', 0, '<>')
+    ->fields('t', array('nid'));
+
+  return $query->execute()->rowCount();
 }
 
 /**
@@ -806,6 +1476,23 @@ function os_taxonomy_context_custom($context_name) {
 
     return $ctx;
   }
+
+  if (strpos($context_name, 'os_taxonomy-vocab-') !== FALSE) {
+    //Blank context provided as the system default, the spaces will recieve customized defaults for each vocab if needed.
+    $ctx = (object)array(
+      'disabled' => FALSE,
+      'api_version' => 3,
+      'name' => $context_name,
+      'description' => 'Context active in a given vocabulary.',
+      'tag' => 'OpenScholar',
+      'conditions' => array(),
+      'reactions' => array(),
+      'condition_mode' => 0,
+      'weight' => 2,
+    );
+
+    return $ctx;
+  }
 }
 
 /**
@@ -825,4 +1512,482 @@ function _os_taxonomy_remove_term_heading_link($markup, $element) {
   $output = preg_replace($link_pattern, "<h2>$1", $markup);
 
   return $output;
+}
+
+/**
+ * Sort terms by weight.
+ *
+ * The hierarchical taxonomy order the terms by their depth and not by their
+ * weight.
+ */
+function os_taxonomy_sort_by_weight($a, $b) {
+  return ($a->weight < $b->weight) ? -1 : 1;
+}
+
+/**
+ * When all of the terms don't have weight the sort callback will mess up the
+ * order of the terms and will not display the terms in the same order they
+ * appear in the taxonomy term management form.
+ *
+ * @param $terms
+ *  Array of terms object supplied by the taxonomy_get_tree() function.
+ *
+ * @return bool
+ *  TRUE/VALUES which will determine if the terms need to be sorted by their
+ *  weight.
+ */
+function os_taxonomy_terms_determine_sort($terms) {
+  foreach ($terms as $term) {
+    if ($term->weight) {
+      // We found at least a single term with weight, we can determine that the
+      // the terms need to be sorted by their weight.
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * @function _os_taxonomy_bundle_entities()
+ *
+ * Given a list of bundles, get the entities that use them.  This is to let us
+ * avoid collating files and nodes on a term page unless absolutely necessary.
+ */
+function _os_taxonomy_bundle_entities($bundles = array()) {
+  $ret = array();
+  $bundle_functions = array('node' => 'os_get_bundles', 'file' => 'os_files_get_bundles');
+
+  foreach ($bundle_functions as $entity => $func) {
+    $entity_bundles = array_keys($func(TRUE));
+    if (array_intersect($entity_bundles, $bundles) || reset($bundles) == '--all--') {
+      $ret[] = $entity;
+    }
+  }
+
+  return $ret;
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter() for taxonomy_form_vocabulary().
+ */
+function os_taxonomy_form_taxonomy_overview_vocabularies_alter(&$form, $form_state) {
+
+  //Loop through the vocabularies in the admin form.
+  foreach (element_children($form) as $vid){
+    if(isset($form[$vid]['#vocabulary'])){
+      $vocab = $form[$vid]['#vocabulary'];
+      //Link to the vocabulary in the admin list
+      $form[$vid]['name'] = array('#type' => 'link', '#title' => check_plain($vocab->name), '#href' => "vocab/$vocab->machine_name");
+    }
+  }
+
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter() for taxonomy_form_vocabulary().
+ */
+function os_taxonomy_form_taxonomy_form_vocabulary_alter(&$form, $form_state) {
+  // Make sure this does not show up on the delete confirmation form.
+  if (empty($form_state['confirm_delete'])) {
+    $langcode = entity_language('taxonomy_vocabulary', (object) $form_state['vocabulary']);
+    $langcode = !empty($langcode) ? $langcode : LANGUAGE_NONE;
+    $conditions = array('source' => 'vocab/' . $form_state['vocabulary']->machine_name, 'language' => $langcode);
+    $path = (isset($form_state['vocabulary']->vid) ? path_load($conditions) : array());
+    if ($path === FALSE) {
+      $path = array();
+    }
+    $path += array(
+      'pid' => NULL,
+      'source' => isset($form_state['vocabulary']->vid) ? 'vocab/' . $form_state['vocabulary']->machine_name : NULL,
+      'alias' => '',
+      'language' => $langcode,
+    );
+
+    // If this is a vsite...
+    if (module_exists('vsite') && $purl = vsite_get_purl()) {
+      // And if this node form contains an existing alias value...
+      if ($path['alias']) {
+        while (strpos($path['alias'], "$purl/") === 0) {
+          $path['alias'] = substr($path['alias'], strlen($purl) + 1);
+        }
+      }
+
+      // Our validation handler comes first because we need to alter the alias and
+      // add the purl prefix before the alias is validated to prevent collisions.
+      array_unshift($form['#validate'], 'vsite_form_alias_validate');
+    }
+
+    $form['path'] = array(
+      '#access' => user_access('create url aliases') || user_access('administer url aliases'),
+      '#tree' => TRUE,
+      '#element_validate' => array('path_form_element_validate'),
+    );
+    $form['path']['alias'] = array(
+      '#type' => 'textfield',
+      '#title' => t('URL alias'),
+      '#default_value' => $path['alias'],
+      '#maxlength' => 255,
+      '#weight' => 0,
+      '#description' => t("Optionally specify an alternative URL by which this vocabulary can be accessed. Ex. 'vocab/myvocabulary'."),
+    );
+    $form['path']['pid'] = array('#type' => 'value', '#value' => $path['pid']);
+    $form['path']['source'] = array('#type' => 'value', '#value' => $path['source']);
+    $form['path']['language'] = array('#type' => 'value', '#value' => $path['language']);
+    // Prepares a field prefix to store this site's path.
+    $field_prefix = rtrim(url('<front>', array('absolute' => TRUE)), '/');
+    // Adds the prefix to the custom alias field on the node form.
+    $form['path']['alias']['#field_prefix'] = "$field_prefix/";
+
+    pathauto_field_attach_form('taxonomy_vocabulary', $form_state['vocabulary'], $form, $form_state, $langcode);
+  }
+}
+
+/**
+ * Implements hook_taxonomy_vocabulary_insert().
+ */
+function os_taxonomy_taxonomy_vocabulary_insert($vocabulary) {
+  $langcode = entity_language('taxonomy_vocabulary', $vocabulary);
+  //Create the default context
+  _os_taxonomy_create_default_context($vocabulary);
+
+  // Skip processing if the user has disabled pathauto for the term.
+  if (!isset($vocabulary->path['pathauto']) || !empty($vocabulary->path['pathauto'])) {
+    // Skip processing if the term has no pattern.
+    if (pathauto_pattern_load_by_entity('taxonomy_vocabulary', $vocabulary->machine_name)) {
+      module_load_include('inc', 'pathauto');
+      $uri = entity_uri('taxonomy_vocabulary', $vocabulary);
+      $langcode = !empty($langcode) ? $langcode : LANGUAGE_NONE;
+      pathauto_create_alias('taxonomy_vocabulary', 'update', $uri['path'], array('vocabulary' => $vocabulary), $vocabulary->machine_name, $langcode);
+      return;
+    }
+  }
+
+  if (isset($vocabulary->path)) {
+    $path = $vocabulary->path;
+
+    if(module_exists('vsite')) {
+      $path['alias'] = vsite_get_entity_alias('vocabulary', $vocabulary);
+    }
+    $path['alias'] = trim($path['alias']);
+
+    // Only save a non-empty alias.
+    if (!empty($path['alias'])) {
+      // Ensure fields for programmatic executions.
+      $path['source'] = 'vocab/' . $vocabulary->machine_name;
+      // Core does not provide a way to store the term language but contrib
+      // modules can do it so we need to take this into account.
+      $path['language'] = !empty($langcode) ? $langcode : LANGUAGE_NONE;
+      path_save($path);
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_vocabulary_update().
+ */
+function os_taxonomy_taxonomy_vocabulary_update($vocabulary) {
+  $langcode = entity_language('taxonomy_vocabulary', $vocabulary);
+
+  // Skip processing if the user has disabled pathauto for the term.
+  if (!isset($vocabulary->path['pathauto']) || !empty($vocabulary->path['pathauto'])) {
+	  // Skip processing if the term has no pattern.
+	  if (pathauto_pattern_load_by_entity('taxonomy_vocabulary', $vocabulary->machine_name)) {
+	    module_load_include('inc', 'pathauto');
+	    $uri = entity_uri('taxonomy_vocabulary', $vocabulary);
+
+	    $langcode = !empty($langcode) ? $langcode : LANGUAGE_NONE;
+	    pathauto_create_alias('taxonomy_vocabulary', 'update', $uri['path'], array('vocabulary' => $vocabulary), $vocabulary->machine_name, $langcode);
+	    return;
+	  }
+  }
+
+  if (isset($vocabulary->path)) {
+    $path = $vocabulary->path;
+
+    if(module_exists('vsite')) {
+      $path['alias'] = vsite_get_entity_alias('taxonomy_vocabulary', $vocabulary);
+    }
+    $path['alias'] = trim($path['alias']);
+    // Delete old alias if user erased it.
+    if (!empty($path['pid']) && empty($path['alias'])) {
+      path_delete($path['pid']);
+    }
+    // Only save a non-empty alias.
+    if (!empty($path['alias'])) {
+      // Ensure fields for programmatic executions.
+      $path['source'] = 'vocab/' . $vocabulary->machine_name;
+      // Core does not provide a way to store the term language but contrib
+      // modules can do it so we need to take this into account.
+      $path['language'] = !empty($langcode) ? $langcode : LANGUAGE_NONE;
+      path_save($path);
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_vocabulary_delete().
+ */
+function os_taxonomy_taxonomy_vocabulary_delete($vocabulary) {
+  // Delete all aliases associated with this vocab.
+  path_delete(array('source' => 'vocab/' . $vocabulary->machine_name));
+}
+
+/**
+ * Give the vocabularies a URI
+ *
+ * @param object $vocabulary
+ * @return multitype:string
+ */
+function os_taxonomy_vocabulary_uri($vocabulary) {
+  return array(
+    'path' => 'vocab/' . $vocabulary->machine_name,
+  );
+}
+
+/**
+ * Create the default context
+ */
+function _os_taxonomy_create_default_context($vocabulary) {
+  //This only applies to multi-tenant
+  if(!module_exists('vsite')){
+    return;
+  }
+
+  $vsite = vsite_get_vsite();
+  if(!$vsite) {
+    return;
+  }
+
+  //Create taxonomy block
+  $box = boxes_factory('os_taxonomy_fbt', array(
+    'delta' => time(),
+    'description' => "Filter by {$vocabulary->name} terms",
+    'title' => "Filter By",
+    'vocabulary' => $vocabulary->vid,
+    'bundles' => array(),
+    'widget_type' => 'list',
+    'range' => 15,
+    'offset' => '',
+    'show_empty_terms' => 0,
+    'show_term_descriptions' => 0,
+    'show_count' => 1,
+    'show_childs' => 1,
+    'add_childs' => 0,
+    'depth' => -1,
+    'behavior' => 'contextual',
+    'as_nav' => 0,
+  ));
+  $vsite->controllers->boxes->set($box->delta, $box);
+
+  $context_name = 'os_taxonomy-vocab-'.$vocabulary->vid;
+  $ctx = context_load($context_name);
+
+  //Get blocks from default context.
+  $blocks = $ctx->reactions['block'];
+  //Add the new box to the second sidebar.
+  $blocks['boxes-'.$box->delta] = array(
+    'module' => 'boxes',
+    'delta' => $box->delta,
+    'title' => $box->title,
+    'info' => $box->description,
+    'region' => 'sidebar_second',
+    'status' => 0,
+    'weight' => 0,
+  );
+
+  vsite_layout_context_set($context_name, $blocks);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for taxonomy_form_term().
+ */
+function os_taxonomy_form_taxonomy_form_term_alter(&$form, &$form_state, $form_id) {
+  // Unsets "Meta tags" and "URL Redirects" fieldsets for all users.
+  foreach (array('metatags', 'redirect') as $element) {
+    if (isset($form[$element])) {
+      $form[$element]['#access'] = FALSE;
+    }
+  }
+
+  // Set the default value for "show description" to TRUE for new terms.
+  if (is_array($form['#term']) && !$form['#term']['tid']) {
+    $form['show_description']['und']['#default_value'] = TRUE;
+  }
+}
+
+/**
+ * Implements hook_field_widget_form_alter().
+ *
+ * Add expand/ collapse to a tree widget.
+ */
+function os_taxonomy_field_widget_form_alter(&$element, &$form_state, $context) {
+  if ($context['field']['field_name'] != OG_VOCAB_FIELD) {
+    // Not an OG vocabulary field.
+    return;
+  }
+
+  if ($context['instance']['widget']['type'] != 'term_reference_tree') {
+    // Not a tree widget.
+    return;
+  }
+
+  $items = array(
+    '<a href="#" class="expand">' . t('Expand') . '</a>',
+    '<a href="#" class="collapse">' . t('Collapse') . '</a>',
+  );
+
+  $attributes['class'] = 'toggle-wrapper';
+
+  $element['#prefix'] = theme('item_list', array('items' => $items, 'attributes' => $attributes));
+  $element['#attached']['css'][] = drupal_get_path('module', 'os_taxonomy') . '/os_taxonomy.css';
+  $element['#attached']['js'][] = drupal_get_path('module', 'os_taxonomy') . '/os_taxonomy.js';
+}
+
+/**
+* Implements hook_taxonomy_term_presave().
+*
+* Adds the "add_prefix" property to a term to signal us not to change its URI
+* in os_taxonomy_taxonomy_term_uri() when inserting a term.
+*/
+function os_taxonomy_taxonomy_term_presave($term){
+  $term->add_prefix = FALSE;
+}
+
+/**
+ * Implements hook_field_attach_create_bundle().
+ *
+ * When creating a new vocabulary attach the right fields.
+ */
+function os_taxonomy_field_attach_create_bundle($entity_type, $bundle) {
+  if ($entity_type != 'taxonomy_term') {
+    return;
+  }
+  os_taxonomy_attach_fields_to_vocabulary('taxonomy_term', $bundle);
+}
+
+/**
+ * Adds "show description" field to vocabulary.
+ *
+ * @param $entity_type
+ *   The entity type of the bundle we want to attach the field to
+ * @param $bundle
+ *   The bundle to attach the fields to.
+ * @throws FieldException
+ *
+ * @see field_create_instance().
+ */
+function os_taxonomy_attach_fields_to_vocabulary($entity_type, $bundle) {
+  $info = os_taxonomy_og_fields_info();
+  $field = $info['show_description']['field'];
+
+  if (!field_info_field($field['field_name'])) {
+    field_create_field($field);
+  }
+
+  $instance = $info['show_description']['instance'];
+
+  $instance += array(
+    'field_name' => $field['field_name'],
+    'bundle' => $bundle,
+    'entity_type' => $entity_type,
+  );
+
+  // Implement the field_create_instance() function.
+  $field = field_read_field($instance['field_name']);
+  if (empty($field)) {
+    throw new FieldException(t("Attempt to create an instance of a field @field_name that doesn't exist or is currently inactive.", array('@field_name' => $instance['field_name'])));
+  }
+  // Check that the required properties exists.
+  if (empty($instance['entity_type'])) {
+    throw new FieldException(t('Attempt to create an instance of field @field_name without an entity type.', array('@field_name' => $instance['field_name'])));
+  }
+  if (empty($instance['bundle'])) {
+    throw new FieldException(t('Attempt to create an instance of field @field_name without a bundle.', array('@field_name' => $instance['field_name'])));
+  }
+  // Check that the field can be attached to this entity type.
+  if (!empty($field['entity_types']) && !in_array($instance['entity_type'], $field['entity_types'])) {
+    throw new FieldException(t('Attempt to create an instance of field @field_name on forbidden entity type @entity_type.', array('@field_name' => $instance['field_name'], '@entity_type' => $instance['entity_type'])));
+  }
+
+  $instance['field_id'] = $field['id'];
+
+  $prior_instance = field_read_instance($instance['entity_type'], $instance['field_name'], $instance['bundle']);
+  if (!empty($prior_instance)) {
+    $message = t('Attempt to create an instance of field @field_name on bundle @bundle that already has an instance of that field.', array('@field_name' => $instance['field_name'], '@bundle' => $instance['bundle']));
+    throw new FieldException($message);
+  }
+
+  // Writing the field the to DB and clear the cache field. This part meant for
+  // performance.
+  _field_write_instance($instance);
+  field_cache_clear();
+}
+
+/**
+ * Implements hook_og_fields_info().
+ */
+function os_taxonomy_og_fields_info() {
+
+  $items['show_description'] = array(
+    'type' => array('group content'),
+    'description' => t('Show taxonomy term description.'),
+    'entity' => array('taxonomy_term'),
+    'field' => array(
+      'active' => 1,
+      'cardinality' => 1,
+      'deleted' => 0,
+      'entity_types' => array('taxonomy_term'),
+      'field_name' => 'show_description',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'locked' => 0,
+      'module' => 'list',
+      'settings' => array('allowed_values' => array(0 => '', 1 => '',),'allowed_values_function' => '',),
+      'translatable' => 0,
+      'type' => 'list_boolean',
+    ),
+    'instance' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 0,
+        ),
+      ),
+      'deleted' => 0,
+      'description' => 'Define whether the term description will be seen in the term page.',
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'taxonomy_term',
+      'field_name' => 'show_description',
+      'label' => 'Show description',
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(
+          'display_label' => 1,
+        ),
+        'type' => 'options_onoff',
+        'weight' => 2,
+      ),
+    ),
+  );
+
+  return $items;
 }

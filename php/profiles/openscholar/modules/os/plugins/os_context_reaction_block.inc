@@ -23,7 +23,7 @@ class os_context_reaction_block extends context_reaction_block {
       $context_blocks = array();
       $all_blocks     = array();
       $context_order  = array_keys($contexts);
-      usort($context_order, '_os_context_sort_by_hierarchy');
+      @usort($context_order, '_os_context_sort_by_hierarchy');
 
       foreach ($context_order as $key) {
         $context = $contexts[$key];

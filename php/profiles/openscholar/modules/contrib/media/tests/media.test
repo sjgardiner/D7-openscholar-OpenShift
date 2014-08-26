@@ -9,31 +9,11 @@
  * Defines base class for media test cases.
  */
 class MediaTestHelper extends DrupalWebTestCase {
-  function setUp() {
-    parent::setUp('media');
-  }
 
   /**
-   * Creates a media type.
+   * Enable media and file entity modules for testing.
    */
-  protected function createType($overrides = array()) {
-    $type = new stdClass();
-    $type->name = 'test';
-    $type->label = 'Test';
-    $type->base = TRUE;
-    $type->type_callback_args = array(
-      'match_type' => 'all',
-      'mimetypes' => array('/^test/'),
-      'extensions' => array('jpg', 'jpeg', 'gif', 'png', 'tiff'),
-      'streams' => array('public', 'private'),
-    );
-
-    // Apply any specified overrides.
-    foreach ($overrides as $field => $value) {
-      $type->$field = $value;
-    }
-    media_type_save($type);
-
-    return $type;
+  public function setUp() {
+    parent::setUp(array('media', 'file_entity'));
   }
 }

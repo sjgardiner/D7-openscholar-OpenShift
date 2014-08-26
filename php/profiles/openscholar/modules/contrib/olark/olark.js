@@ -2,7 +2,7 @@
 (function ($) {
   Drupal.behaviors.olark = {
     attach: function(context) {
-      if (typeof Drupal.settings.olark.uid != 'undefined') {
+      if ((typeof olark == 'function') && (typeof Drupal.settings.olark.uid != 'undefined')) {
         olark.extend(function(api){
           api.chat.updateVisitorNickname({
             snippet: Drupal.settings.olark.name,

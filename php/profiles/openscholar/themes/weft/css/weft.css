@@ -121,9 +121,10 @@ font-size:12px;
     }
 
 
-#block-os-powered-by span a {
-  background-position: 0 -27px;
-  }
+#powered-by a {
+    background-position:-14px -546px ;
+ 
+}
 
 /* HEADER ELEMENTS */
 
@@ -197,6 +198,7 @@ font-size:12px;
 ul.nice-menu ul {
     top: 2em;
     border-top:none;
+    background: #b8690c;
 }
 
 #menu-bar ul.nice-menu ul li {

@@ -5,7 +5,7 @@ package = Media
 
 dependencies[] = list
 dependencies[] = number
-dependencies[] = media 
+dependencies[] = media (>=2.x)
 dependencies[] = taxonomy
 dependencies[] = multiform
 
@@ -16,9 +16,10 @@ files[] = media_gallery.theme.inc
 
 configure = admin/config/media/galleries
 
-; Information added by drupal.org packaging script on 2012-07-07
-version = "7.x-1.0-beta8+0-dev"
+
+; Information added by drush on 2014-08-08
+version = "7.x-2.x-dev"
 core = "7.x"
 project = "media_gallery"
-datestamp = "1341620850"
+datestamp = "1407525414"
 

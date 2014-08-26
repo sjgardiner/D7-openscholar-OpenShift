@@ -62,10 +62,11 @@ h1#page-title {
   font-style: italic;
   }
 
+/*
 img {
   border: 1px solid #444;
   }
-
+*/
 #scholar-shield img {
   border: none;
   }
@@ -76,13 +77,17 @@ img {
   
   
   .sidebar .content ul.menu li {color:#106599;}
-  .sidebar .content ul.menu li  a {padding-left:0px; color: #723319;text-transform:uppercase;}
+  .sidebar .content ul.menu li  a {color: #723319;text-transform:uppercase;}
   .sidebar .content ul.menu li  a:hover {text-decoration:underline !important;}
   .region-sidebar-first .content ul.menu {margin-left:12px;}
   .region-sidebar-second .content ul.menu {margin-left:0px;}
   
-  
-  .sidebar #block-os-secondary-menu .content ul.menu li  a {text-transform:none;}
+   .sidebar .content #boxes-box-os_booktoc ul.menu li a,
+   .sidebar .content .book-menu ul.menu li a,
+   .sidebar .content #block-book-navigation ul.menu li a,
+   .sidebar .content .block-boxes-os_boxes_booktoc ul.menu li a {text-transform:none;}
+   
+   .sidebar #block-os-secondary-menu .content ul.menu li  a {text-transform:none;}
 
   
   .sidebar .views-field-title  {padding-bottom: 2px;}
@@ -138,7 +143,7 @@ img {
   margin: 0 auto -12px;
   }
 
-#menu-bar ul.menu li {
+#menu-bar ul.nice-menu li {
   background:none;
   }
   
@@ -169,7 +174,7 @@ img {
 #menu-bar ul.nice-menu ul {
 	margin:-23px 0 0 -15px;
 	border:none;
-	
+	background:#353535;
 	}
 	
 #menu-bar ul.nice-menu ul ul {
@@ -193,10 +198,6 @@ img {
 }
 
 
-#menu-bar ul.nice-menu ul li a:hover {
-	color:#FFF;
-	background:#44514f;
-}
 
 
 
@@ -271,6 +272,8 @@ p.copy {
   border-color:#CFCFCF;
   }
 
-p.copy a.poweredby {
-  background-position: 0 -26px;
-  }
+
+
+.view-os-image-gallery-slideshow .views-slideshow-controls-bottom {
+    padding: 20px 5px 0;
+}

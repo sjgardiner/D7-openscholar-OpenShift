@@ -18,8 +18,10 @@ function harvard_courses_feeds_importer_default() {
     'name' => 'Course',
     'description' => 'Import courses',
     'fetcher' => array(
-      'plugin_key' => 'HarwardFetcher',
-      'config' => array(),
+      'plugin_key' => 'HarvardFetcher',
+      'config' => array(
+        'debug_mode' => 0,
+      ),
     ),
     'parser' => array(
       'plugin_key' => 'FeedsXPathParserXML',
@@ -114,7 +116,7 @@ function harvard_courses_feeds_importer_default() {
           ),
           2 => array(
             'source' => 'xpathparser:1',
-            'target' => 'field_description',
+            'target' => 'field_course_description',
             'unique' => FALSE,
           ),
           3 => array(
@@ -199,8 +201,9 @@ function harvard_courses_feeds_importer_default() {
           ),
         ),
         'update_existing' => '2',
-        'input_format' => 'plain_text',
+        'input_format' => 'filtered_html',
         'skip_hash_check' => FALSE,
+        'authorize' => TRUE,
       ),
     ),
     'content_type' => 'harvard_api_importer',

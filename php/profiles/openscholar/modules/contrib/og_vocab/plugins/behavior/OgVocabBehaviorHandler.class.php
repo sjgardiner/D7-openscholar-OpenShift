@@ -6,13 +6,13 @@
 class OgVocabBehaviorHandler extends EntityReference_BehaviorHandler_Abstract {
 
   public function access($field, $instance) {
-    return $field['field_name'] == OG_VOCAB_FIELD;
+    return $field['settings']['target_type'] == 'taxonomy_term' && $instance['widget']['type'] == 'og_vocab_complex';
   }
 
   public function settingsForm($field, $instance) {
     $form = parent::settingsForm($field, $instance);
 
-    $settings = $field['settings']['handler_settings']['behaviors']['og_vocab'];
+    $settings = !empty($field['settings']['handler_settings']['behaviors']['og_vocab']) ? $field['settings']['handler_settings']['behaviors']['og_vocab'] : array();
     $settings += array(
       'use_context' => 'yes',
     );

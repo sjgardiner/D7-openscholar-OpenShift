@@ -15,6 +15,7 @@ function google_feedapi_field_formatter_info() {
       'settings' => array(
         'num_to_show' => 10,
         'show_content' => TRUE,
+        'time_display' => 'relative',
         'content_summary' => FALSE,
       ),
     ),
@@ -63,6 +64,15 @@ function google_feedapi_field_formatter_settings_form($field, $instance, $view_m
     '#default_value' => $settings['show_content'],
   );
 
+  $element['time_display'] = array(
+    '#type' => 'select',
+    '#title' => t('Feed item date/time display'),
+    '#options' => array('0' => "--None--", 'relative' => t("Relative (5 minutes ago)"), 'formal' => "Date (August 21, 2013)"),
+    '#required' => FALSE,
+    '#default_value' => $settings['time_display'],
+    '#description' => t('Select the way you wish the feeds time to be displayed.')
+  );
+
   $element['content_summary'] = array(
     '#title' => t('Show Content Summary'),
     '#description' => t('Show a short summary of the feed content if avalible.'),
@@ -98,6 +108,7 @@ function google_feedapi_field_formatter_view($entity_type, $entity, $field, $ins
           'num_to_show' => $display['settings']['num_to_show'],
           'content_summary' => $display['settings']['content_summary'],
           'show_content' => $display['settings']['show_content'],
+          'time_display' => $display['settings']['time_display'],
         )),
     );
   }
@@ -120,6 +131,7 @@ function google_feedapi_theme() {
         'num_to_show' => NULL,
         'content_summary' => NULL,
         'show_content' => NULL,
+        'time_display' => NULL,
       ),
     ),
   );
@@ -129,19 +141,41 @@ function google_feedapi_theme() {
  * Implements hook_library().
  */
 function google_feedapi_library() {
-  return array(
-    // The theme function that our formatter uses:
-    'google-feeds' => array(
-      'title' => 'Google FeedAPI Integration',
-      'website' => "https://developers.google.com/feed/v1/devguide",
-      'version' => '1.1',
-      'js' => array(
-        drupal_get_path('module', 'google_feedapi') . '/theme/google_feedapi.js' => array(),
-      ),
-      'css' => array(
-        drupal_get_path('module', 'google_feedapi') . '/theme/google_feedapi.css' => array(),
-      ),
+  $libraries = array();
+
+  // Provides the external Google FeedAPI Integration library.
+  $url = 'https://www.google.com/jsapi?autoload=' . urlencode('{"modules" : [{"name" : "feeds","version" : "1"}]}');
+  $settings = array(
+    'type' => 'external',
+    'scope' => 'header',
+    'group' => JS_LIBRARY,
+    'weight' => -25,
+  );
+  $libraries['google_jsapi_feeds'] = array(
+    'title' => 'Google FeedAPI Integration',
+    'website' => "https://developers.google.com/feed/v1/devguide",
+    'version' => '1.1',
+    'js' => array(
+      $url => $settings,
     ),
   );
-}
 
+  // Provides the locally hosted Google FeedAPI Formatter library.
+  $path = drupal_get_path('module', 'google_feedapi');
+  $libraries['google_feedapi'] = array(
+    'title' => 'Google FeedAPI Formatter',
+    'website' => "https://drupal.org/project/google_feedapi",
+    'version' => '1.0',
+    'js' => array(
+      "$path/theme/google_feedapi.js" => array(),
+    ),
+    'css' => array(
+      "$path/theme/google_feedapi.css" => array(),
+    ),
+    'dependencies' => array(
+      array('google_feedapi', 'google_jsapi_feeds'),
+    ),
+  );
+
+  return $libraries;
+}

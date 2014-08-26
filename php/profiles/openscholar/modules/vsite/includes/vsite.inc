@@ -48,6 +48,33 @@ function vsite_add_entity($entity, $entity_type = 'node', $vsite = FALSE){
 }
 
 /**
+ * Add the passed $node to the specified $vsite.
+ */
+function vsite_add_node($node, $gid = FALSE, $update_alias = TRUE) {
+  // Loads the vsite to add the node as group content.
+  // Only sets reset = TRUE when we need to update the alias; this is because
+  // the purl value will be cached as NULL on newly created vsites, but we'll
+  // need the purl value in order to update the alias properly.
+  // @see vsite_pathauto_alias_alter()
+  $vsite = vsite_get_vsite($gid, $update_alias);
+  $og_membership = vsite_add_entity($node, 'node', $vsite);
+  // Optionally update the pathauto alias to reflect the new vsite.
+  if ($update_alias) {
+    if (!isset($node->path)) {
+      $node->path = array();
+    }
+    // Tells pathauto to update this node's alias.
+    $node->path['pathauto'] = TRUE;
+    $node->vsite_pathauto_alias_alter = TRUE;
+
+    // Saves the node to trigger
+    node_save($node);
+  }
+
+  return $og_membership;
+}
+
+/**
  * Remove the passed entity from a vsite
  *
  * The entity that you wish to add to the vsite.
@@ -80,18 +107,26 @@ function vsite_remove_entity($entity, $entity_type = 'node', $vsite = FALSE){
  * Creates a new vsite
  *
  * @param $name
- * 	 Name of site.
+ *   Name of site.
  * @param $domain
- * 	 Path for new site.
+ *   Path for new site.
  * @param $uid
- * 	The user ID to assocaite with the new VSite.
- * @param $preset
- * 	Type of vsite to create.
+ *  The user ID to assocaite with the new VSite.
+ * @param string $bundle
+ *  The type(bundle) of the VSite to be created.
+ * @param bool $preset
+ *  Type of vsite to create.
+ * @param null $parent
+ *  The parent VSite of the new VSite.
+ * @param bool $visibility
+ *  Default visibility of the new VSite.
+ * @param array $additional_settings
+ *  Array of additional settings for the node object.
  *
- * @return
- *   the SPACE object if created or FALSE.
+ * @return bool
+ *  The SPACE object if created or FALSE.
  */
-function vsite_create_vsite($name, $domain, $uid, $bundle = 'personal', $preset = FALSE, $parent = NULL) {
+function vsite_create_vsite($name, $domain, $uid, $bundle = 'personal', $preset = FALSE, $parent = NULL, $visibility = FALSE, $additional_settings = array()) {
   $node = new stdClass();
   $node->type = $bundle;
   node_object_prepare($node);
@@ -106,17 +141,34 @@ function vsite_create_vsite($name, $domain, $uid, $bundle = 'personal', $preset 
   $node->uid = $uid;
   $node->spaces_preset_og = $preset;
   $node->language = LANGUAGE_NONE;
+  // Sets the parent relationship if this is a subsite with a parent specified.
   if (isset($parent) && $parent_node = node_load($parent)) {
     $node->field_group_parent = array(
       LANGUAGE_NONE => array(
         array(
-      	  'target_id' => $parent,
+          'target_id' => $parent,
           'entity' => $parent_node,
           'access' => TRUE,
         )
       )
     );
   }
+  // Sets the site visibility value if the module is available and specified.
+  if (module_exists('vsite_access')) {
+    if (isset($visibility)) {
+      $node->{VSITE_ACCESS_FIELD} = array(
+        LANGUAGE_NONE => array(
+          array(
+            'value' => $visibility,
+          )
+        )
+      );
+    }
+  }
+
+  // Allow other modules to alter the node object before saving it to the DB.
+  $node = (object) array_merge((array) $node, $additional_settings);
+
   node_save($node);
 
   if ($vsite = spaces_load('og', $node->nid)) {
@@ -143,16 +195,16 @@ function vsite_get_vsite_by_owner($uid = NULL) {
     $uid = $user->uid;
   }
 
-  if(empty($uid)) {
-  	return array();
+  if (empty($uid)) {
+    return array();
   }
 
-  $group_bundles = og_get_all_group_bundle();
-  if (empty($group_bundles['node'])){
+  $group_bundles = og_get_all_group_bundle('node');
+  if (empty($group_bundles)){
     //can't determine group content types
     return array();
   }
-  $bundles = array_keys($group_bundles['node']);
+  $bundles = array_keys($group_bundles);
 
   $query = new EntityFieldQuery();
   $result = $query->entityCondition('entity_type', 'node')

@@ -22,6 +22,10 @@ function os_biocv_os_app_info() {
   	  'bio',
   		'cv',
     ),
+    'browse_pages' => array(
+      'bio' => FALSE,
+      'cv' => FALSE,
+    ),
   );
 
   return $apps;
@@ -74,6 +78,21 @@ function os_biocv_menu() {
  */
 function os_biocv_form_cv_node_form_alter(&$form, &$form_state, $form_id) {
   $settings_link = l(t('Bio/CV settings'), 'features/os_biocv');
+  $form['field_biocv_pdf_upload'][LANGUAGE_NONE][0]['#media_options']['global']['override_extensions'] = true;
+}
+
+/**
+ * Implements hook_form_FORM_ID_form_alter() for bio_node_form
+ */
+function os_biocv_form_bio_node_form_alter(&$form, &$form_state, $form_id) {
+  $form['actions']['submit']['#submit'][] = '_os_biocv_node_form_submit';
+}
+
+/**
+ * Form submit callback; redirects to "biocv".
+ */
+function _os_biocv_node_form_submit($form, &$form_state) {
+  $form_state['redirect'] = 'biocv';
 }
 
 /**
@@ -103,12 +122,19 @@ function os_biocv_node_access($node, $op, $account) {
  * Removes the username from $submitted info on blog type nodes.
  */
 function os_biocv_process_node(&$vars) {
-  if ($vars['type'] == 'cv') {
+  if ($vars['type'] == 'cv' && $vars['view_mode'] != 'title') {
     // Build the submitted variable used by default in node templates
     $last_updated = format_date($vars['changed'], 'custom', 'F j, Y');
-    $vars['title_suffix'] = '<p class="submitted">' . t('(Last updated: @time)', array('@time' => $last_updated)) . '</p>';
+    $title_suffix = '<p class="submitted">' . t('(Last updated: @time)', array('@time' => $last_updated)) . '</p>';
+
+    if ($vars['view_mode'] == 'slide_teaser') {
+      $vars['content']['body'][0]['#markup'] .= $title_suffix;
+    } else {
+      $vars['title_suffix'] = $title_suffix;
+    }
   }
-  elseif ($vars['type'] == 'bio' && empty($vars['show_title'])) {
+
+  elseif ($vars['type'] == 'bio' && empty($vars['show_title']) && !in_array($vars['view_mode'], array('title', 'slide_teaser'))) {
     // hides the title
     $vars['page'] = true;
   }
@@ -203,7 +229,7 @@ function _os_biocv_get_first_node($type = 'bio') {
   // vsite module is enabled. Otherwise it leaves out that condition and will
   // tell us whether any published bio nodes exist on this installation at all.
   // In case there are multiple bio nodes, defaults to order by nid ASC.
-  include_once drupal_get_path('module', 'os') . '/includes/node.inc';
+  ctools_include('node', 'os');
 
   $query = new OSNodeFieldQuery($type);
   $query->propertyOrderBy('nid');
@@ -242,31 +268,56 @@ function _os_biocv_cv_exists() {
 }
 
 /**
- * Page callback; renders a Bio node.
+ * Page callback; renders a Bio node with optional CV link.
  */
 function _os_biocv_bio_page_contents() {
-  $output = '';
+  $output = array();
 
-  $vsite = vsite_get_vsite();
-
-  $cv_filepath = FALSE;
+  // Optionally adds CV download link.
   if (!_os_biocv_show_local_tasks()) {
     $cv_node = os_biocv_get_cv_node();
-    if ($cv_node !== FALSE) {
+    if ($cv_node) {
       $cv_filepath = _os_biocv_get_cv_filepath($cv_node);
+      if ($cv_filepath) {
+        $output['cv'] = array(
+         '#markup' => "<h3 class='cv-direct-download'>".t("Download CV: ") . l('PDF', $cv_filepath) . "</h3>",
+        );
+        // Prompts admin user to edit CV PDF upload.
+        if (_os_biocv_access_admin()) {
+          //$edit_link = l(t('Remove or replace your CV'), "node/{$cv_node->nid}/edit");
+          //$output['cv']['#markup'] .= $edit_link;
+        }
+      }
+      // Prompts admin user to upload a CV PDF if they have a CV node without a PDF.
+      else {
+        //$upload_link = l(t('Upload a PDF do display as your CV'), "node/{$cv_node->nid}/edit");
+        //$output['cv']['#markup'] .= $upload_link;
+      }
     }
   }
-  if ($cv_filepath !== FALSE) {
-    $output['cv'] = array(
-     '#markup' => "<h3 class='cv-direct-download'>".t("Download CV: ") . l('PDF', $cv_filepath) . "</h3>",
-    );
-  }
-
   // Loads the Bio node
   $node = os_biocv_get_bio_node();
   if ($node) {
+    if (empty($node->body) && _os_biocv_access_admin()) {
+      // Spoofs a node body in order to print contextual links, etc.
+      // Note: this makes no changes to the bio node because we don't save it.
+      $markup = '<p>' . t('Oops! Nothing to show here yet.') . ' ' . l(t('Add some text to your bio'), "node/{$node->nid}/edit") . '</p>';
+      $node->body['und'] = array(
+        array(
+          'value' => $markup,
+          'summary' => '',
+          'format' => 'filtered_html',
+          'safe_value' => $markup,
+          'safe_summary' => '',
+        ),
+      );
+    }
     drupal_set_title($node->title);
     $output['node'] = node_view($node, 'full');
+  }
+  else if (_os_biocv_access_admin()) {
+    $output['node'] = array();
+    $output['node']['#markup'] = t('Oops! Nothing to show here yet.') . ' ' . l(t('Create a bio post now'), 'node/add/bio');
   }
   return $output;
 }

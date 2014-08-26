@@ -6,12 +6,20 @@
 function spaces_context_load_alter(&$context) {
   $space = spaces_get_space();
   if ($space) {
+    // some values we need to set to prevent later overwrites are protected
+    $space->controllers->context->get(null, 'original');
     foreach (array_keys(context_reactions()) as $plugin) {
+      // overwrite with true original values
+      if (isset($context->reactions[$plugin])) {
+        $space->controllers->context->values['original']["{$context->name}:reaction:{$plugin}"] = $context->reactions[$plugin];
+      }
+      // now get from space
       $override = $space->controllers->context->get("{$context->name}:reaction:{$plugin}");
       if (!is_null($override)) {
         $context->reactions[$plugin] = $override;
       }
     }
+
   }
 }
 
