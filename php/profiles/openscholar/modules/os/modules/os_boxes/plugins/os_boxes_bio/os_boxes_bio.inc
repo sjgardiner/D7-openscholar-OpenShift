@@ -53,6 +53,9 @@ class os_boxes_bio extends os_boxes_default {
    * Implements boxes_content::render().
    */
   public function render() {
+    if (module_exists('vsite') && !vsite_get_vsite()) {
+      return;
+    }
     // Prepares $block array with 'title', 'subject', 'delta' & empty 'content'.
     $block = parent::render();
 
@@ -76,8 +79,9 @@ class os_boxes_bio extends os_boxes_default {
     $view_mode = ($this->options['teaser'] == 'teaser') ? 'teaser' : 'full';
     $node = node_load($nid);
     $node->show_title = $this->options['show_title'];
+    $render = node_view($node, $view_mode);
 
-    $content = render(node_view($node, $view_mode));
+    $content = render($render);
     return $content;
   }
   /**
@@ -91,9 +95,13 @@ class os_boxes_bio extends os_boxes_default {
     if (!isset($spaces_features["os_biocv"])) {
       return '';
     }
-    //
-    $vsite = vsite_get_vsite();
-    if(!$vsite || !$vsite->access_admin()) {
+    // Shows nothing if a vsite can be loaded but this user isn't admin.
+    if (function_exists('vsite_get_vsite') && $vsite = vsite_get_vsite()) {
+      if (!$vsite->access_admin()) {
+        return '';
+      }
+    }
+    elseif (!node_access('create','bio')) {
       return '';
     }
     // Otherwise, displays vsite admin empty text, prompting bio configuration.

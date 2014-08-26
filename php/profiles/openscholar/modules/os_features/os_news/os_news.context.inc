@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file
  * os_news.context.inc
@@ -13,9 +11,7 @@ function os_news_context_default_contexts() {
   $export = array();
 
   $context = new stdClass();
-  /* Edit this to true to make a default context disabled initially */
-
-  $context->disabled = FALSE;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
   $context->name = 'news_news';
   $context->description = 'Context that is active in the news section of your site';
@@ -38,6 +34,7 @@ function os_news_context_default_contexts() {
       'values' => array(
         'news' => 'news',
         'news/*' => 'news/*',
+        'browse/news' => 'browse/news',
       ),
     ),
     'views' => array(
@@ -77,4 +74,3 @@ function os_news_context_default_contexts() {
 
   return $export;
 }
-

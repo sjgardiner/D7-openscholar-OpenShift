@@ -20,6 +20,17 @@ function os_booklets_os_app_info() {
   	'nodetypes' => array(
   	  'book',
     ),
+    'views tabs' => array(
+      'os_booklets' => array('page'),
+    ),
+    'browse_pages' => array(
+      'book' => array(
+        'url' => 'browse/documents',
+        'title' => t('Documents'),
+        'display_mode' => 'teaser',
+        'menu_item' => 'documents',
+      ),
+    ),
   );
 
   return $apps;
@@ -50,10 +61,16 @@ function os_booklets_menu() {
 function os_booklets_menu_alter(&$items) {
 
   if (isset($items['node/%node/outline'])) {
-    $items['node/%node/outline']['page callback'] = 'drupal_get_form';
-    $items['node/%node/outline']['page arguments'] = array('book_admin_edit', 1);
-    $items['node/%node/outline']['file'] = 'book.admin.inc';
-    $items['node/%node/outline']['file path'] = drupal_get_path('module', 'book');
+    $item = &$items['node/%node/outline'];
+    $item['page callback'] = 'os_booklets_book_root_outline';
+    $item['page arguments'] = array(1);
+    $item['access callback'] = '_os_booklets_outline_access';
+    $item['file'] = 'book.admin.inc';
+    $item['file path'] = drupal_get_path('module', 'book');
+    $item['type'] = MENU_LOCAL_TASK;
+    $item['context'] = MENU_CONTEXT_INLINE;
+    $item['weight'] = 0;
+    $item['theme callback'] = 'cp_theme_name';
   }
 
   if (isset($items['book'])) {
@@ -62,6 +79,21 @@ function os_booklets_menu_alter(&$items) {
     // restrict access to this page
     $items['book']['access arguments'] = array('administer book outlines');
   }
+}
+
+/**
+ * Checks that node is book before allowing access to outline
+ */
+function _os_booklets_outline_access($node) {
+  return _book_outline_access($node) && book_type_is_allowed($node->type);
+}
+
+/**
+ * Page callback; returns the book_admin_edit form for the root of the book.
+ */
+function os_booklets_book_root_outline($node) {
+  $root = os_books_get_root($node);
+  return drupal_get_form('book_admin_edit', $root);
 }
 
 /**
@@ -156,6 +188,7 @@ function os_booklets_form_book_node_form_alter(&$form, &$form_state, $form_id) {
  * @see os_booklets_form_book_node_form_alter()
  */
 function _os_booklets_book_root_form_alter(&$form) {
+  drupal_set_title(t('Create Booklet'));
   // Unsets visible book elements
   $remove = array(
     // => 'fieldset'
@@ -181,8 +214,6 @@ function _os_booklets_book_root_form_alter(&$form) {
 
   $form['book']['weight']['#type'] = 'value';
   $form['book']['weight']['#value'] = 0;
-
-  $form['title']['#title'] = t('Booklet Title');
 }
 
 /**
@@ -193,6 +224,7 @@ function _os_booklets_book_root_form_alter(&$form) {
  * @see os_booklets_form_book_node_form_alter()
  */
 function _os_booklets_child_page_form_alter(&$form) {
+  drupal_set_title(t('Create Child page'));
   // Prevents users from creating a new book through this page.
   if (!empty($form['book']['bid']['#options'])) {
     unset($form['book']['bid']['#options']['new']);
@@ -217,7 +249,6 @@ function _os_booklets_child_page_form_alter(&$form) {
   $form['book']['#group'] = 'os_booklets';
 
   // Customize default book terminology and fieldset settings
-  $form['title']['#title'] = t('Booklet page title');
   $form['book']['#weight'] = !empty($form['body_field']['#weight']) ? $form['body_field']['#weight'] : 0;
   $form['book']['#title'] = t('Booklet information');
   $form['book']['#collapsible'] = TRUE;
@@ -245,7 +276,7 @@ function _os_booklets_option_filter_form_alter(&$form) {
   }
 
   // Includes class OSNodeFieldQuery (extends EntityFieldQuery)
-  include_once drupal_get_path('module', 'os') . '/includes/node.inc';
+  ctools_include('node', 'os');
 
   $query = new OSNodeFieldQuery('book');
   $result = $query->execute();
@@ -264,3 +295,13 @@ function _os_booklets_option_filter_form_alter(&$form) {
   }
 }
 
+/**
+ * Implements hook_os_add_new_links_alter()
+ */
+function os_booklets_os_add_new_links_alter(&$links) {
+  // Renames "Add new" link to "Add Booklet".
+  // Otherwise it would be "Add Book page".
+  if (isset($links['book']['title'])) {
+    $links['book']['title'] = t('Booklet');
+  }
+}

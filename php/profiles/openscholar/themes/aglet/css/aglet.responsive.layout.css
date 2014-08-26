@@ -1,5 +1,4 @@
-/* bigscreen two_sidebars_right */
-@media only screen and (min-width:1025px) {
+
 .container {width:1000px}
 #content-column,.content-column,div.sidebar {float: left; clear: none}
 .two-sidebars .content-inner {margin-right: 475px; margin-left: 0}
@@ -17,4 +16,4 @@
 .region-header-first {width:200px; margin-left:-100%;}
 .region-header-third {width:200px; margin-left:-200px;text-align: right;}
 .region-header-second {width:100%;}
-}
+

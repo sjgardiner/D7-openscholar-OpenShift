@@ -1,5 +1,4 @@
-/* bigscreen three_col_grail */
-@media only screen and (min-width:1025px) {
+
 .container {width:938px}
 #content-column,.content-column,div.sidebar {float: left; clear: none}
 .two-sidebars .content-inner {margin-left: 230px; margin-right: 220px}
@@ -13,8 +12,7 @@
 #header-container .gpanel .region {float: left; clear: none;}
 .header-left.header-main.header-right .region-header-second .region-inner {margin-left: 230px; margin-right: 220px;}
 .header-left.header-main .region-header-second .region-inner {margin-left: 230px; margin-right: 0;}
-.header-left.header-right .region-header-second .region-inner {margin-right: 220px; margin-left: 0;}
+.header-main.header-right .region-header-second .region-inner {margin-right: 220px; margin-left: 0;}
 .region-header-first {width:230px; margin-left:-100%;}
 .region-header-third {width:220px; margin-left:-220px;text-align: right;}
 .region-header-second {width:100%;}
-}

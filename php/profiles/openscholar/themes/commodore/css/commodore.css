@@ -23,7 +23,6 @@ body.logged-in {
 }
 
 
-
 #columns {
      background: none repeat scroll 0% 0% #FFFFFF;
      border-top: 1px solid #EEEEEE;
@@ -55,6 +54,11 @@ body.logged-in {
 
 .node-inner {
      padding: 0;
+}
+
+
+.page-node #content-column .content-inner {
+    padding: 0;
 }
 
 .boxes-box ul.links li {
@@ -136,12 +140,10 @@ h4 {
      height: auto;
 }
 
-/*
-.item-list ul.pager li.pager-current {
-     background: none repeat scroll 0 0 #293352;
-     color: #FFFFFF;
-     padding: 3px 5px;
-}*/
+.sub_title {
+    font-size: 0.7em;
+    margin-top: 5px;
+}
 
 .submitted {
      color: #666666;
@@ -204,27 +206,34 @@ input[type="search"] {
 }
 
 
-#menu-bar ul ul li a:hover, #menu-bar ul ul li a.active {
-     background: none repeat scroll 0% 0% #DADADA;
-     color: #5D7485;
-}
-
-#menu-bar ul.nice-menu ul li a {
-     padding: 10px 0px 5px 3px
-  
-}
-
-
 
 #menu-bar ul li a:hover, #menu-bar ul li a.active {
      background: none;
      color: #5D7485;
 }
 
+#menu-bar ul.nice-menu ul li a {
+    padding: 10px 0 5px 18px;
+  
+}
+
+
+#menu-bar ul.nice-menu li a:hover, 
+#menu-bar ul.nice-menu li a.active{
+     background: #DADADA;
+     color: #5D7485;
+}
+
+
 
 /* NICE MEUNS */
 ul.nice-menu ul {
     top: 3.5em;
+    background: #DADADA;
+}
+
+.lt-ie9 ul.nice-menu ul {
+    top: 3.8em;
 }
 
 .sidebar #block-os-primary-menu ul.menu a {
@@ -337,7 +346,7 @@ div.views-field-field-gallery-image-fid img {
 }
 
 
-#footer .region-footer {
+#footer .region-inner {
      color: #EFEFEF;
      font-size: 0.95em;
      margin: 0 auto;
@@ -354,13 +363,7 @@ div.views-field-field-gallery-image-fid img {
      text-decoration: none;
 }
 
-#footer .region-footer #powered-link {
-     margin-top: 5px;
-}
 
-.os-powered-link, #block-os-powered-by {
-    bottom: -55px;
-}
 
 #footer .block {
      display: block;
@@ -368,23 +371,26 @@ div.views-field-field-gallery-image-fid img {
 
 /* CUSTOM ARTS & HUMANI STYLES*/
 
+.not-front.node-type-page.og-context-node-9015 h1#page-title,
+.not-front.node-type-page.og-context-node-10403 h1#page-title
+{display:none;}
+
 .not-front.node-type-page.og-context-node-9015 #main-content {
     overflow:visible;
 }
 
 /*.not-front.node-type-page.og-context-node-9015 #main-content .image-style-os-files-xxlarge:nth-of-type(1) {*/
-.not-front.node-type-page.og-context-node-9015 #main-content .image-style-os-files-xxlarge {
-     margin: -67px 0 0 -26px;
+.not-front.node-type-page.og-context-node-9015 #content-column .file-os-files-xxlarge {
+     margin: -25px 0 0 -18px;
     min-width: 969px;
 }
 /*.not-front.node-type-book.og-context-node-9015 .field-name-body .image-style-os-files-large:nth-of-type(1) {*/
-.not-front.node-type-book.og-context-node-9015 .field-name-body .image-style-os-files-xlarge,
-.not-front.node-type-book.og-context-node-9015 .field-name-body .os-image-style-os-files-xlarge {
+.not-front.node-type-book.og-context-node-9015 .field-name-body .file-os-files-xlarge {
      margin: -43px -2px 0pt;
      padding-right:0;
 }
 /*.not-front.node-type-page.og-context-node-9015 .field-name-body td .image-style-os-files-large:nth-of-type(1) {*/
-.not-front.node-type-page.og-context-node-9015 .field-name-body td .image-style-os-files-large {
+.not-front.node-type-page.og-context-node-9015 .field-name-body td .file-os-files-large {
     margin: 0;
     padding-right:0;
 }
@@ -393,6 +399,14 @@ div.views-field-field-gallery-image-fid img {
      float: left;
      text-align: left;
      width: 50%;
+}
+
+.front #footer .block-boxes-os_boxes_html .os-footerleft {
+     margin-top: 20px;
+}
+
+.front.logged-in #footer .block-boxes-os_boxes_html .os-footerleft {
+     margin-top: 10px;
 }
 
 #footer .block-boxes-os_boxes_html .os-footerright {
@@ -427,7 +441,7 @@ div.views-field-field-gallery-image-fid img {
 }
 
 .front.og-context-node-9015 #columns {
-    margin: 0 auto;
+    margin: 0 auto 20px;
 }
 
 .front.logged-in.og-context-node-9015 #columns {
@@ -453,10 +467,6 @@ div.views-field-field-gallery-image-fid img {
     font-size:.85em;
 }
 
-/* PUSHES THE READ MORE LINK OVER 300PXs
-.og-context-node-9015 .node-news.node-teaser .clearfix ul.links.inline a {
-    margin: -15px 0 0 300px;
-}*/
 
 .page-news.og-context-node-9015 .node-header,
 .page-news.og-context-node-9015 .submitted,
@@ -501,13 +511,7 @@ div.views-field-field-gallery-image-fid img {
     position: relative;
 }
 
-.front.og-context-node-9015 #block-os-login {
-    bottom: -150px;
-}
 
-.front.logged-in.og-context-node-9015 .os-powered-link, .front.logged-in.og-context-node-9015 #block-os-powered-by {
-    bottom: -55px;
-}
 
 .os-smallfont {
      font-size: 0.85em;
@@ -578,5 +582,9 @@ position: relative;
 .views-slideshow-pager-field-item.active {color:#293352;background:#D9D9D9;}
 
 
-
-
+#powerby-login {
+    clear: both;
+    float: none;
+    margin: 30px auto;
+    width: 980px;
+}

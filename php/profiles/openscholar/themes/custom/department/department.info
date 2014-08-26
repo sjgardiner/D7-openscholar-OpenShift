@@ -7,6 +7,8 @@ description = Clean theme for individual or department use.
   release     = 7.x-3.x
   engine      = phptemplate
   screenshot  = screenshot.png
+  flavor_name = "Standard"
+  plugins[os][flavor] = flavors
 
 ;----------// OpenScholar
 

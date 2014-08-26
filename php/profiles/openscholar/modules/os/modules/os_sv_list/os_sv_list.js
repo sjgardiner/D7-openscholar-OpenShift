@@ -1,83 +1,115 @@
-
 /**
- * jQuery to toggle form elements for the biblio content type.
+ * jQuery to toggle form elements according to content type
  */
 
-(function ($) {
+(function($) {
   Drupal.behaviors.os_sv_list = {
-    attach: function(context) {
-      //when content type changes, update sorting options list.
-      var old_type = $('#os_sv_list_content_type').val();
-    	$('#os_sv_list_content_type').change(function() { 
-    	  var sortby = $('#edit-sort-by'),
-    	      whitelist = ['sort_newest', 'sort_oldest', 'sort_alpha'],
-    	      content_type = $('#os_sv_list_content_type').val(), 
-    	      selected_sort = 'sort_' + content_type,
-    	      more_link = $('#edit-more-link'),
-    	      defaults = Drupal.settings.more_link_defaults;
-    	  
-    	  sortby.children('option').each(function() { //why you no function?
-    	  	this_sort = $(this).attr('value');
-    	  	if ($.inArray(this_sort, whitelist) == -1) {    	  		
-    	  		//show/hide appropriate options
-    	  		remove = (this_sort != selected_sort);
-    	  		$(this).attr('hidden', remove).attr('disabled', remove);
-    	  		
-    	  		//deselect invalidated option
-    	  		if (remove && ($(this).parent().attr('value') == this_sort)) {
-    	  			$(this).parent().attr('value', whitelist[0]);
-    	  		}
-    	  		
-    	  		//for new boxes, select special case as default
-    	  		if (!remove && Drupal.settings.os_sv_list_box.new_box) {
-    	  			$(this).parent().attr('value', this_sort);
-    	  		}
-    	  	}
-    	  });
-    	  
-    	  // swap out the more link url
-    	  if (more_link.val()) {
-    	    defaults[old_type] = more_link.val();
-    	  }
-    	  more_link.val(defaults[content_type]);
-    	  old_type = content_type;
-    	  
-    	});
+    attach : function(context) {
+      $('#os_sv_list_content_type').once('once', function() {
+        // when content type changes, update all the options
+        $('#os_sv_list_content_type').change(function() {
+          var $sortby = $('#edit-sort-by');
+          var $display_style = $('#edit-display');
+          var $vocabs = $('#edit-vocabs');
+  
+          var content_type = $('#os_sv_list_content_type').val();
+          var more_link = $('#more_link_div input[name="more_link"]');
+          var defaults = Drupal.settings.more_link_defaults;
+  
+          
+          //apply content_type appropriate sorts when ct changes
+          $sortby.children('option').each(function() {
+            var sorts = Drupal.settings.sv_list_sort;
+            
+            var this_sort = $(this).attr('value');
+            var hide = ((sorts[this_sort] !== undefined) && ($.inArray(content_type, sorts[this_sort]['bundle']) == -1));            
+            $(this).attr('hidden', hide).attr('disabled', hide);
+          });
+          
+          //uncheck if selected option is no longer valid.
+          $sortby.children('option:checked').filter(':disabled').attr('selected', false);
+  
+          //if the content type has hidden the grid layout, switch back to list.
+          //this must happen BEFORE display styles are chosen
+          if ($('.form-item-layout').css('display') == 'none') {
+            jQuery('#edit-layout').attr('value', 'List');
+          }
+          
+          //show or hide columns
+          if ($(':input:visible[name="layout"][value="Grid"]').length > 0) {
+            $('.form-item-grid-columns').show();
+          } else {
+            $('.form-item-grid-columns').hide();
+            $(':input[name="layout"]').attr('selected', false);
+          }
+                  
+          //only show the content appropriate display styles
+          $display_style.children('option').each(function() {
+            var this_display = $(this).attr('value');
+            if ($('#edit-layout').length>0) {
+              // User can select a layout.
+              // In certain types of data, for example "List of Files" when the
+              // file is of type "Image", it is possible to select a layout,
+              // for example "list" or "grid". So if the "Layout" field is shown
+              // we must consider the layout type when enabling display types.
+              var this_layout =  $('#edit-layout').attr('value').toLowerCase();              
+              var hide = ($.inArray(this_display, Drupal.settings.entity_view_modes[this_layout][content_type]) == -1)
+              $(this).attr('hidden', hide).attr('disabled', hide);
+            }
+            else {
+              // User cannot select a layout, so the default layout is "list".
+              var hide = ($.inArray(this_display, Drupal.settings.entity_view_modes['list'][content_type]) == -1)
+              $(this).attr('hidden', hide).attr('disabled', hide);
+            }
+          });
+          
+          //uncheck if selected option is no longer valid.
+          $display_style.children('option:checked').filter(':disabled').attr('selected', false);
 
-      // Get the default value of the content_type.
-      var content_type = $('#os_sv_list_content_type').val();
-      var show_all_checked = $('#biblio_show_all_check').is(':checked')?true:false;
+          // swap out the more link url.
+          more_link.val(defaults[content_type]);
+                
+          //apply content type to available vocabs
+          var hidden = true;
+          for (var vid in Drupal.settings.sv_list_vocab_bundles) {
+            var $div = $vocabs.find('.form-item-vocabs-vocab-' + vid);
+            if ((content_type == 'all') || $.inArray(content_type, Drupal.settings.sv_list_vocab_bundles[vid]) != -1) {
+              $div.show();
+              hidden = false
+            } else {
+              $div.hide();
+            }
+          }
 
- 	  // Check for a select action on the conten_type.
-      $('#os_sv_list_content_type', context).change(function() {
-        content_type = $(this).val();
+          //show/hide the vocab label if there are any remaining vocabs
+          if (hidden) {
+            $vocabs.hide();
+          } else {
+            $vocabs.show();
+          }
+          
+          //layout changes should trigger the display style refresh
+          $('#edit-layout').change(function() {
+            $('#os_sv_list_content_type').change();
+          });
+
+        });
+  
+        // perform the change callback once now.
+        $('#os_sv_list_content_type').change();
+  
+        // Get the default value of the content_type.
+        var content_type = $('#os_sv_list_content_type').val();
+        var show_all_checked = $('#biblio_show_all_check').is(':checked') ? true : false;
+  
+        });
+
+      // Select2.
+      //console.log($('#vocabs', context).find('.form-select:not(.select2-processed)'))
+      $("#edit-vocabs", context).addClass('select2-processed').find('.form-select:not(.select2-processed)').select2({
+        placeholder: Drupal.t("Click here to select terms"),
+        width: '20em'
       });
-      /*
-      // Check for a click event on the show all publication types.
-      $('#biblio_show_all_check', context).click(function() {
-        if($('#biblio_show_all_check').not(':checked') && content_type == 'biblio') {
-          $('#os_sv_list_biblio_whitelist').show();
-          show_all_checked = false;
-        }
-        if($('#biblio_show_all_check').is(':checked')) {
-          $('#os_sv_list_biblio_whitelist').hide();
-          show_all_checked = true;
-        }
-      });
-
-      // Hide/show the select all pub types based on select value.
-      if(content_type == 'biblio') {
-   	    $('#os_sv_list_biblio_show_all').show('slow',function(){
-   	      if(show_all_checked == false) {
-   	    	$('#os_sv_list_biblio_whitelist').show();
-   	      }else {
-   	    	$('#os_sv_list_biblio_whitelist').hide();
-   	      }
-   	    });
-   	  }else {
-   		$('#os_sv_list_biblio_show_all').hide();
-   		$('#os_sv_list_biblio_whitelist').hide();
-   	  }*/
-	}
+    }
   };
 }(jQuery));

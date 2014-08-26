@@ -1,6 +1,6 @@
 /* Front page bio overlay effect */
 
-.front .region-header-second .block-boxes-os_boxes_bio {
+.front .region-header-second .block-boxes-os_boxes_manual_list {
   position: fixed;
   background: #fff;
   margin:0;
@@ -17,7 +17,7 @@
   display:none;
 }
 
-.front .region-header-second .block-boxes-os_boxes_bio .node-content {
+.front .region-header-second .block-boxes-os_boxes_manual_list .node-content {
   position:absolute;
   overflow:auto;
   bottom: 0;
@@ -27,12 +27,12 @@
   padding-right:25px;
 }
 
-.front.logged-in .region-header-second .block-boxes-os_boxes_bio .node-content {
+.front.logged-in .region-header-second .block-boxes-os_boxes_manual_list .node-content {
   bottom: -560px;
 }  
    
-.front #header .node.node-type-bio {
-  position:static;
+.front #header .node-bio {
+  position: relative;
 }
 
 #header .node-type-bio p {
@@ -43,4 +43,29 @@
 	color: #5C7677;
 	float: right;
 	padding: 11px 38px 10px 0;
+}
+
+/* Format the CV and Bio nodes to look like the biocv page. */
+.front .region-header-second .node-cv .node-title,
+.front .region-header-second .node-cv .submitted {
+	display: none;
+}
+
+.front .region-header-second .node-bio .node-content {
+	margin-top -1.4em;
+}
+
+/**
+ * Note: this selector fixes an issue that was NOT reproducible.
+ *
+ * @todo: re-evaluate and/or remove?
+ */
+.front.not-logged-in .region-header-second .node-bio .node-content {
+    position: static;
+    margin-left: 40px;
+    padding-right: 26px;
+    overflow: scroll;
+    height: 523px;
+    margin-right: 11px;
+    margin-top: 70px;
 }

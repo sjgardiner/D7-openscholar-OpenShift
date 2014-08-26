@@ -4,4 +4,4 @@ core = 7.x
 package = OpenScholar vsite
 dependencies[] = vsite
 
-
+configure = admin/config/openscholar/vsite_register

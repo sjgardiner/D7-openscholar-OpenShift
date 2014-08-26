@@ -339,9 +339,14 @@ padding:0px;
 	margin-bottom:0;
 }
 
+
 #menu-bar ul.nice-menu ul li {
 	margin-top:0;
-	background:#252A2B;
+	
+}
+
+#menu-bar ul.nice-menu ul li {
+background:#353535;
 }
 	
 #menu-bar ul.nice-menu ul li a {
@@ -351,10 +356,6 @@ padding:0px;
 }
 
 
-#menu-bar ul.nice-menu ul li a:hover {
-	color:#FFF;
-	background:#444;
-}
 
 ul.nice-menu {
     border-top:none;

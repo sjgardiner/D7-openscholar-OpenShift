@@ -52,6 +52,12 @@ function os_links_field_default_fields() {
           'type' => 'text_default',
           'weight' => '0',
         ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
         'teaser' => array(
           'label' => 'hidden',
           'module' => 'text',
@@ -121,17 +127,23 @@ function os_links_field_default_fields() {
       'description' => 'The web address of the link. Starts with: http://',
       'display' => array(
         'default' => array(
-          'label' => 'above',
+          'label' => 'hidden',
           'module' => 'link',
-          'settings' => array(),
-          'type' => 'link_default',
-          'weight' => '1',
-        ),
-        'teaser' => array(
-          'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
           'weight' => '1',
+        ),
+        'sidebar_teaser' => array(
+          'label' => 'hidden',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'hidden',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '3',
         ),
       ),
       'entity_type' => 'node',
@@ -211,11 +223,18 @@ function os_links_field_default_fields() {
           'type' => 'file_default',
           'weight' => 4,
         ),
-        'teaser' => array(
+        'sidebar_teaser' => array(
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
           'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'module' => 'file',
+          'settings' => array(),
+          'type' => 'file_default',
+          'weight' => '1',
         ),
       ),
       'entity_type' => 'node',
@@ -225,7 +244,7 @@ function os_links_field_default_fields() {
       'settings' => array(
         'description_field' => 0,
         'file_directory' => '',
-        'file_extensions' => 'jpg jpeg gif png txt doc docx gz xls xlsx pdf ppt pptx pps odt ods odp tex tgz xml zip',
+        'file_extensions' => 'avi doc docx exe gif gz ico jpeg jpg m4a m4v mov mp3 mp4 mpeg odp ods odt oga ogg ogv pdf png pps ppsx tar tex tgz txt wmv wtml wtt wwtfig xls xlsx xml zip',
         'filefield_paths' => array(
           'active_updating' => 0,
           'file_name' => array(
@@ -262,6 +281,8 @@ function os_links_field_default_fields() {
             'html' => 'html',
             'image' => 'image',
             'video' => 'video',
+            'document' => 'document',
+            'executable' => 'executable',
           ),
           'browser_plugins' => array(
             'media_default--media_browser_1' => 'media_default--media_browser_1',

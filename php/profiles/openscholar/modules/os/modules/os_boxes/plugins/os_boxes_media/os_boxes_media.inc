@@ -16,7 +16,24 @@ class os_boxes_media extends os_boxes_default {
       '#title' => t('File or HTML'),
       '#type' => 'media',
       '#default_value' => array('fid' => $this->options['fid']),
-      '#description' => t('Choose, enter or link to the media you wish to embed.')
+      '#description' => t('Choose, enter or link to the media you wish to embed.'),
+      '#media_options' => array(
+        'global' => array(
+          'id' => 'media_embed_widget',
+          'types' => array(
+            'image',
+            'audio',
+            'video',
+            'html'
+          ),
+          // Example: array('http', 'ftp', 'flickr');
+          'schemes' => array(
+            'public' => 'public',
+            'oembed' => 'oembed',
+            'embed' => 'embed',
+          ),
+        ),
+      )
     );
 
     $form['maxwidth'] = array(
@@ -37,20 +54,25 @@ class os_boxes_media extends os_boxes_default {
   }
 
   public function options_submit($form, &$form_state) {
+    parent::options_submit($form, $form_state);
+
     $old = $form['options']['fid']['#default_value']['fid'];
 
     if ($old != $this->options['fid']) {
 
-      if (module_exists('vsite') && $space = spaces_get_space()) {
-        $id = $space->group->nid;
+      $id = FALSE;
+      if (module_exists('vsite') && $vsite = vsite_get_vsite()) {
+        $id = $vsite->group->nid;
       }
 
-      if ($file = file_load($this->options['fid'])){
+      if ($id && $file = file_load($this->options['fid'])){
         file_usage_add($file, 'os_boxes', 'node', $id, 1);
       }
 
       if ($old && $old_file = file_load($old)) {
-        file_usage_delete($old_file, 'os_boxes', 'node', $id, 1);
+        if ($id) {
+          file_usage_delete($old_file, 'os_boxes', 'node', $id, 1);
+        }
         file_delete($old_file);
       }
     }
@@ -58,23 +80,53 @@ class os_boxes_media extends os_boxes_default {
 
   public function render() {
     $block = parent::render();
+    if (($block['content'] = $this->get_cache()) === FALSE) {
+      if ($file = file_load($this->options['fid'])) {
+        if (!empty($this->options['maxwidth'])) {
+          if (isset($file->image_dimensions)) {
+            // This is an image, so we have the dimensions for it and need to scale it down.
+            $ratio = $file->image_dimensions['height'] / $file->image_dimensions['width'];
+            $file->image_dimensions['height'] = $ratio * $this->options['maxwidth'];
+            $file->image_dimensions['width'] = $this->options['maxwidth'];
+          }
+          else {
+            // Override both maxwidth and width just in case.
+            $file->override['maxwidth'] = $file->override['width'] = $this->options['maxwidth'];
+            // Setting this to 0 enforces the aspect ratio for oembed.
+            // Without it, the oembed would be taller than normal
+            // it's ignored for iframe-type embeds.
+            $file->override['maxheight'] = $file->override['height'] = 0;
+          }
+        }
 
-    if ($file = file_load($this->options['fid'])) {
-      if (!empty($this->options['maxwidth'])) {
-        if (isset($file->image_dimensions)) {
-          $ratio = $file->image_dimensions['height'] / $file->image_dimensions['width'];
-          $file->image_dimensions['height'] = $ratio * $this->options['maxwidth'];
-          $file->image_dimensions['width'] = $this->options['maxwidth'];
+        $render = file_view($file, 'full');
+        if (isset($render['file']['file-info'])) {
+          $render['file'] = $render['file']['file-info']['file'];
         }
-        else {
-          $file->override['width'] = $this->options['maxwidth'];
+
+        if (isset($file->oembed) && $file->oembed['provider'] == 'box') {
+          $render['file']['#attached']['js'][] = drupal_get_path('module', 'os_boxes').'/plugins/os_boxes_media/os_boxes_media.box_oembed.js';
+          $render['file']['#attached']['js'][] = array(
+            'type' => 'setting',
+            'data' => array(
+              'osBoxesOembedMedia' => array(
+                $this->delta => $file->oembed['widget_type']
+              )
+            )
+          );
         }
+        $block['content'] = drupal_render($render);
+        $assets = NULL;
+        if (isset($render['file']['#attached'])) {
+          $assets = $render['file']['#attached'];
+        }
+        $block['assets'] = $assets;
+        $this->set_cache($block['content'], $assets);
       }
-      $render = file_view($file, 'full');
-      $block['content'] = drupal_render($render);
-    }
-    else {
-      $block['content'] = t('No media given.');
+      else {
+        $block['content'] = t('No media given.');
+        $this->set_cache($block['content']);
+      }
     }
     return $block;
   }

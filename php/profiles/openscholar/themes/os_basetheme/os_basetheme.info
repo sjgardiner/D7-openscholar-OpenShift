@@ -12,7 +12,7 @@
 ;----------// Stylesheets
 
   stylesheets[screen][] = css/globals.css
-  
+  stylesheets[print][] = css/print.css
   
   scripts[] = js/os_base.js
 ;ie_scripts[lt IE 9][] = js/os_base.js
@@ -22,7 +22,6 @@
   regions[sidebar_first]     = Sidebar first
   regions[sidebar_second]    = Sidebar second
   regions[content]           = Main Content
-  regions[footer]            = Footer
   regions[menu_bar]          = Menu Bar
   regions[messages]          = Messages
   regions[help]              = Help
@@ -31,6 +30,11 @@
   
   regions[branding_header]   = branding_header
   regions[branding_footer]   = branding_footer
+  
+ ;----------// A place to house the responsive menu where other content can't be placed
+  
+  regions[responsive_menu]   = responsive_menu
+ 
   
 ;----------// Gpanel Regions
 
@@ -50,6 +54,12 @@ regions[content_first]  = Content left
 regions[content_second] = Content right
 regions[content_bottom] = Content bottom
 
+; Footer regions
+regions[footer_top]    = Footer top
+regions[footer_first]  = Footer left
+regions[footer] = Footer center
+regions[footer_third]  = Footer right
+regions[footer_bottom] = Footer bottom
 
 ;----------// Custom Page Layout Plugins
 

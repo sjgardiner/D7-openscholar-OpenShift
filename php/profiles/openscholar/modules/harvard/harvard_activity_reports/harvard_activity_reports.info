@@ -3,6 +3,5 @@ description = This module allows for FAR users to import their publications from
 dependencies[] = "biblio"
 dependencies[] = "purl"
 package = "OpenScholar Harvard"
-version = "7.x-beta1"
 core = 7.x
 

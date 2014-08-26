@@ -37,15 +37,15 @@
      width: 24.5%;
 }
 
-.cp-region-footer {
-     left: 0pt;
-     position: absolute;
-     top: 592px;
-
-}
-
 #edit-actions {
      left: 0pt;
      position: absolute;
-     top: 1020px;
+
+}
+
+.cp-region-footer-first,
+.cp-region-footer-third,
+.cp-region-footer {
+	margin-top:38em;
+
 }

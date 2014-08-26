@@ -56,7 +56,7 @@ function os_layout_get_contexts($privacy = array(1, 2)) {
     }
   }
 
-  drupal_alter('os_layout_contexts_alter', $os_contexts);
+  drupal_alter('os_layout_contexts', $os_contexts);
 
   return $os_contexts;
 }
@@ -121,12 +121,15 @@ function os_layout_get($context_name, $load_meta = FALSE, $unused_blocks = FALSE
       'weight' => 0,
   );
   foreach ($block_settings as $k => &$b) {
-    if(os_layout_block_exists($b)){
+    if (os_layout_block_exists($b) && $k == $b['module'].'-'.$b['delta']) {
       $b += $required;
-    }else{
+    }
+    else {
       unset($block_settings[$k]);
     }
   }
+
+  drupal_alter('os_layout_get', $context_name, $block_settings);
 
   return $block_settings;
 }
@@ -180,16 +183,53 @@ function os_layout_set($context_name, $blocks) {
   _os_layout_sanitize_blocks($blocks);
 
   $context = context_load($context_name);
+  $clean_up = false;
+
+  if ($context_name == 'os_public' && !variable_get('os_layout_has_cleaned_up', false)) {
+    // we want to compare to the old version, which is what should be in the children contexts
+    $old_blocks = os_layout_get($context_name);
+    $q = null;
+    if (module_exists('vsite') && $vsite = vsite_get_vsite()) {
+      $q = db_select('spaces_overrides', 'so')
+           ->condition('id', $vsite->group->nid)
+           ->condition('object_type', 'context');
+      $q   ->addExpression('DISTINCT SUBSTRING(object_id, 1, LOCATE(\':\', object_id)-1)', 'name');
+      $q = $q->execute();
+    }
+    else {
+      $q = db_select('context', 'c')
+           ->fields('c', array('name'))
+           ->execute();
+    }
+    foreach ($q as $r) {
+      $ctx = $r->name;
+      if ($ctx == $context_name) continue;
+      $child_blocks = os_layout_get($ctx);
+
+      _os_layout_adjust_relative_weight($child_blocks, $old_blocks);
+      $child_blocks = _os_layout_filter_blocks($child_blocks, $old_blocks);
+
+      os_layout_set($ctx, $child_blocks);
+    }
+    $clean_up = true;
+  }
 
   if (module_exists('vsite_layout')) {
     // Writes the context to the overrides table.
     vsite_layout_context_set($context_name, $blocks);
+    if ($clean_up) {
+      $vsite = vsite_get_vsite();
+      $vsite->controllers->variable->set('os_layout_has_cleaned_up', true);
+    }
   }
   else {
     $context = context_load($context_name);
     $context->reactions['block']['blocks'] = $blocks;
     // write the context to the database.
     context_save($context);
+    if ($clean_up) {
+      variable_set('os_layout_has_cleaned_up', true);
+    }
   }
 }
 
@@ -230,40 +270,9 @@ function os_layout_set_multiple($contexts, $blocks) {
 
   $removed_blocks = array();
 
-  // Fields to check for changes
-  $block_fields = array(
-      'region',
-      'status',
-      'title',
-      'weight'
-  );
-
   // try to make blocks the same as in parent contexts
   _os_layout_adjust_relative_weight($blocks, $parent_blocks);
-
-  $child_blocks = array();
-  foreach ($blocks as $bid => $b) {
-    // if the block exists in a parent, check for overrides
-    if (isset($parent_blocks[$bid])) {
-     // dpm($bid.': weight: old: '.$parent_blocks[$bid]['weight'].' new: '.$blocks[$bid]['weight']);
-      $changed = false;
-      foreach ($block_fields as $field) {
-        // one of the block's fields has been changed.
-        if ($parent_blocks[$bid][$field] != $blocks[$bid][$field]) {
-          $changed = true;
-        }
-      }
-      // if something changed, it needs to be saved in the child context
-      if ($changed) {
-        $child_blocks[$bid] = $b;
-      }
-    }
-    // if the block doesn't exist in the parent, but is still in a region.
-    elseif ($b['region']) {
-     // dpm($bid.': weight: new: '.$blocks[$bid]['weight']);
-      $child_blocks[$bid] = $b;
-    }
-  }
+  $child_blocks = _os_layout_filter_blocks($blocks, $parent_blocks);
 
   // we never edit parent contexts.
   // To edit them, load the layout form with your target context as the child.
@@ -302,13 +311,16 @@ function os_layout_load_block($bid, $load_meta = TRUE, $block = array()) {
   list($module, $delta) = explode('-', $bid, 2);
 
   if ($load_meta) {
+    $block_info = &drupal_static(__FUNCTION__,array());
+
     // Add standard information gleaned from the block_info hook
     $info_hook = "{$module}_block_info";
-    if (function_exists($info_hook)) {
-      $block_info = $info_hook();
-      if (isset($block_info[$delta])) {
-        $block = array_merge($block_info[$delta], $block);
-      }
+    if (!isset($block_info[$module]) && function_exists($info_hook)) {
+      $block_info[$module] = $info_hook();
+    }
+
+    if (isset($block_info[$module][$delta])) {
+      $block = array_merge($block_info[$module][$delta], $block);
     }
 
     // Load block install file.
@@ -422,8 +434,9 @@ function _os_context_get_rank($context_name) {
         return $context_rank[$context_name];
       }
 
+      // Set feature and vocab contexts to level 2.
       $map = features_get_component_map('context');
-      if (array_key_exists($context_name, $map)) {
+      if (array_key_exists($context_name, $map) || strpos($context_name,'os_taxonomy-vocab-') === 0) {
         // Feature context.
         $context_rank[$context_name] = 2;
       }
@@ -481,16 +494,17 @@ function _os_layout_adjust_relative_weight(&$block_settings, $previous_layout) {
 
     $parent_keys = array_keys($old_regions[$r]);
     // the parent keys that exist in the child
-    $only_parent_keys = array_intersect($new_keys, $parent_keys);
+    // call array values because array_intersect preserves keys
+    $only_parent_keys = array_values(array_intersect($new_keys, $parent_keys));
     // the order in the parent of keys that only exist in child
-    $active_parents = array_intersect($only_parent_keys, $parent_keys);
+    $active_parents = array_values(array_intersect($parent_keys, $only_parent_keys));
 
     $bulldoze = true;
     if (empty($only_parent_keys)) {
       // none of the parent blocks are in the child
       // bulldoze is fine
     }
-    elseif ($only_parent_keys == $active_parents) {
+    elseif ($only_parent_keys === $active_parents) {
       // parent blocks are in the same order.
       // update their weights to match the parents
       // then put the new blocks in between them
@@ -511,7 +525,7 @@ function _os_layout_adjust_relative_weight(&$block_settings, $previous_layout) {
           $count = count($between);
           if ($count) {
             // handle case where children are before any parent
-            if ($min_weight == 'undefined') {
+            if ($min_weight === 'undefined') {
               $min_weight = $b['weight'] - $count - 1;
             }
             // get the range we have to work with
@@ -576,6 +590,42 @@ function _os_layout_sanitize_blocks(&$blocks) {
       $blocks[$bid] = array_intersect_key($block, $block_schema['block']['fields']);
     }
   }
+}
+
+function _os_layout_filter_blocks($blocks, $parent_blocks) {
+  // Fields to check for changes
+  $block_fields = array(
+    'region',
+    'status',
+    'title',
+    'weight'
+  );
+
+  $child_blocks = array();
+  foreach ($blocks as $bid => $b) {
+    // if the block exists in a parent, check for overrides
+    if (isset($parent_blocks[$bid])) {
+      // dpm($bid.': weight: old: '.$parent_blocks[$bid]['weight'].' new: '.$blocks[$bid]['weight']);
+      $changed = false;
+      foreach ($block_fields as $field) {
+        // one of the block's fields has been changed.
+        if ($parent_blocks[$bid][$field] != $blocks[$bid][$field]) {
+          $changed = true;
+        }
+      }
+      // if something changed, it needs to be saved in the child context
+      if ($changed) {
+        $child_blocks[$bid] = $b;
+      }
+    }
+    // if the block doesn't exist in the parent, but is still in a region.
+    elseif ($b['region']) {
+      // dpm($bid.': weight: new: '.$blocks[$bid]['weight']);
+      $child_blocks[$bid] = $b;
+    }
+  }
+
+  return $child_blocks;
 }
 
 /**

@@ -59,6 +59,10 @@ function os_theme_get_flavors($theme = NULL) {
 	ctools_include('plugins');
   $flavors = ctools_get_plugins('os', 'flavor');
 
+  // Search through the flavors that the user uploaded.
+  $sub_themes = cp_appearance_get_flavors();
+  $flavors = array_merge($flavors, $sub_themes);
+
   if (!$theme) {
   	return $flavors;
   }
@@ -76,7 +80,6 @@ function os_theme_get_flavors($theme = NULL) {
   }
 
   return (array_key_exists($theme, $theme_plugins)) ? $theme_plugins[$theme] : array();
-
 }
 
 function os_theme_set($theme) {
@@ -110,6 +113,7 @@ function os_theme_get_flavor() {
   }
 
   $flavor_key = 'os_appearance_' . $theme_key . '_flavor';
+
   if ($space = spaces_get_space()) {
     $flavor = $space->controllers->variable->get($flavor_key);
   }

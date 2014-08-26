@@ -4,9 +4,14 @@
 
 .views-slideshow-cycle-main-frame {margin:0 auto;}
 
-.view-os-image-gallery-slideshow {border:1px solid #888;background:#DDD;}
+.view-os-image-gallery-slideshow {border:1px solid #999;}
 
-.view-os-image-gallery-slideshow .views-field-media-title {color:#333;position:absolute;top:0;padding-left:5px;}
+.view-os-image-gallery-slideshow .views-field-media-title {
+	color: #444444;
+    font-weight: bold;
+    position:absolute;
+    top:0;
+    padding-left:5px;}
 
 
 .view-os-image-gallery-slideshow .views-slideshow-controls-bottom {padding:3px 0 2px 5px;color:#333;}

@@ -31,16 +31,20 @@ a:hover {
     
  .node .node-inner .links li a {
    text-decoration:underline;
-}   
+} 
+
+ .node a.node-readmore {
+   text-decoration:underline;
+}  
 
 .more-link a {
   color:#991122;text-decoration:underline;
 }
     
     
-.sidebar .content h1 { font-size: 1.8em;}
-.sidebar .content h1 a {color:#991122;}
-.sidebar .content h1 a:hover {color:#106599;text-decoration:none;}
+.sidebar .block-boxes-os_boxes_site_info h1 { font-size: 1.8em;}
+.sidebar .block-boxes-os_boxes_site_info h1 a {color:#991122;}
+.sidebar .block-boxes-os_boxes_site_info h1 a:hover {color:#106599;text-decoration:none;}
 
 .sidebar .content h2 {margin-top: 0.2em;font-size:1.14em;color:#555;}
 
@@ -283,7 +287,8 @@ ul.nice-menu ul {
 	background:#CCC;
 	
 }
-	
+
+#menu-bar ul.nice-menu ul,	
 #menu-bar ul.nice-menu ul li a {
 	color:#333;
 	background:#CCC;
@@ -292,17 +297,11 @@ ul.nice-menu ul {
 }
 
 
-#menu-bar ul.nice-menu ul li a:hover {
-	color:#FFF;
-	background:#444;
-
-}
 
 
 	
 .sidebar ul.menu li {
-	list-style-image: none;
-    padding-bottom: 10px;	
+	list-style-image: none;	
 	}	
 
 	
@@ -328,6 +327,10 @@ ul.nice-menu-right li.menuparent a:hover {
   position:relative;
   bottom: -42px;
   }
+  
+  #powerby-login {
+  margin-top: 40px;
+}
 
 /* NODES */
 

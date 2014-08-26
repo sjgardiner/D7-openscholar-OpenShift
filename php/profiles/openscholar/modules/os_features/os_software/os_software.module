@@ -20,6 +20,31 @@ function os_software_os_app_info() {
   	  'software_project',
       'software_release',
     ),
+    'views tabs' => array(
+      'os_software_projects' => array('page'),
+    ),
+    'importers' => array(
+      'software_project' => array(
+        'csv' => 'os_software',
+      ),
+    ),
+    'require_parent_node' => array(
+      'software_release'=> TRUE,
+    ),
+    'browse_pages' => array(
+      'software_project' => array(
+        'url' => 'browse/projects',
+        'title' => t('Software'),
+        'display_mode' => 'teaser',
+        'menu_item' => 'software',
+      ),
+      'software_release' => array(
+        'url' => 'browse/releases',
+        'title' => t('Browse releases'),
+        'display_mode' => 'teaser',
+        'menu_item' => 'software',
+      ),
+    ),
   );
 
   return $apps;
@@ -114,11 +139,26 @@ function os_software_node_presave($node) {
  * Implements hook_node_view()
  */
 function os_software_node_view($node, $view_mode, $langcode) {
-  // Only customizes full node view for Manual upload Software Project nodes.
-  if ($node->type !== 'software_project' || $view_mode !== 'full') {
+  // Only customizes full node view for Manual upload Software nodes.
+  if (!($node->type == 'software_project' || $node->type == 'software_release') || $view_mode !== 'full' ) {
     return;
   }
-  $method_field_item = field_get_items('node', $node, 'field_software_method');
+
+  // Gets the project node for the "Add new" link query.
+  if ($node->type == 'software_project') {
+    $project_node = $node;
+  }
+  else {
+    $items = field_get_items('node', $node, 'field_software_project');
+    $project_nid = $items[0]['target_id'];
+    if (!$project_nid || !is_numeric($project_nid)) {
+      return;
+    }
+    $project_node = node_load($project_nid);
+  }
+
+  // Does nothing if the project node is not manual upload.
+  $method_field_item = field_get_items('node', $project_node, 'field_software_method');
   if ($method_field_item[0]['value'] !== 'Manual upload') {
     return;
   }
@@ -127,11 +167,12 @@ function os_software_node_view($node, $view_mode, $langcode) {
   if (node_access('update', $node)) {
     $node->content['add_release_link'] = array(
       '#theme' => 'menu_local_action',
+      '#weight' => -1,
       '#link' => array(
         'title' => t('Add new software release'),
         'href' => 'node/add/software-release',
         'localized_options' => array(
-          'query' => array('field_software_project' => $node->nid),
+          'query' => array('field_software_project' => $project_node->nid),
         ),
       ),
       '#prefix' => '<ul class="field action-links">',
@@ -144,24 +185,40 @@ function os_software_node_view($node, $view_mode, $langcode) {
  * Implements hook_process_HOOK for node.
  */
 function os_software_process_node(&$vars) {
-  if ($vars['type'] !== 'software_project') {
+  if (!in_array($vars['type'], array('software_project', 'software_release'))) {
     return;
   }
-  if ($vars['view_mode'] === 'full') {
-    // Orders the EVA fields so that "Recommended" is above "Recent".
-    if (isset($vars['content']['os_software_releases_entity_view_2']['#weight']) && isset($vars['content']['os_software_releases_entity_view_1'])) {
-      $weight = $vars['content']['os_software_releases_entity_view_2']['#weight'];
-      $vars['content']['os_software_releases_entity_view_1']['#weight'] = $weight + 1;
+  
+  if ($vars['type'] == 'software_release') {
+    if ($vars['view_mode'] == 'title') {
+      $vars['content'] = array_intersect_key($vars['content'], array('links' => TRUE));
     }
+    return;
   }
-  elseif ($vars['view_mode'] === 'teaser') {
-    // Hides EVA fields "Recommended Release" and "Recent Releases" on /software.
-    if (isset($vars['content']['os_software_releases_entity_view_1'])) {
-      unset($vars['content']['os_software_releases_entity_view_1']);
-    }
-    if (isset($vars['content']['os_software_releases_entity_view_2'])) {
-      unset($vars['content']['os_software_releases_entity_view_2']);
-    }
+  
+  switch ($vars['view_mode']) {
+    case 'full':
+      // Orders the EVA fields so that "Recommended" is above "Recent".
+      if (isset($vars['content']['os_software_releases_entity_view_2']['#weight']) && isset($vars['content']['os_software_releases_entity_view_1'])) {
+        $weight = $vars['content']['os_software_releases_entity_view_2']['#weight'];
+        $vars['content']['os_software_releases_entity_view_1']['#weight'] = $weight + 1;
+      }
+      break;
+      
+    case 'slide_teaser':
+    case 'teaser': 
+      // Hides EVA fields "Recommended Release" and "Recent Releases" on /software.
+      if (isset($vars['content']['os_software_releases_entity_view_1'])) {
+        unset($vars['content']['os_software_releases_entity_view_1']);
+      }
+      if (isset($vars['content']['os_software_releases_entity_view_2'])) {
+        unset($vars['content']['os_software_releases_entity_view_2']);
+      }
+      break;
+      
+    case 'title':
+      $vars['content'] = array_intersect_key($vars['content'], array('links' => TRUE));
+      break;
   }
 }
 
@@ -297,7 +354,7 @@ function _os_software_delete_child_releases($node) {
  *   A Software Project node ID
  */
 function _os_software_get_software_release_nids($nid) {
-  include_once drupal_get_path('module', 'os') . '/includes/node.inc';
+  ctools_include('node', 'os');
   $query = new OSNodeFieldQuery('software_release');
   $query->fieldCondition('field_software_project', 'target_id', $nid);
   $result = $query->execute();
@@ -357,4 +414,3 @@ function _os_software_packaging_method_options() {
 function _os_software_form_redirect($form, &$form_state) {
   $form_state['redirect'] = 'software';
 }
-

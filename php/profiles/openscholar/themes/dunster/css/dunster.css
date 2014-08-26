@@ -94,6 +94,12 @@ p.copy {
 	margin-top: 0;
 	}
 
+#powerby-login {
+
+    margin-bottom: -26px;
+
+}
+
 /* LAYOUT ELEMENTS */
 
 #page {
@@ -217,7 +223,7 @@ background:#EDEDED;
 	text-decoration:none;
 	color:#fff;
   }
-
+#menu-bar ul.nice-menu ul,
 #menu-bar li a.active,
 #menu-bar li.active-trail a {
   background: #7a3d09;
@@ -293,12 +299,11 @@ background:#EDEDED;
 
 #content-column h2 {
 	color:#DB6600;
-	font-size:20px;
 	padding-bottom:10px;
 	}
 
 #content-column a:link, #content-column a:visited{
-	text-decoration:underline !important;
+	text-decoration:underline;
 	}
 
 .views-field-field-gallery-image-fid img:hover {

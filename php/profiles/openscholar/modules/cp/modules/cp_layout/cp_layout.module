@@ -141,6 +141,7 @@ function template_preprocess_cp_layout_unused_widgets(&$variables) {
   $factories = &$variables['factories'];
 
   $links = array();
+  module_load_include('inc', 'os_help');
   foreach ($factories as $group => $f) {
     $links[] = array(
       'title' => $group,
@@ -149,46 +150,24 @@ function template_preprocess_cp_layout_unused_widgets(&$variables) {
       )
     );
     foreach ($f as $factory) {
-      $l = array(
+      $link = array(
         'html' => TRUE,
-        'title' => '',
+        'title' => l($factory['label'], $factory['block_config_path'] . '/cp-layout', array()),
         'attributes' => array(
           'class' => array('clearfix')
         )
       );
 
-      $href    = $factory['block_config_path'] . '/cp-layout';
-      $title   = $factory['label'];
-      $options = array();
-      $html    = l($title, $href, $options);
-
-      $help_opts = array(
-        'attributes' => array(
-          'class' => 'help',
-          'onclick' => "var w=window.open(this.href, 'advanced_help_window', 'width=500,height=500,scrollbars,resizable'); w.focus(); return false;",
-        ),
-        'query' => array(
-          'popup' => 1,
-        ),
-      );
-      $box_plugin_key = _cp_layout_box_plugin_key($factory);
-      $help_exists = _cp_layout_help_exists($box_plugin_key);
-      if ($help_exists) {
-        $html .= ' ' . l('?', 'help/os_help/' . $box_plugin_key, $help_opts);
+      if ($help_variables = os_help_get_variables_from_id('widget', _cp_layout_box_plugin_key($factory))) {
+        $link['title'] .= ' ' . theme_link($help_variables);
       }
-      $l['title'] = $html;
-      $links[] = $l;
+
+      $links[] = $link;
     }
-  }
-  if (count($links) == 0) {
-    $links[] = array(
-      'html' => TRUE,
-      'title' => t('You do not have permission<br> to create any widgets.'),
-    );
   }
 
   $vars = array(
-    'title' => 'Add New Widget',
+    'title' => t('Add new widget'),
     'links' => $links,
   );
 
@@ -217,14 +196,3 @@ function _cp_layout_box_plugin_key($factory) {
 
   return $box_plugin_key;
 }
-
-/**
- * Returns whether the help HTML file exists for box in the os_help module.
- */
-function _cp_layout_help_exists($box_delta) {
-
-  $os_help_path = drupal_get_path('module', 'os_help');
-  $filename = $os_help_path . '/help/' . $box_delta . '.html';
-  return file_exists($filename);
-}
-

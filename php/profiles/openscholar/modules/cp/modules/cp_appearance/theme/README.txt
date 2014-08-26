@@ -20,3 +20,18 @@ Flavors
 -----------------------------------
 flavors
 plugins[os][flavor] = flavors //directory to flavors
+
+
+Git library
+-----------------------------------
+The subtheme feature, which allow to a simple user upload flavor of a theme,
+allow adding a flavor via a git repository. The cloning option need a php
+library for that:
+
+1. Go to profiles/openscholar/libraries
+2. Clone the repository https://github.com/cpliakas/git-wrapper.git into the git
+   or use:
+    git clone https://github.com/cpliakas/git-wrapper.git git
+3. From there you will need a composer, you can use the next two commands:
+    curl -s https://getcomposer.org/installer | php
+    php composer.phar install

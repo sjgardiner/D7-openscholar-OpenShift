@@ -105,7 +105,7 @@ h1#page-title {
   
   #menu-bar {
      clear: none;
-     margin-top: -3px;
+    
   
 }
 
@@ -180,19 +180,14 @@ border-left: 1px solid #919191;
 	margin-top:0;
 	background:#252A2B;
 }
-	
+
+#menu-bar ul.nice-menu ul,	
 #menu-bar ul.nice-menu ul li a {
 	color:#FFF;
 	background:#353535;
-	padding:4px 0 4px 8px;
+	padding:4px 0 4px 5px;
 }
 
-
-#menu-bar ul.nice-menu ul li a:hover {
-	color:#FFF;
-	background:#444;
-
-}
 
 ul.nice-menu-left li.menuparent {
     background: none;
@@ -230,6 +225,13 @@ p.copy a {
   text-decoration: underline;
   }
   
-  .date-next a {
+
+
+.view .date-nav-wrapper .date-prev a, .view .date-nav-wrapper .date-next a {
+
 font-size: 11px;
+}
+
+#powered-by a {
+    background-position: -14px -546px;
 }

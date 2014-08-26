@@ -222,7 +222,7 @@ function _rbuild_add_release_node_wrapper($project_node, $version, $filename, $p
     return FALSE;
   }
 
-  _rbuild_add_release_node($project_node, $version, $filename, $package, $url, $created, &$context);
+  _rbuild_add_release_node($project_node, $version, $filename, $package, $url, $created, $context);
   return TRUE;
 }
 
@@ -659,7 +659,7 @@ function _rbuild_get_recommended_release_version($nid, $type = 'software_release
   $version = '';
 
   // Includes class OSNodeFieldQuery (extends EntityFieldQuery)
-  include_once drupal_get_path('module', 'os') . '/includes/node.inc';
+  ctools_include('node', 'os');
 
   $query = new OSNodeFieldQuery('software_release');
   $query

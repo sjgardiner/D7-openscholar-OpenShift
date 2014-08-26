@@ -1,7 +1,4 @@
 <?php
-// $Id$
-
-
 /**
  * @file
  * os_software.features.field.inc
@@ -54,6 +51,12 @@ function os_software_field_default_fields() {
           'settings' => array(),
           'type' => 'text_default',
           'weight' => '0',
+        ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
         ),
         'teaser' => array(
           'label' => 'hidden',
@@ -126,6 +129,12 @@ function os_software_field_default_fields() {
           'type' => 'hidden',
           'weight' => '6',
         ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
         'teaser' => array(
           'label' => 'above',
           'settings' => array(),
@@ -188,10 +197,16 @@ function os_software_field_default_fields() {
       'display' => array(
         'default' => array(
           'label' => 'hidden',
-          'module' => 'file',
+          'module' => 'os_files',
           'settings' => array(),
-          'type' => 'file_default',
+          'type' => 'os_files_image_list',
           'weight' => '7',
+        ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
         ),
         'teaser' => array(
           'label' => 'above',
@@ -207,7 +222,7 @@ function os_software_field_default_fields() {
       'settings' => array(
         'description_field' => 0,
         'file_directory' => '',
-        'file_extensions' => 'jpg jpeg gif png txt doc docx gz xls xlsx pdf ppt pptx pps odt ods odp tex tgz xml zip',
+        'file_extensions' => 'avi doc docx exe gif gz ico jpeg jpg m4a m4v mov mp3 mp4 mpeg odp ods odt oga ogg ogv pdf png pps ppsx tar tex tgz txt wmv wtml wtt wwtfig xls xlsx xml zip',
         'filefield_paths' => array(
           'active_updating' => 0,
           'file_name' => array(
@@ -241,6 +256,8 @@ function os_software_field_default_fields() {
           'allowed_types' => array(
             'audio' => 'audio',
             'default' => 'default',
+            'document' => 'document',
+            'executable' => 'executable',
             'html' => 'html',
             'image' => 'image',
             'video' => 'video',
@@ -258,6 +275,7 @@ function os_software_field_default_fields() {
       ),
     ),
   );
+
 
   // Exported field: 'node-software_release-body'.
   $fields['node-software_release-body'] = array(
@@ -300,6 +318,12 @@ function os_software_field_default_fields() {
           'settings' => array(),
           'type' => 'text_default',
           'weight' => '2',
+        ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
         ),
         'teaser' => array(
           'label' => 'hidden',
@@ -376,6 +400,12 @@ function os_software_field_default_fields() {
           'type' => 'file_default',
           'weight' => '3',
         ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
         'teaser' => array(
           'label' => 'above',
           'settings' => array(),
@@ -390,7 +420,7 @@ function os_software_field_default_fields() {
       'settings' => array(
         'description_field' => 0,
         'file_directory' => '',
-        'file_extensions' => 'tgz tar gz zip',
+        'file_extensions' => 'avi doc docx exe gif gz ico jpeg jpg m4a m4v mov mp3 mp4 mpeg odp ods odt oga ogg ogv pdf png pps ppsx tar tex tgz txt wmv wtml wtt wwtfig xls xlsx xml zip',
         'filefield_paths' => array(
           'active_updating' => 0,
           'file_name' => array(
@@ -405,7 +435,7 @@ function os_software_field_default_fields() {
               'pathauto' => 0,
               'transliterate' => 0,
             ),
-            'value' => '',
+            'value' => '[vsite:site-purl]/files',
           ),
           'retroactive_update' => 0,
         ),
@@ -422,17 +452,18 @@ function os_software_field_default_fields() {
             'public' => 'public',
           ),
           'allowed_types' => array(
-            'audio' => 0,
-            'default' => 0,
-            'html' => 0,
+            'audio' => 'audio',
+            'default' => 'default',
+            'document' => 'document',
+            'executable' => 'executable',
+            'html' => 'html',
             'image' => 'image',
-            'video' => 0,
+            'video' => 'video',
           ),
           'browser_plugins' => array(
-            'library' => 0,
             'media_default--media_browser_1' => 'media_default--media_browser_1',
-            'media_embed' => 0,
-            'media_internet' => 'media_internet',
+            'media_default--media_browser_my_files' => 0,
+            'media_internet' => 0,
             'upload' => 'upload',
           ),
           'progress_indicator' => 'throbber',
@@ -501,6 +532,12 @@ function os_software_field_default_fields() {
           ),
           'type' => 'entityreference_label',
           'weight' => '0',
+        ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
         ),
         'teaser' => array(
           'label' => 'above',
@@ -576,6 +613,12 @@ function os_software_field_default_fields() {
           'type' => 'hidden',
           'weight' => '4',
         ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
         'teaser' => array(
           'label' => 'above',
           'settings' => array(),
@@ -644,6 +687,12 @@ function os_software_field_default_fields() {
           'type' => 'text_default',
           'weight' => '1',
         ),
+        'sidebar_teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
         'teaser' => array(
           'label' => 'above',
           'settings' => array(),
@@ -671,6 +720,7 @@ function os_software_field_default_fields() {
     ),
   );
 
+
   // Translatables
   // Included for use with string extractors like potx.
   t('Attach Files');
@@ -685,4 +735,3 @@ function os_software_field_default_fields() {
 
   return $fields;
 }
-
