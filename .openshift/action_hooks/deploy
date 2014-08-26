@@ -20,7 +20,7 @@ while [ $RETRY -gt 0 ] ; do
     #reload env variables
     for env_var in  $OPENSHIFT_HOMEDIR/.env/*
     do
-        . $env_var
+        export $(basename $env_var)=$(cat $env_var)
     done
 
     #check for db
