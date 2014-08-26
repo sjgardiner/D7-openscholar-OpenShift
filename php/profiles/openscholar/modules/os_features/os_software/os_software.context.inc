@@ -1,4 +1,7 @@
 <?php
+// $Id$
+
+
 /**
  * @file
  * os_software.context.inc
@@ -11,7 +14,8 @@ function os_software_context_default_contexts() {
   $export = array();
 
   $context = new stdClass();
-  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  /* Edit this to true to make a default context disabled initially */
+  $context->disabled = FALSE;
   $context->api_version = 3;
   $context->name = 'software_software';
   $context->description = '';
@@ -30,8 +34,6 @@ function os_software_context_default_contexts() {
       'values' => array(
         'software' => 'software',
         'software/*' => 'software/*',
-        'browse/projects' => 'browse/projects',
-        'browse/releases' => 'browse/releases',
       ),
     ),
     'views' => array(
@@ -71,3 +73,4 @@ function os_software_context_default_contexts() {
 
   return $export;
 }
+

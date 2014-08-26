@@ -1,4 +1,7 @@
 <?php
+// $Id$
+
+
 /**
  * @file
  * os_faq.context.inc
@@ -11,7 +14,8 @@ function os_faq_context_default_contexts() {
   $export = array();
 
   $context = new stdClass();
-  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  /* Edit this to true to make a default context disabled initially */
+  $context->disabled = FALSE;
   $context->api_version = 3;
   $context->name = 'faq_faq';
   $context->description = 'FAQ Site Section';
@@ -22,19 +26,18 @@ function os_faq_context_default_contexts() {
         'faq' => 'faq',
       ),
     ),
+    'path' => array(
+      'values' => array(
+        'faq' => 'faq',
+        'faq/*' => 'faq/*',
+      ),
+    ),
     'node' => array(
       'values' => array(
         'faq' => 'faq',
       ),
       'options' => array(
         'node_form' => '0',
-      ),
-    ),
-    'path' => array(
-      'values' => array(
-        'faq' => 'faq',
-        'faq/*' => 'faq/*',
-        'browse/faq' => 'browse/faq',
       ),
     ),
     'views' => array(
@@ -66,3 +69,4 @@ function os_faq_context_default_contexts() {
 
   return $export;
 }
+

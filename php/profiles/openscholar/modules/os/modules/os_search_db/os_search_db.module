@@ -25,13 +25,9 @@ function os_search_db_block_view($delta = ''){
   $block = array();
   switch ($delta) {
   	case 'site-search' :
-      // The db-search block will be displayed in the front page when Solr is
-      //  not running or on other pages as needed (e.g in widgets).
-      if (!module_exists('os_search_solr') && drupal_is_front_page() || !drupal_is_front_page()) {
-        $block['subject'] = NULL;
-        $block['content'] = drupal_get_form('search_block_form');
-      }
-      return $block;
+  	  $block['subject'] = NULL;
+  	  $block['content'] = drupal_get_form('search_block_form');
+  	  return $block;
 
   	default:
   	  break;
@@ -73,55 +69,5 @@ function os_search_db_query_alter(QueryAlterableInterface $query) {
       $query->condition('ogmem.group_type', $vsite->group_type, '=');
       $query->condition('ogmem.entity_type', "node", '=');
     }
-  }
-}
-
-/**
- * Implements hook_facetapi_facet_info_alter().
- */
-function os_search_db_facetapi_facet_info_alter(array &$facet_info, array $searcher_info) {
-  $facet_info['created']['map callback'] = 'os_search_db_created_facet';
-}
-
-/**
- * Change the callback function of the created facet.
- */
-function os_search_db_created_facet(array $values, array $options) {
-  $options['format callback'] = 'os_search_db_facet_time';
-  return facetapi_map_date($values, $options);
-}
-
-/**
- * Convert the timestamp to string.
- *
- * @param $timestamp
- *  An integer containing the Unix timestamp.
- * @param $gap
- *  Determine the format the timestamp need to be converted to.
- *
- * @return string
- *  The timestamp formatted to a string.
- *
- * @see facetapi_format_timestamp();
- */
-function os_search_db_facet_time($timestamp, $gap) {
-  switch ($gap) {
-    case FACETAPI_DATE_MONTH:
-      return format_date($timestamp, 'custom', 'F Y');
-
-    case FACETAPI_DATE_DAY:
-      return format_date($timestamp, 'custom', 'F j, Y');
-
-    case FACETAPI_DATE_HOUR:
-      return format_date($timestamp, 'custom', 'g A');
-
-    case FACETAPI_DATE_MINUTE:
-      return format_date($timestamp, 'custom', 'g:i A');
-
-    case FACETAPI_DATE_SECOND:
-      return format_date($timestamp, 'custom', 'g:i:s A');
-
-    default:
-      return format_date($timestamp, 'custom', 'Y');
   }
 }

@@ -1,6 +1,7 @@
 <?php
 
 function cp_layout_full_form($form, $form_state){
+  $form = array();
   ctools_include('ajax');
   ctools_include('modal');
   ctools_modal_add_js();
@@ -12,33 +13,13 @@ function cp_layout_full_form($form, $form_state){
   $contexts = os_layout_get_contexts(array(1, 2));
   $ctxs = $ctxs ? $ctxs : array('os_front', 'os_public');
 
-  $current = '';
-  if ($ctxs == array('os_public')) {
-    $current = 'os_public';
-  }
-  else {
-    $current = current(array_diff($ctxs, array('os_public')));
-  }
-
-  $form = array(
-    '#attributes' => array(
-      'class' => $ctxs
-    )
+  $form['context_selection'] = array(
+    '#type' => 'select',
+    '#title' => t('Site Section'),
+    '#options' => $contexts,
+    '#default_value' => reset($ctxs),
+    '#multiple' => false
   );
-
-  if (isset($contexts[$current])) {
-    $form['context_selection'] = array(
-      '#type' => 'select',
-      '#title' => t('Site section:'),
-      '#options' => $contexts,
-      '#default_value' => $current,
-      '#multiple' => false
-    );
-  }
-
-  if (!in_array('os_public', $ctxs)) {
-    $ctxs[] = 'os_public';
-  }
 
   // take custom themes into account
   ctools_include('themes', 'os');
@@ -49,7 +30,7 @@ function cp_layout_full_form($form, $form_state){
   if (!file_exists($layout_css)) {
     $form['layout_selection'] = array(
       '#type' => 'markup',
-      '#markup' => ctools_modal_text_button(t('Change layout'), 'cp/build/layout/nojs/select', t('Change your layout'), 'cp-layout-change')
+      '#markup' => ctools_modal_text_button(t('Change Layout'), 'cp/build/layout/nojs/select', t('Change your layout'), 'cp-layout-change')
     );
 
     include_once(drupal_get_path('theme', 'adaptivetheme') . '/inc/get.inc');
@@ -74,14 +55,11 @@ function cp_layout_full_form($form, $form_state){
     'sidebar_first',
     'content',
     'sidebar_second',
+    'footer',
     'content_top',
     'content_first',
     'content_second',
-    'content_bottom',
-    'footer_first',
-    'footer',
-    'footer_third',
-    'footer_bottom',
+    'content_bottom'
   );
 
   $weights = _cp_layout_get_weight_map($regions);
@@ -135,7 +113,7 @@ function cp_layout_full_form($form, $form_state){
     );
   }
 
-  $use_content_regions = FALSE;
+  $use_content_regions = false;
   foreach ( $blocks as $bid => $b ) {
     if ($b['region'] == - 1 || $b['region'] === FALSE) {
       $form['unused'][$bid] = array(
@@ -145,7 +123,7 @@ function cp_layout_full_form($form, $form_state){
     }
     elseif (isset($form['layout'][$b['region']])) {
       if (strpos($b['region'], 'content_') !== FALSE) {
-        $use_content_regions = TRUE;
+        $use_content_regions = true;
       }
       $form['layout'][$b['region']][$bid] = array(
         '#theme' => 'cp_layout_widget',
@@ -156,7 +134,7 @@ function cp_layout_full_form($form, $form_state){
   }
 
   if (in_array('os_front', $ctxs)) {
-    $use_content_regions = TRUE;
+    $use_content_regions = true;
   }
 
   if ($use_content_regions) {

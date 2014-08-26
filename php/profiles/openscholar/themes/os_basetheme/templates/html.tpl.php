@@ -7,24 +7,15 @@
 <head>
 <?php print $head; ?>
 <title><?php print $head_title; ?></title>
-<meta http-equiv="x-ua-compatible" content="IE=edge">
-  <?php if ($use_responsive_behaviors): ?>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <?php else: ?>
-<meta name="viewport" content="width=1000" />
-  <?php endif; ?>
+<meta http-equiv="x-ua-compatible" content="IE=8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <?php print $styles; ?>
 <?php print $scripts; ?>
 <?php print $polyfills; ?>
-  <!--[if lte IE 8]>
-<script type="text/javascript">
-  var os_c = document.createElement;os_c('header');os_c('nav');os_c('section');os_c('article');os_c('aside');os_c('footer');os_c('hgroup');os_c('figure');
-</script>
-  <![endif]-->
 </head>
 <body class="<?php print $classes; ?>"<?php print $attributes; ?>>
   <div id="skip-link">
-    <a href="<?php print $skip_link_target; ?>" class="element-invisible element-focusable" tabindex="1"><?php print t('Skip to main content'); ?></a>
+    <a href="<?php print $skip_link_target; ?>" class="element-invisible element-focusable"><?php print t('Skip to main content'); ?></a>
   </div>
   <?php print $page_top; ?>
   <?php print $page; ?>

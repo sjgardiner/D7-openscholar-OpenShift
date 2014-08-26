@@ -2,16 +2,10 @@
 
 class os_boxes_manual_list extends os_boxes_default {
 
-  public $embed_as = array(
-    'iframe',
-    'oembed',
-  );
-
   public function options_defaults() {
-    return parent::options_defaults() + array(
+    return array(
       'nodes' => array(),
       'style' => 'titles',
-      'random' => false,
     );
   }
 
@@ -19,17 +13,23 @@ class os_boxes_manual_list extends os_boxes_default {
     $form = parent::options_form($form_state);
 
     $form['#attached']['js'] = array(
-      drupal_get_path('module', 'os_boxes') . '/plugins/os_boxes_manual_list/os_boxes_manual_list.js'
+      drupal_get_path('module', 'os_boxes').'/plugins/os_boxes_manual_list/os_boxes_manual_list.js'
     );
 
     include_once (drupal_get_path('module', 'vsite') . '/includes/nodeautocomplete.inc');
     $form['add'] = array(
       '#type' => 'fieldset',
       '#title' => t('Add New Post'),
+//      'node_to_add' => array(
+//        '#type' => 'textfield',
+//        '#description' => t('Start entering the title of a post and matching posts will appear.'),
+//        '#autocomplete_path' => 'ctools/autocomplete/node',
+//      	'#field_suffix' => '<input type="button" class="add_new" value="Add" />'
+//      ),
       'node_to_add' => vsite_node_autocomplete_element() + array('#field_suffix' => '<input type="button" class="add_new" value="Add" />'),
     );
 
-    // Build a normal form.
+    // build a normal form
     $form['nodes'] = array(
       '#type' => 'markup',
       '#tree' => TRUE,
@@ -39,13 +39,8 @@ class os_boxes_manual_list extends os_boxes_default {
     $nodes = &$form['nodes'];
     usort($this->options['nodes'], 'element_sort');
 
-    // Blank element for copying purposes.
-    $this->options['nodes']['blank'] = array('nid' => 0, 'title' => '__blank__', 'weight' => 2000000);
+    $this->options['nodes']['blank'] = array('nid' => 0, 'title' => '__blank__', 'weight' => 2000000); // blank element for copying purposes
     foreach ($this->options['nodes'] as $k => $v) {
-      $deleted = '';
-      if (!($node = node_load($v['nid']))) {
-        $deleted = ' &lt;Deleted! Please remove!&gt;';
-      }
       $n = array(
         '#weight' => $v['weight'],
         'nid' => array(
@@ -54,7 +49,7 @@ class os_boxes_manual_list extends os_boxes_default {
         ),
         'text' => array(
           '#type' => 'markup',
-          '#markup' => '<span>' . $v['title'] . $deleted . '</span> <a href="#" class="remove" title="Remove Post">Remove</a>',
+          '#markup' => '<span>'.$v['title'].'</span> <a href="#" class="remove" title="Remove Post">Remove</a>',
         ),
         'title' => array(
           '#type' => 'hidden',
@@ -84,13 +79,6 @@ class os_boxes_manual_list extends os_boxes_default {
       '#default_value' => $this->options['style']
     );
 
-    $form['random'] = array(
-      '#type' =>'checkbox',
-      '#title' => t('Random Post'),
-      '#default_value' => $this->options['random'],
-      '#description' => t('Check this box to show one random post out of the list, instead of all of them.'),
-    );
-
     $form['count'] = array(
       '#type' => 'hidden',
       '#default_value' => count($this->options['nodes'])-1,
@@ -104,60 +92,43 @@ class os_boxes_manual_list extends os_boxes_default {
 
   public function render() {
     $block = parent::render();
-
-    // Avoid caching if set to random.
-    $random = $this->options['random'];
-
-    if ($random || ($block['content'] = $this->get_cache()) === FALSE) {
-
-      $links = array();
-
-      $nodes = $this->options['nodes'];
-      if ($random) {
-        $nodes = array($nodes[array_rand($nodes)]);
+    $links = array();
+    foreach ($this->options['nodes'] as $n) {
+      if ($this->options['style'] == 'teasers') {
+        // Theme the nodes as a teaser
+        $node = node_load($n['nid']);
+        $links[$n['weight']] = render(node_view($node, 'teaser'));
       }
-
-      foreach ($nodes as $n) {
-        if ($node = node_load($n['nid'])) {
-          if ($this->options['style'] == 'teasers') {
-            // Theme the nodes as a teaser.
-
-            // Node may not load if it has since been deleted.
-            $links[$n['weight']] = render(node_view($node, 'teaser'));
-          }
-          elseif ($this->options['style'] == 'full') {
-            $node = node_load($n['nid']);
-            $links[$n['weight']] = render(node_view($node, 'full'));
-          }
-          else {
-            $l = array(
-              'href' => 'node/' . $n['nid'],
-              'title' => $n['title'],
-            );
-            $links[$n['weight']] = $l;
-          }
-        }
-      }
-      ksort($links);
-      if (empty($links)) {
-        $block['title'] = '';
-        $block['subject'] = '';
-        return $block;
-      }
-      if ($this->options['style'] == 'teasers' || $this->options['style'] == 'full') {
-        $block['content'] = theme('item_list', array('items' => $links, 'attributes' => array('class' => array('featured-links'))));
+      elseif ($this->options['style'] == 'full') {
+        $node = node_load($n['nid']);
+        $links[$n['weight']] = render(node_view($node, 'full'));
       }
       else {
-        $block['content'] = theme('links', array('links' => $links, 'attributes' => array('class' => array('featured-links'))));
+        $l = array(
+          'href' => 'node/'.$n['nid'],
+          'title' => $n['title'],
+        );
+        $links[$n['weight']] = $l;
       }
-      $this->set_cache($block['content']);
+    }
+    ksort($links);
+    if(empty($links)) {
+      $block['title'] = '';
+      $block['subject'] = '';
+      return $block;
+    }
+    if ($this->options['style'] == 'teasers' || $this->options['style'] == 'full') {
+      $block['content'] = theme('item_list', array('items' => $links, 'attributes' => array('class' => array('featured-links'))));
+    }
+    else {
+      $block['content'] = theme('links', array('links' => $links, 'attributes' => array('class' => array('featured-links'))));
     }
     return $block;
   }
 }
 
 function os_boxes_manual_list_table($element) {
-  // Render the form as a table.
+  // render the form as a table
   $rows = array();
   uasort($element, 'element_sort');
   foreach (element_children($element) as $c) {
@@ -174,7 +145,7 @@ function os_boxes_manual_list_table($element) {
   $element['#rows'] = $rows;
   $element['#sticky'] = false;
   $element['#empty'] = true;
-
+  //$element['#value'] = theme('table', array(), $rows, );
   $element['#theme'] = 'table';
   drupal_add_tabledrag('manual-nodes-list', 'order', 'sibling', 'field-weight');
   return $element;
@@ -200,7 +171,7 @@ function os_boxes_manual_list_add_new_fields($element, &$form_state, &$form) {
   }
   unset($form_state['values']['nodes']['blank']);
 
-  // Remove nids that aren't in the post.
+  // remove nids that aren't in the post
   if (is_array($form_state['values'])) {
     foreach ($form_state['values']['nodes'] as $k => $v) {
       if (!isset($form_state['input']['nodes'][$k]) || !isset($form_state['input']['nodes'][$k]['nid'])) {

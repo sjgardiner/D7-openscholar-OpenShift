@@ -119,13 +119,10 @@ body.two-sidebars .region-sidebar-first {
     }
 
 #menu-bar {
-  background: rgb(166, 89, 58);
-background: -moz-linear-gradient(270deg, rgb(166, 89, 58) 30%, rgb(192, 115, 84) 70%);
-background: -webkit-linear-gradient(270deg, rgb(166, 89, 58) 30%, rgb(192, 115, 84) 70%);
-background: -o-linear-gradient(270deg, rgb(166, 89, 58) 30%, rgb(192, 115, 84) 70%);
-background: -ms-linear-gradient(270deg, rgb(166, 89, 58) 30%, rgb(192, 115, 84) 70%);
-background: linear-gradient(0deg, rgb(166, 89, 58) 30%, rgb(192, 115, 84) 70%);
-margin-bottom:10px;
+  background:url('../images/nav.png') repeat-x 0 0 #fff;
+  padding: 8px 0 15px 0;
+  height: 40px;
+  line-height: 40px;
   }
 
 #menu-bar li {
@@ -138,7 +135,6 @@ margin-bottom:10px;
 #menu-bar li a, #menu-bar li a:visited {
     color: #f5f5d8;
     text-decoration:none;
-    padding:8px 10px;
     }
 
 #menu-bar li a:hover, #menu-bar li a.active {
@@ -150,7 +146,6 @@ margin-bottom:10px;
 #menu-bar ul.nice-menu ul {
 	margin-top:-8px;
 	border:none;
-		background:#777;
 	}
 	
 #menu-bar ul.nice-menu ul ul {
@@ -172,6 +167,12 @@ margin-bottom:10px;
 }
 
 
+#menu-bar ul.nice-menu ul li a:hover {
+	color:#FFF;
+	background:#A95A3C;
+
+}     
+
 
 	
 .sidebar #block-os-primary-menu ul.menu a {
@@ -192,10 +193,3 @@ ul.nice-menu-left a, ul.nice-menu-left ul a {
   border-bottom: 1px solid #a1b1b1;
   display:block;
   }
-  
-
- #powerby-login {
-   position: fixed;
-    right: 0;
-    bottom:20px;
- }

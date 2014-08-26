@@ -1,13 +1,5 @@
 <?php
 
-/**
- * @file
- * Provides OpenScholar site menu management.
- */
-
-/**
- * Implements hook_menu().
- */
 function cp_menu_menu() {
   $items = array();
 
@@ -75,15 +67,6 @@ function cp_menu_menu() {
     'file' => 'cp_menu.form.inc',
   );
 
-
-  $items['admin/config/openscholar/cp_menu'] = array(
-    'title' => 'Control Panel Menu',
-    'file' => 'cp_menu.admin.inc',
-    'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('cp_menu_admin'),
-  );
-
   return $items;
 }
 
@@ -97,9 +80,6 @@ function cp_menu_admin_paths() {
   return $paths;
 }
 
-/**
- * Implements hook_theme().
- */
 function cp_menu_theme() {
   $items = array();
 
@@ -111,11 +91,7 @@ function cp_menu_theme() {
   return $items;
 }
 
-/**
- * Implements hook_node_insert().
- *
- * Saves new nodes to menus using os api instead of core.
- */
+//save new nodes to menus using os api instead of core
 function cp_menu_node_insert($node) {
   if (isset($node->os_menu) && $node->os_menu['enabled']) {
     ctools_include('menu','os');
@@ -138,11 +114,7 @@ function cp_menu_node_insert($node) {
   }
 }
 
-/**
- * Implements hook_node_update().
- *
- * Deletes old menu links, inserts new ones.
- */
+//delete old links, insert new ones.
 function cp_menu_node_update($node) {
   ctools_include('menu', 'os');
 
@@ -150,10 +122,10 @@ function cp_menu_node_update($node) {
     return;
   }
 
-  if (!@$node->os_menu['enabled'] || @$node->os_menu['delete']) {
+  if (!$node->os_menu['enabled'] || $node->os_menu['delete']) {
     //delete unwanted menu
     if ($link = os_menu_load_link_path('node/' . $node->nid)) {
-      os_menu_link_remove($link['menu_name'], $link['mlid']);
+      os_menu_link_delete($link['menu_name'], $link['mlid']);
     }
   }
 
@@ -164,7 +136,7 @@ function cp_menu_node_update($node) {
       $link['menu_name'] = $node->os_menu['parent'];
       $link['options']['attributes'] = array('title' => $node->os_menu['description']);
       if ($node->os_menu['new_window']) {
-        $link['options']['attributes']['target'] = '_blank';
+        $link['options']['attributes']['taret'] = '_blank';
       }
       os_menu_link_save($link);
     } else {
@@ -174,23 +146,15 @@ function cp_menu_node_update($node) {
   }
 }
 
-/**
- * Implements hook_node_delete().
- *
- * Deletes menu links when their node is deleted.
- */
+//delete menu links when their node is deleted
 function cp_menu_node_delete($node) {
   ctools_include('menu', 'os');
   if ($link = os_menu_load_link_path('node/' . $node->nid)) {
-    os_menu_link_remove($link['menu_name'], $link['mlid']);
+    os_menu_link_delete($link['menu_name'], $link['mlid']);
   }
 }
 
-/**
- * Implements hook_contextual_links_view_alter().
- *
- * add contextual links to menu to create new links.
- */
+//add contextual links to menu to create new links
 function cp_menu_contextual_links_view_alter(&$element, $items) {
   ctools_include('menu','os');
   $menus = array_keys(os_get_menus());
@@ -203,6 +167,11 @@ function cp_menu_contextual_links_view_alter(&$element, $items) {
 
 	        if (in_array($menu, $menus)) {
 	          $fragment = 'cp/menu/nojs/new/';
+	          if ($space = spaces_get_space()) {
+	            $fragment = $space->group->purl . '/' . $fragment;
+	          }
+	          //ctools_include('modal');
+	          //ctools_modal_add_js();
 	          $element['#links']['menu-add'] = array('title' => t('Add menu item'), 'href' => $fragment . $menu, 'attributes' => array('class' => array('ctools-use-modal')));
 	        }
 	      }
@@ -212,12 +181,11 @@ function cp_menu_contextual_links_view_alter(&$element, $items) {
 }
 
 /**
- * Implements hook_BASE_ID_form_alter() for node_form().
+ * @function cp_form_node_form_alter
+ * Implements hook_BASE_ID_form_alter().
  *
- * Prepopulates node/add/* with menu link data when a new node is created for
- * the link. Moves menu to os_menu for later processing during node_insert.
- *
- * @fixme is this really necessary? shouldn't it happen elsewhere?
+ * Prepopulates node/add/* with menu link data when a new node is created for the link.
+ * Moves menu to os_menu for later processing during node_insert (is this really necessary?  shouldn't it happen elsewhere?)
  */
 function cp_menu_form_node_form_alter(&$form, &$form_state, $form_id) {
   ctools_include('menu', 'os');
@@ -242,28 +210,18 @@ function cp_menu_form_node_form_alter(&$form, &$form_state, $form_id) {
     $form['os_menu']['link']['#parents'] = $parents + array('os_menu');
     $form['os_menu']['#attached'] = array('js' => array(drupal_get_path('module', 'cp_menu') . '/cp_menu.js'));
 
+    $form['os_menu']['link']['new_window'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Open Link in New Window'),
+      '#default_value' => 0,
+    );
+
+
     //update the defaults to include $links
     $form['os_menu']['enabled']['#default_value'] = isset($link) && $link !== FALSE;
     $form['os_menu']['link']['link_title']['#default_value'] = (isset($link['link_title'])) ? $link['link_title'] : '';
     $form['os_menu']['link']['description']['#default_value'] =
-    (isset($link['options']['attributes']['title'])) ? $link['options']['attributes']['title'] : '';
-
-    $form['os_menu']['link']['new_window'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Open Link in New Window'),
-        '#default_value' => 0,
-    );
-
-    //new window and tooltips are only available when cp_menu_show_extra_link_options is enabled
-    if (!variable_get('cp_menu_link_options_new_window', FALSE)) {
-      $form['os_menu']['link']['new_window']['#type'] = 'hidden';
-    }
-
-    if (!variable_get('cp_menu_link_options_tooltip', FALSE)) {
-      $form['os_menu']['link']['description']['#type'] = 'hidden';
-    }
-
-
+      (isset($link['options']['attributes']['title'])) ? $link['options']['attributes']['title'] : '';
     $form['os_menu']['link']['new_window']['#default_value'] = (isset($link['options']['attributes']['target']) && $link['options']['attributes']['target'] == '_blank');
 
     $url = l('Page Layout', 'cp/build/layout', array());
@@ -278,14 +236,13 @@ function cp_menu_form_node_form_alter(&$form, &$form_state, $form_id) {
 
   	// Set the title from the cache title and set the form title to the cache title if it exists.
     if (isset($cache['title'])) {
-  	  $title = check_plain($cache['title']);
-  	  // Check for the form title
-  	  if(isset($form['title'])) {
-    	    $form['title']['#default_value'] = $title;
-  	  }
+	  $title = check_plain($cache['title']);
+	  // Check for the form title
+	  if(isset($form['title'])) {
+  	    $form['title']['#default_value'] = $title;
+	  }
     }
 
-    //use menu from cp_menu wizard or default to primary
     $menu = (isset($cache['menu'])) ? $cache['menu'] : 'primary-menu';
     if (isset($form['os_menu'])) {
 	    $form['os_menu']['enabled']['#default_value'] = 1;
@@ -298,32 +255,25 @@ function cp_menu_form_node_form_alter(&$form, &$form_state, $form_id) {
       $form['os_menu']['link']['new_window']['#default_value'] = 1;
     }
 
-    //use new url provided by menu wizard
-    if (isset($cache['new_node_url'])) {
-      $form['path']['alias']['#default_value'] = $cache['new_node_url'];
-      $form['path']['pathauto']['#default_value'] = FALSE;
-    }
-    
     // Cache shouldn't be deleted on the first pass of adding a new biblio.
-    if (isset($cache['new_node_type']) && $cache['new_node_type'] == 'biblio') {
+    if(isset($cache['new_node_type']) && $cache['new_node_type'] == 'biblio') {
       // Check for the form state input - biblio type, this will be present if we are past
       // the Publication Type select form.
-      if (isset($form_state['input']['biblio_type'])) {
+      if(isset($form_state['input']['biblio_type'])) {
       	cp_menu_cache_clear('cp_menu');
       }
-    } else {
+    }else {
       cp_menu_cache_clear('cp_menu');
     }
   }
 }
 
 /**
- * Implements hook_node_submit().
+ * implementation of hook_node_submit
  *
- * When a link is updated or a node's link is enabled, flag it as dirty so
- * hook_node_update() can create/update the link. Can't update changes across
- * menus though - those need a delete.
- */
+ * When a link is updated or a node's link is enabled, flag it as dirty so hook_node_update can create/update the link
+ * Can't update changes across menus though - those need a delete.
+ **/
 function cp_menu_node_submit($node, $form, &$state) {
   if (is_array($state['values']['os_menu'])) {
     if ($state['values']['os_menu']['parent'] != $form['os_menu']['link']['parent']['#default_value']) {
@@ -331,7 +281,7 @@ function cp_menu_node_submit($node, $form, &$state) {
     }
 
     foreach(array('link_title','description','parent','new_window') as $delta) {
-      if (isset($state['values']['os_menu'][$delta]) && ($state['values']['os_menu'][$delta] != $form['os_menu']['link'][$delta]['#default_value'])) {
+      if ($state['values']['os_menu'][$delta] != $form['os_menu']['link'][$delta]['#default_value']) {
         $node->os_menu['dirty'] = TRUE;
         return;
       }
@@ -344,11 +294,7 @@ function cp_menu_node_submit($node, $form, &$state) {
   }
 }
 
-/**
- * Validate callback for node_form().
- *
- * When menu link is enabled, it should have a title.
- */
+//validation for os menu.  when menu link is enabled, it should have a title.
 function cp_menu_node_validate($node, $form, &$form_state) {
   if ($os_menu = &$form_state['values']['os_menu']) {
     $os_menu['link_title'] = trim($os_menu['link_title']);
@@ -359,13 +305,6 @@ function cp_menu_node_validate($node, $form, &$form_state) {
   }
 }
 
-/**
- * Page callback; AJAX form wrapper for menu link edit form.
- *
- * @param $link
- * @param $js
- * @return array|mixed
- */
 function cp_menu_edit_link($link, $js) {
   ctools_include('menu', 'os');
   $link = os_menu_link_load($link);
@@ -411,8 +350,10 @@ function cp_menu_edit_link($link, $js) {
   }
 }
 
-/**
- * Page callback; AJAX form wrapper for menu link edit form.
+/*
+ * @function cp_menu_delete_link
+ *
+ * Menu callback function for deleting a link from cp/build/menu
  */
 function cp_menu_delete_link($link, $js) {
   ctools_include('menu', 'os');
@@ -450,11 +391,6 @@ function cp_menu_delete_link($link, $js) {
   }
 }
 
-/**
- * Form builder for delete link form.
- *
- * @see cp_menu_delete_link()
- */
 function cp_menu_delete_link_form($form, $form_state, $link) {
   $form['text'] = array(
     '#type' => 'markup',
@@ -479,23 +415,16 @@ function cp_menu_delete_link_form($form, $form_state, $link) {
   return $form;
 }
 
-/**
- * Submit callback for delete link form.
- */
+
 function cp_menu_delete_link_form_submit($form, $form_state) {
   ctools_include('menu', 'os');
   $link = $form['#link'];
 
   if ($form_state['values']['op'] == t('Delete')) {
-    os_menu_link_remove($link['menu_name'], $link['mlid']);
+    os_menu_link_delete($link['menu_name'], $link['mlid']);
   }
 }
 
-/**
- * Form builder for edit link form.
- *
- * @see cp_menu_edit_link()
- */
 function cp_menu_edit_link_form($form, $form_state, $link) {
   $form_state['title'] = t('Title');
 
@@ -504,27 +433,23 @@ function cp_menu_edit_link_form($form, $form_state, $link) {
   $form['title'] = array(
     '#title' => t('Title'),
     '#type' => 'textfield',
-    '#description' => t('Text for your link or heading.'),
+    '#description' => t('Name your link.'),
     '#default_value' => $link['link_title'],
   );
 
-  if (variable_get('cp_menu_link_options_new_window', FALSE)) {
-    $form['new_window'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('New Window'),
-      '#description' => t('Open link in new tab or window'),
-      '#default_value' => isset($link['options']['attributes']['target']),
-    );
-  }
+  $form['new_window'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('New Window'),
+    '#description' => t('Open link in new tab or window'),
+    '#default_value' => isset($link['options']['attributes']['target']),
+  );
 
-  if (variable_get('cp_menu_link_options_tooltip', FALSE)) {
-    $form['tooltip'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Tooltip'),
-      '#description' => t('Text displayed when mouse hovers over link'),
-      '#default_value' => $link['options']['attributes']['title'],
-    );
-  }
+  $form['tooltip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Tooltip'),
+    '#description' => t('Text displayed when mouse hovers over link'),
+    '#default_value' => $link['options']['attributes']['title'],
+  );
 
   $form['actions'] = array(
     '#type' => 'actions',
@@ -544,9 +469,6 @@ function cp_menu_edit_link_form($form, $form_state, $link) {
   return $form;
 }
 
-/**
- * Validate callback for edit link form.
- */
 function cp_menu_edit_link_form_validate($form, &$form_state) {
   if ($form_state['values']['op'] == t('Save')) {
     if (empty($form_state['values']['title'])) {
@@ -555,19 +477,14 @@ function cp_menu_edit_link_form_validate($form, &$form_state) {
   }
 }
 
-/**
- * Submit callback for edit link form.
- */
 function cp_menu_edit_link_form_submit($form, $form_state) {
   ctools_include('menu', 'os');
   $link = $form['#link'];
 
   if ($form_state['values']['op'] == t('Save')) {
     $link['link_title'] = $form_state['values']['title'];
-    if (isset($form_state['values']['tooltip'])) {
-      $link['options']['attributes']['title'] = $form_state['values']['tooltip'];
-    }
-    if (isset($form_state['values']['new_window']) && $form_state['values']['new_window']) {
+    $link['options']['attributes']['title'] = $form_state['values']['tooltip'];
+    if ($form_state['values']['new_window']) {
       $link['options']['attributes']['target'] = '_blank';
     }
     else {

@@ -7,13 +7,16 @@
 /**
  * Implements hook_ctools_plugin_api().
  */
-function os_publications_ctools_plugin_api($module = NULL, $api = NULL) {
+function os_publications_ctools_plugin_api() {
+  list($module, $api) = func_get_args();
   if ($module == "boxes" && $api == "box") {
     return array("version" => "1");
   }
+  list($module, $api) = func_get_args();
   if ($module == "context" && $api == "context") {
     return array("version" => "3");
   }
+  list($module, $api) = func_get_args();
   if ($module == "strongarm" && $api == "strongarm") {
     return array("version" => "1");
   }
@@ -22,8 +25,8 @@ function os_publications_ctools_plugin_api($module = NULL, $api = NULL) {
 /**
  * Implements hook_views_api().
  */
-function os_publications_views_api($module = NULL, $api = NULL) {
-  return array("api" => "3.0");
+function os_publications_views_api() {
+  return array("version" => "3.0");
 }
 
 /**
@@ -46,14 +49,13 @@ function os_publications_image_default_styles() {
         'module' => 'image',
         'name' => 'image_scale',
         'data' => array(
-          'width' => 150,
+          'width' => '150',
           'height' => '',
           'upscale' => 0,
         ),
-        'weight' => 1,
+        'weight' => '1',
       ),
     ),
-    'label' => 'book_cover',
   );
 
   // Exported image style: book_cover_thumb.
@@ -70,14 +72,13 @@ function os_publications_image_default_styles() {
         'module' => 'image',
         'name' => 'image_scale',
         'data' => array(
-          'width' => 50,
-          'height' => 65,
+          'width' => '40',
+          'height' => '',
           'upscale' => 0,
         ),
-        'weight' => 1,
+        'weight' => '1',
       ),
     ),
-    'label' => 'book_cover_thumb',
   );
 
   return $styles;

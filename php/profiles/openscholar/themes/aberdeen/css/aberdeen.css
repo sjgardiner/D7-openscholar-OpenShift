@@ -163,12 +163,10 @@ border-radius:5px;
 
 .os-powered-link, #block-os-powered-by {
     bottom: -28px;
-  
 }
 
 #block-os-login {
     bottom: -1px;
-
 }
 
 .feed_item {margin-bottom:8px;}
@@ -257,7 +255,6 @@ top:3.1em;
 -webkit-border-radius: 0;
 }
 
-#menu-bar ul.nice-menu ul,
 #menu-bar ul.nice-menu ul li a,
 #menu-bar ul.nice-menu ul li a:hover,
 #menu-bar ul.nice-menu ul li a.active,

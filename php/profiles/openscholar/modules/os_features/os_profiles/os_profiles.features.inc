@@ -7,16 +7,12 @@
 /**
  * Implements hook_ctools_plugin_api().
  */
-function os_profiles_ctools_plugin_api($module = NULL, $api = NULL) {
+function os_profiles_ctools_plugin_api() {
+  list($module, $api) = func_get_args();
   if ($module == "context" && $api == "context") {
     return array("version" => "3");
   }
-  if ($module == "feeds" && $api == "feeds_importer_default") {
-    return array("version" => "1");
-  }
-  if ($module == "feeds_tamper" && $api == "feeds_tamper_default") {
-    return array("version" => "2");
-  }
+  list($module, $api) = func_get_args();
   if ($module == "strongarm" && $api == "strongarm") {
     return array("version" => "1");
   }
@@ -25,8 +21,8 @@ function os_profiles_ctools_plugin_api($module = NULL, $api = NULL) {
 /**
  * Implements hook_views_api().
  */
-function os_profiles_views_api($module = NULL, $api = NULL) {
-  return array("api" => "3.0");
+function os_profiles_views_api() {
+  return array("version" => "3.0");
 }
 
 /**
@@ -49,13 +45,12 @@ function os_profiles_image_default_styles() {
         'module' => 'image',
         'name' => 'image_scale_and_crop',
         'data' => array(
-          'width' => 180,
-          'height' => 220,
+          'width' => '180',
+          'height' => '220',
         ),
-        'weight' => 1,
+        'weight' => '1',
       ),
     ),
-    'label' => 'profile_full',
   );
 
   // Exported image style: profile_thumbnail.
@@ -72,13 +67,12 @@ function os_profiles_image_default_styles() {
         'module' => 'image',
         'name' => 'image_scale_and_crop',
         'data' => array(
-          'width' => 75,
-          'height' => 75,
+          'width' => '75',
+          'height' => '75',
         ),
-        'weight' => 1,
+        'weight' => '1',
       ),
     ),
-    'label' => 'profile_thumbnail',
   );
 
   return $styles;

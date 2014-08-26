@@ -1,10 +1,4 @@
 <?php
-/**
- * @file
- * Code for the OpenScholar: Mailchimp feature.
- */
-
-include_once 'os_mailchimp.features.inc';
 
 /**
  * @file os_mailchimp.module
@@ -23,18 +17,18 @@ include_once 'os_mailchimp.features.inc';
  * Ajax url for processing sub requests.  (using ajax so I can have one unified sub function).
  */
 function os_mailchimp_menu() {
-  $items ['admin/config/openscholar/os_mailchimp'] = array(
+  $items ['admin/settings/os_mailchimp'] = array(
     'title' => t( 'MailChimp' ),
-  	'page callback' => 'drupal_get_form',
-  	'page arguments' => array('os_mailchimp_admin' ),
-  	'file' => 'os_mailchimp.admin.inc',
-  	'access arguments' => array('access administration pages' ),
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('os_mailchimp_admin' ),
+	'file' => 'os_mailchimp.admin.inc',
+	'access arguments' => array('access administration pages' ),
   );
   $items['os_mailchimp/%ctools_js/subscribe/%'] = array(
     'title' => t('Subscribe to mailing list'),
     'page callback' => 'os_mailchimp_subscribe_page',
     'page arguments' => array(1,3),
-    'type' => MENU_NORMAL_ITEM,
+    //'type' => MENU_CALLBACK,
     'access callback' => TRUE,
   );
 
@@ -42,6 +36,7 @@ function os_mailchimp_menu() {
 }
 
 /**
+ *
  * Implements hook_user_insert().
  * On new registration of users, grabs
  * their email and name and subscribes them to
@@ -50,71 +45,12 @@ function os_mailchimp_menu() {
 function os_mailchimp_user_insert(&$edit, $account, $category) {
   $api = variable_get('os_mailchimp_api', FALSE);
   $list = variable_get('os_mailchimp_list', FALSE);
-  $fn = ($edit['field_first_name'][LANGUAGE_NONE]) ? $edit['field_first_name'][LANGUAGE_NONE][0]['value'] : '';
-  $ln = ($edit['field_last_name'][LANGUAGE_NONE])  ? $edit['field_last_name'][LANGUAGE_NONE][0]['value']  : '';
-  $sub = os_mailchimp_subscribe($api, $list, $edit['mail'], $fn, $ln);
+
+  $dc = end(explode('-', $api));
+  $url = 'http://' . $dc . '.api.mailchimp.com/1.3/';
+
+  $sub = os_mailchimp_subscribe($api, $list, $edit['mail'], $edit['name']);
 }
-
-/**
- * Implements hook_user_delete
- * 
- * Remove deleted user's email addresses from mailchimp.
- */
-function os_mailchimp_user_delete($account) {
-  $api = variable_get('os_mailchimp_api');
-  $list_id = variable_get('os_mailchimp_list');
-  if (!$api || !$list_id) {
-    return;
-  }
-  
-  //update the list of instances in which this user is active
-  $MC = _os_mailchimp_mailchimp_connect($api);
-  $sub_info = $MC->listMemberInfo($list_id, $account->mail);
-  $merge_vars = $sub_info['data'][0]['merges'];
-  
-  if (isset($merge_vars['INSTANCES']) && $merge_vars['INSTANCES']) {
-    $instances = explode(',', $merge_vars['INSTANCES']);
-    $purl = str_replace('http://', '', variable_get('purl_base_domain', ''));
-    $instances = array_filter($instances, function($s) use ($purl) { return ($s != $purl); });
-    
-    if ($instances) {
-      //just remove this instance from the subscription
-      $merge_vars['INSTANCES'] = implode(',', $instances);
-      $updated = $MC->listUpdateMember($list_id, $account->mail, $merge_vars);
-      return;
-    }
-  }
-
-  //this was the last instance or instances aren't tracked, so delete the user entirely.
-  $sub_info = $MC->listUnsubscribe($list_id, $account->mail);
-}
-
-/**
- * Implements hook_node_update
- *
- * When vsite nodes are created, inform mailchimp about their ownership.
- */
-function os_mailchimp_node_insert($node) {
-  $vsites = array_keys(array_intersect(module_invoke_all('vsite_og_node_type_info'), array('group')));
-  if (in_array($node->type, $vsites)) {
-    os_mailchimp_update_subscription($node->uid, $node);
-  }
-}
-
-/**
- * Implements hook_node_update
- * 
- * When vsite nodes are updated, their ownership can change.  Send this update to mailchimp.
- */
-function os_mailchimp_node_update($node) {
-  //only perform 1) on vsite nodes 2) when owner is changed.
-  $vsites = array_keys(array_intersect(module_invoke_all('vsite_og_node_type_info'), array('group')));
-  if (in_array($node->type, $vsites) || $node->uid != $node->original->uid) {
-    os_mailchimp_update_subscription($node->uid, $node);
-    os_mailchimp_update_subscription($node->original->uid, $node, TRUE);
-  }
-}
-
 
 
 /**
@@ -151,16 +87,15 @@ function os_mailchimp_subscribe_page($js=TRUE, $delta) {
   ctools_include('modal');
   ctools_include('ajax');
   $form_state = array(
-    'title' => t(' '),
+    'title' => t('Title of my form'),
     'ajax' => $js,
     'delta' => $delta,
     'use_ctools' => TRUE,
   );
 
   $output = ctools_modal_form_wrapper('os_mailchimp_form', $form_state);
-  $output = ctools_modal_form_render($form_state, $output);
-  print ajax_render($output);
-  exit; 
+
+  ctools_modal_render('Mailing List Subscription', $output);
 }
 
 /**
@@ -176,31 +111,47 @@ function os_mailchimp_subscribe_page($js=TRUE, $delta) {
 function os_mailchimp_subscribe($api, $listid, $email, $fn=NULL, $ln=NULL) {
   include_once( drupal_get_path('module', 'os_mailchimp') . '/MCAPI.class.php');
   $MC = new MCAPI($api);
-  
-  //vsite isn't created yet so we can't get its purl.  but user isn't subbed yet, so when
-  //the vsite adds it doesn't know about the user and can't add its domain to the sub.
-  $form_values = &drupal_static('vsite_register_form_values');
-  
-  $merge_vars = array(
-    'FNAME' => $fn, 
-    'LNAME' => $ln,
-    'INSTANCES' => str_replace('http://', '', variable_get('purl_base_domain', '')),
-    'SITES' => ($form_values && isset($form_values['domain'])) ? $form_values['domain'] : '', 
-  );
-  
-  if (variable_get('os_mailchimp_use_field', FALSE)) {
-    $name = variable_get('os_mailchimp_use_field_name', FALSE);
-    $value = variable_get('os_mailchimp_use_field_value', FALSE);
-    if ($name && $value) {
-      $merge_vars[$name] = $value;
-    }
-  }
 
-  if ($MC->listSubscribe($listid, $email, $merge_vars)) {
+  if ($MC->listSubscribe($listid, $email)) {
     return array('success'=>TRUE);
   } else {
   	return array('success'=>FALSE,'msg'=>$MC->errorMessage);
   }
+}
+
+/**
+ * Implements hook_ctools_plugin_api().
+ */
+function os_mailchimp_ctools_plugin_api() {
+  list($module, $api) = func_get_args();
+
+  if ($module == "boxes" && $api == "box") {
+    return array("version" => 1);
+  }
+}
+
+/**
+ * Implements hook_default_box().
+ */
+function os_mailchimp_default_box() {
+  $export = array();
+
+  $box = new stdClass;
+  $box->disabled = FALSE; /* Edit this to true to make a default box disabled initially */
+  $box->api_version = 1;
+  $box->delta = 'os_box_mailchimp';
+  $box->plugin_key = 'os_boxes_mailchimp';
+  $box->title = '';
+  $box->description = 'Subscribe to MailChimp mailing list';
+  $box->options = array(
+    'visibility' => 'feature',
+    'api' => variable_get('os_mailchimp_api', FALSE),
+    'list' => variable_get('os_mailchimp_list', FALSE),
+    'text' => 'Subscribe to our mailing list',
+    'display' => 'link',
+  );
+  $export['os_box_mailchimp'] = $box;
+  return $export;
 }
 
 /**
@@ -222,9 +173,9 @@ function os_mailchimp_form($state, $args=array()) {
 
   // Hardcoded the path into the delta due to d7 returning form args this way.
   // Check to see if they're using the form or link display.
-  if (isset($state['build_info']['args'][0]['delta'])) { // form
+  if(isset($state['build_info']['args'][0]['delta'])) { // form
     $box = $space->controllers->boxes->get($state['build_info']['args'][0]['delta']);
-  } else { // everything else
+  }else{ // everything else
     $box = $space->controllers->boxes->get($state['delta']);
   }
 
@@ -259,35 +210,35 @@ function os_mailchimp_form($state, $args=array()) {
 
   $form['subscribe']['email'] = array(
     '#type' =>  'textfield',
-  	'#title' => 'Email Address',
-  	'#weight' => -10,
-  	'#required' => TRUE,
-  	'#default_value' => $mail,
+	'#title' => 'Email Address',
+	'#weight' => -10,
+	'#required' => TRUE,
+	'#default_value' => $mail,
   );
 
   $form['subscribe']['fn'] = array(
     '#type' =>  'textfield',
-  	'#title' => 'First Name',
-  	'#weight' => -8,
-  	'#default_value' => $fn,
+	'#title' => 'First Name',
+	'#weight' => -8,
+	'#default_value' => $fn,
   );
 
   $form['subscribe']['ln'] = array(
     '#type' =>  'textfield',
-  	'#title' => 'Last Name',
-  	'#weight' => -6,
-  	'#default_value' => $ln,
+	'#title' => 'Last Name',
+	'#weight' => -6,
+	'#default_value' => $ln,
   );
 
   $form['subscribe']['submit'] = array(
     '#type' => 'submit',
-  	'#value' => 'Subscribe',
-  	'#weight' => -4,
+	'#value' => 'Subscribe',
+	'#weight' => -4,
   );
 
   $form['subscribe']['list'] = array(
     '#type' => 'value',
-	  '#value' => $box->options['list'],
+	'#value' => $box->options['list'],
   );
 
   return $form;
@@ -298,7 +249,13 @@ function os_mailchimp_form($state, $args=array()) {
  */
 function os_mailchimp_form_submit($form, $form_state) {
   $v = $form_state['values'];
-  $api = variable_get('os_mailchimp_vsite_api_key', '');
+
+  // Get the api key.
+  if(($space = spaces_get_space()) != FALSE) {
+    $api = $space->controllers->variable->get('os_mailchimp_api', 'space');
+  } else {
+    $api = variable_get('os_mailchimp_api', '');
+  }
 
   // Try to subscribe.
   $sub = os_mailchimp_subscribe($api, $v['list'], $v['email'], $v['fn'], $v['ln']);
@@ -333,11 +290,18 @@ function os_mailchimp_form_submit($form, $form_state) {
 
 /**
  * Implements hook_cp_settings().
+ * @return array
  */
 function os_mailchimp_cp_settings(){
-  $api = variable_get('os_mailchimp_vsite_api_key', '');
-  
-  $settings['os_mailchimp_vsite_api_key'] = array(
+  $a_settings = array();
+
+  $space = spaces_get_space();
+  if(($space = spaces_get_space()) != FALSE) {
+    $api = $space->controllers->variable->get('os_mailchimp_api', 'space');
+  } else {
+    $api = variable_get('os_mailchimp_api', '');
+  }
+  $a_settings['os_mailchimp_api'] = array(
     'group' => array(
       '#id' => 'social',
       '#title' => t('Social'),
@@ -351,8 +315,9 @@ function os_mailchimp_cp_settings(){
     )
   );
 
-  return $settings;
+  return $a_settings;
 }
+
 
 /**
  * @function _os_mailchimp_get_lists
@@ -361,149 +326,19 @@ function os_mailchimp_cp_settings(){
  * @param unknown_type $api
  */
 function _os_mailchimp_get_lists($api) {
-  $MC = _os_mailchimp_mailchimp_connect($api);
-  
+  include_once( drupal_get_path('module', 'os_mailchimp') . '/MCAPI.class.php');
+
+  $MC = new MCAPI($api);
+
   $ret = array();
   if (($lists = $MC->lists()) != FALSE) {
     foreach ($lists['data'] as $delta => $list) {
-	    $ret[$list['id']] = $list['name'];
-	  }
-  }
+	  $ret[$list['id']] = $list['name'];
+	}
 
-  return ($ret) ? $ret : FALSE;  
-}
+    return $ret;
 
-/**
- * @function _os_mailchimp_get_list_info($api)
- * 
- *  Get info from mailchimp API describing lists
- */
-function _os_mailchimp_get_list_info($api) {
-  $MC = _os_mailchimp_mailchimp_connect($api);
-  return ($MC) ? $MC->lists() : FALSE;
-}
-
-/**
- * @function _os_mailchimp_mailchimp_connect
- * @param string $api
- *   Mailchimp api key
- * @return Ambigous <boolean, MCAPI>
- *   Mailchimp api connection or False
- */
-function _os_mailchimp_mailchimp_connect($api) {
-  include_once( drupal_get_path('module', 'os_mailchimp') . '/MCAPI.class.php');  
-  $MC = new MCAPI($api);
-  return ($MC) ? $MC : FALSE;
-}
-
-/**
- * @function os_mailchimp_update_subscription
- * 
- * Updates the stored variables on a user's mailchimp sub.  
- * 
- * @param $uid
- *   ID of user to update
- * @param $node
- *   Node whose ownership is being changed
- * @param $remove_node
- *   Flag indicates that node is being transfered away from user, so it should be removed from user's list of sites
- */
-function os_mailchimp_update_subscription($uid = NULL, $node = NULL, $remove_node = FALSE) {
-  if (!$uid) {
-    global $user;
   } else {
-    if (($user = user_load($uid)) == FALSE) {
-      return FALSE;
-    }
+    return FALSE;
   }
-  
-  $api = variable_get('os_mailchimp_api');
-  $list_id = variable_get('os_mailchimp_list');
-  if (!($api && $list_id)) {
-    return;
-  }
-  
-  $MC = _os_mailchimp_mailchimp_connect($api);
-  $sub_info = $MC->listMemberInfo($list_id, $user->mail);
-  
-  //user has unsubscribed 
-  if ($sub_info['errors']) {
-    return;
-  }
-
-  $merge_vars = $sub_info['data'][0]['merges'];
-  $current_info = _os_mailchimp_user_get_info($user);
-  $merge_vars['FNAME'] = $current_info['FNAME'];
-  $merge_vars['LNAME'] = $current_info['LNAME'];
-    
-  //these vars are comma separated lists.  they can come from any of our installations.  append rather than overwriting.
-  foreach (array('instances', 'sites') as $var) {
-    $keyname = strtoupper($var);
-    if ($keyname && isset($merge_vars[$keyname])) {
-      $items = array_merge(explode(',', $merge_vars[$keyname]), $current_info[$var]);
-      
-      if ($node && $var == 'sites') {
-        if ($remove_node) {
-          $rem = array($node->purl['value']);
-          $items = array_diff($items, $rem);
-        } else {
-          $items[] = $node->purl['value'];
-        }
-      }
-
-      $merge_vars[$keyname] = implode(',', array_unique(array_filter($items)));
-    }
-  }
-  
-  //perform update only if something has changed.
-  if ($merge_vars != $sub_info['data'][0]['merges']) {
-    $updated = $MC->listUpdateMember($list_id, $user->mail, $merge_vars);  
-  }
-  
-  return (isset($updated)) ? $updated : NULL;
-}
-
-/**
- * @function _os_mailchimp_user_get_info
- * 
- * Collects info to send to mailchimp.  This includes:
- *  - email address
- *  - first and last name
- *  - instance (this server)
- *  - list of vsites user has membership in
- */
-function _os_mailchimp_user_get_info($user) {
-  //upper case items are provided by mailchimp.  lowercase are custom ones we've added.
-  $ret = array(
-    'EMAIL' => $user->mail,
-    'FNAME' => $user->field_first_name[LANGUAGE_NONE][0]['value'],
-    'LNAME' => $user->field_last_name[LANGUAGE_NONE][0]['value'],
-    'instances' => array(str_replace('http://', '', variable_get('purl_base_domain', ''))),
-  );
-  
-  $vsites = $ret['sites'] = array();
-  if (isset($user->og_user_node[LANGUAGE_NONE])) { 
-    $vsites = array_map(function($a) {return $a['target_id']; }, $user->og_user_node[LANGUAGE_NONE]);
-
-    $query = db_select('purl', 'purl')
-      ->condition('purl.id', $vsites, 'IN')
-      ->condition('purl.provider', 'spaces_og')
-      ->fields('purl', array('value'));
-    $query->leftJoin('purl', 'domain', '(purl.id = domain.id AND domain.provider = :param1)', array(':param1' => 'vsite_domain'));
-    $query->fields('domain', array('value'));
-    $results = $query->execute();
-    
-
-    while ($row = $results->fetchObject()) {
-      $ret['sites'][] = ($row->domain_value) ? $row->domain_value : $row->value;
-    }
-  }
-  
-  //also include values from reg form which may not have saved yet.
-  $form_values = &drupal_static('vsite_register_form_values');
-  if ($form_values && isset($form_values['domain'])) {
-    $ret['sites'][] = $form_values['domain'];
-  }
-  
-  return $ret;
 }

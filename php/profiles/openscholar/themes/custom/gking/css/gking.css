@@ -43,8 +43,6 @@ p {
   margin: 0 0 1.5em 0;
   }
   
-.not-front .ui-tabs-panel .node-person.node-teaser p {margin-bottom:0;}  
-  
 .page-people .node-person .field-type-text-with-summary p,
   .page-links .node-teaser .view-mode-teaser p,
 .page-software .node-teaser .view-mode-teaser p,
@@ -72,7 +70,6 @@ h3, h4 {
   margin: 0;
   }
 
-.biblio-download-links-label,
 h3 {
   color: #6e7a7a;
   margin-top:0px;
@@ -113,18 +110,13 @@ h1#page-title,
 .page-taxonomy-term .term-listing-heading h2,
 #block-os-secondary-menu li {
   padding: 13px 16px 16px 16px;
- /* background: #fcfcfc;*/
+  background: #fcfcfc;
   border-bottom:1px solid #e5e5e5;
   font: bold 21px/24px arial, helvetica, sans-serif;
   letter-spacing:-0.05em;
   text-indent:-1px;
   margin: 0 -16px 0.5em;
   }
-  
- .not-front h1#page-title {
-  padding: 13px 16px 16px 24px;
-  margin: 0 -24px 0.5em;
-  } 
   
 
 .page-taxonomy-term .term-listing-heading h2 {
@@ -232,14 +224,6 @@ a.more {
  background: url(../images/arrow-white.png) 100% 50% no-repeat transparent;
   }
 
-.breadcrumb {margin-top:14px;padding-bottom: 0;font-size:12px;color:#005C9C;margin-left: 0;}
-.breadcrumb a,
-.breadcrumb a:hover
- {font-size:12px;color:#005C9C;text-decoration:none;}
- 
- .node-type-page .breadcrumb {
-    margin: 14px 0 0;
-}
 
 .front .region-header-second .block-boxes-os_boxes_html a.more {
  font-weight: bold;
@@ -266,18 +250,6 @@ a.more {
     right: -260px;
     top: -40px;
     z-index: 10;
-}
-
-.not-front  #content-column .contextual-controls-wrapper {
-margin: -20px 0 10px;
-}
-
-.not-front.page-node-72251 #content-column .contextual-controls-wrapper {
-margin: 15px 0 10px;
-}
-
-.front #content-column .ui-tabs-panel .block-content ~ div.contextual-links-wrapper.contextual-links-processed {
-right: -24px;
 }
 
 /*
@@ -473,29 +445,6 @@ body.front .block-boxes-os_taxonomy_fbt div.description  {
   }
 
 
-.book-menu ul.menu li li, 
-#block-book-navigation ul.menu li li, 
-.block-boxes-os_boxes_booktoc ul.menu li li {
-   list-style-type:disc;
-   margin-left:15px;
-}
-
-.book-menu ul.menu li li li, 
-#block-book-navigation ul.menu li li li, 
-.block-boxes-os_boxes_booktoc ul.menu li li li {
-   list-style-type:circle;
-   margin-left:15px;
-}
-
-.book-menu ul.menu ul a, 
-#block-book-navigation ul.menu ul a, 
-.block-boxes-os_boxes_booktoc ul.menu ul a,
-.book-menu ul.menu ul ul a, 
-#block-book-navigation ul.menu ul ul a, 
-.block-boxes-os_boxes_booktoc ul.menu ul ul a {
-    padding: 0;
-}
-
 /* Secondary Menu */
 
 
@@ -557,20 +506,7 @@ body.front .block-boxes-os_taxonomy_fbt div.description  {
   padding-left: 0;
   }
 */
-
-.not-front #content-column .content-inner {
-  padding: 0 16px 26px 16px;
-  border:1px solid #ddd;
-  background: #fff;
-  margin-right: 270px;
-}
-
-.not-front.no-sidebars #content-column .content-inner,
-.page-node #content-column .content-inner #main-content-header {
-  margin-right: 0;
-}
-
-.front #main-content,
+#main-content,
 #content-top,
 .sidebar .block {
   padding: 0 16px 26px 16px;
@@ -582,10 +518,6 @@ body.front .block-boxes-os_taxonomy_fbt div.description  {
   	margin-left: 0;
     margin-right: 8px;
     }
-    
-.not-front #main-content {
-    padding-top: 0;
-}    
     
 .block-inner { 
   	margin-left: 0;
@@ -701,7 +633,7 @@ padding:0 32px 0 0;
   }
 
 #menu-bar ul li {
-  font-size: 1.15em;
+  font-size: 14px;
   letter-spacing: 1.5px;
   }
 
@@ -890,6 +822,7 @@ width: 505px;
   }
 
 .page-node.node-type-biblio div.ctools-dropdown div.ctools-dropdown-container {
+  left: 25px;
   width: 141px;
   }
 
@@ -947,8 +880,8 @@ body.page-iqss-gking-research-group ul.ui-tabs-nav {
 
 
 
-body.page-iqss-gking-research-group .ui-tabs-nav li.ui-tabs-active a,
-body.page-iqss-gking-research-group .ui-tabs-nav li.ui-tabs-active a:visited {
+body.page-iqss-gking-research-group .ui-tabs-nav li.ui-tabs-selected a,
+body.page-iqss-gking-research-group .ui-tabs-nav li.ui-tabs-selected a:visited {
   color: #CC6733;
   }
 
@@ -1062,67 +995,17 @@ border:none;
 }
 
 
-.ui-tabs .ui-tabs-nav li.ui-tabs-active {
- background: #FFFFFF;
+.ui-tabs .ui-tabs-nav li.ui-tabs-selected {
+ background:  #FFFFFF;
 }
 
 .block-boxes-os_boxes_tabs .ui-tabs { margin-bottom: 16px;}
 
 .block-boxes-os_boxes_tabs h2.block-title {font-size: 21px;background: none;color:#FFF;border-bottom: none;}
-.not-front .block-boxes-os_boxes_tabs h2.block-title {display: none;}
 
 .ui-tabs .node-presentation a {
 	color: #336599;
 }
-
-/* LOWER LEVEL TABS */
-
-.not-front .ui-tabs .ui-tabs-panel {
-padding: 0;
- 
-}
-
-.not-front .ui-tabs .ui-tabs-nav {
-    float: right;
-    margin-left:0;
-    display: inline;
-} 
-
-
-.not-front .ui-tabs .ui-tabs-nav li {
-
-float: none;
-
-}
-
-.not-front .ui-tabs .ui-tabs-nav li a:link, 
-.not-front .ui-tabs .ui-tabs-nav li a:visited, 
-.not-front #tablist li a:visited {
-    color: #555;
-    font-size: 12px;
-    font-weight: normal;
-}
-
-
-.not-front .ui-tabs .ui-tabs-nav li.ui-state-active a {
-    color: #CC6733;
-}
-
-.not-front .ui-tabs .ui-tabs-nav li.ui-tabs-active {
-    background: none;
-}
-
-
-.not-front .ui-tabs.ui-widget-content a {
-     color: #005C9C;
-}
-
-.not-front .ui-tabs.ui-widget-content h1.node-title {
-      font-family: Verdana,Arial,sans-serif;
-      font-weight: bold;
-}
-
-
 
 /* FOOTER */
 
@@ -1134,7 +1017,7 @@ float: none;
     right: 0;
     background: #FFF;
     padding: 0 15px;
-    z-index:11;
+    z-index:2;
     border-top:1px solid #ccc;
     }
 
@@ -1173,13 +1056,6 @@ float: none;
   margin-left: 0;
   margin-right: 14px;
   }
-  
-  
-#powerby-login {
-   margin: -27px 10px;
-   position: relative;
-   z-index: 5;
- }
 
 #footer .wrap #vsite-widgets-search-form {
   width: 302px;
@@ -1249,7 +1125,6 @@ float: none;
 
 #footer .block-boxes-os_boxes_addthis {
 	margin: 7px 0 0 30px;
-	width: 170px;
 }
 
 
@@ -1329,61 +1204,6 @@ margin-top:5px;
   margin: 0 0.6em 0 0;
   }
 
-/* STYLES THE ATTACHED FILES TABLE IN BIBLIO PAGE VIEW */
-.page-node.node-type-biblio .biblio-upload-wrapper {
-width: 23%;
-float: left;
-}
-
-
-.page-node.node-type-biblio #citation-wrapper.has-attached {
-width: 73%;
-float: right;
-vertical-align: top;
-}
-
-.pubcontent-wrapper,
-.publication-cover-container {
-	display: table-cell;
-}
-
-.publication-cover-container {
-	min-width: 150px;
-}
-
-.biblio-upload-wrapper + .pubcontent-wrapper {
-display: block;
-clear: both;
-}
-
-.os-files-other-list tr {
-	border: none;
-	background: #D95C00;
-} 
-.os-files-other-list tr:hover {
-	background:#D95C00;
-}
-
-.os-files-other-list td,
-.os-files-other-list,
-.os-files-other-list a {
-	color:#fff;
-}
-
-.os-files-other-list a {
-	text-decoration:underline;
-}
-
-#pub-cover-content-wrapper {
-display: table;
-clear: both;
-padding-top: 20px;
-}
-
-
-.pubcontent-wrapper {
-vertical-align: top;
-}
 
 /* TAXONOMY */
 
@@ -1822,12 +1642,10 @@ body.page-taxonomy .taxonomy-term h2 {
 	color: #db7002;
 }
 
-/* Hides unwanted title from displaying on front page header. */
-.front .region-header-second h2.block-title {
-  display:none;
-}
+/* REMOVE BEFORE CHECING IN */
+.front .region-header-second h2.block-title, #messages {display:none;}
 
-/* Adds spacing before "Read more" links on Software page view. */
-.page-software #content .view-content .links.inline {
-  margin-top: 1em;
-}
+
+
+
+

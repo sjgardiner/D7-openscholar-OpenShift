@@ -1,45 +1,50 @@
-@import url(http://fonts.googleapis.com/css?family=IM+Fell+English);
+@import url('http://fonts.googleapis.com/css?family=Goudy+Bookletter+1911');
 
 .region-page-top .region-inner {
     padding-top: 0;
 }
 
 body {
-  color:#555;
-  font-family: 'IM Fell English', Times, Georgia, serif;
-  background: #6d2a01;
+  color:#666;
+  font-family: 'Goudy Bookletter 1911', palatino, baskerville, "palatino linotype", "Times New Roman", Times, Georgia, serif;
+  background: url(../images/body-bg-no-sidebar.jpg) 50% 135px repeat-y #6d2a01;
   }
-  
- #columns {
-	overflow:hidden;
-} 
-  
-  #content-column, .region-sidebar-first, .region-sidebar-second {
-margin-bottom: -2000px;
-padding-bottom: 2000px;
-}  
 
-#content-column,#header-container,#menu-bar {background:#fbf4e2;}
-
-#menu-bar {
-	border-top:1px solid #6d2a01;
-	border-bottom:1px solid #6d2a01;
-}
-
-#menu-bar ul.nice-menu ul {
-	background:#fbf4e2;
-	top: 1.9em;
-	border-top: none;
-}
-
-.region-sidebar-first {
-    background-image: url('../images/sidebar_left.png');
+body.sidebar-first {
+    background-image: url(../images/body-bg-left-sidebar.jpg);
     }
 
-.region-sidebar-second {
-    background-image: url('../images/sidebar_right.png');
+body.sidebar-second {
+    background-image: url(../images/body-bg-right-sidebar.jpg);
     }
 
+body.two-sidebars {
+    background-image: url(../images/body-bg-both-sidebar.jpg);
+    }
+
+#page {
+  padding-top: 40px;
+  background:url(../images/header-no-sidebar.jpg) no-repeat top center transparent;
+  }
+
+body.sidebar-first #page {
+    background-image:url(../images/header-left-sidebar.jpg);
+    }
+
+body.sidebar-second #page {
+    background-image:url(../images/header-right-sidebar.jpg);
+    }
+
+body.two-sidebars #page {
+    background-image:url(../images/header-both-sidebar.jpg);
+    }
+
+/* 
+#page {
+    width: 982px;
+    margin: 0 auto;
+    padding: 35px 9px 213px 9px; 
+    } */
 
 /* TYPOGRAPHY */
 .biblio-title a, .biblio-title-chicago a,
@@ -118,9 +123,20 @@ h1#page-title {
   text-align:right;
   }
 
+/* LAYOUT */
+
+
+
 #boxes-box-site_logo img {
   width: 166px;
   }
+
+
+#header-container #header-container-right,
+#header-container #header-container-left {
+  padding-top: 20px;
+  }
+
 
 
 /*CONTENT AREA */
@@ -135,7 +151,20 @@ h1#page-title {
 .region-sidebar-second li {
   margin-bottom: .7em;
   }
+/*
+body.sidebar-first #columns .hg-container {
+  padding-right: 70px;
+  }
 
+body.no-sidebars #columns .hg-container {
+  padding-right: 35px;
+  padding-left: 35px;
+  }
+
+body.navbar #content-column {
+  margin-top: 30px;
+  }
+*/
 #content-column,
 .region-sidebar-second,
 .region-sidebar-first {
@@ -144,6 +173,29 @@ h1#page-title {
 
 /* HEADER ELEMENTS*/
 
+.sidebar-second.header-main #header-container,
+.sidebar-second.header-left-main #header-container,
+.sidebar-first.header-main #header-container,
+.sidebar-first.header-main-right #header-container,
+.one-sidebar #menu-bar {
+  width: 796px;
+  margin-left: 170px;
+  }
+
+.two-sidebars #menu-bar,
+.two-sidebars .header-left.header-right #header-container,
+.two-sidebars.header-left-main #header-container,
+.two-sidebars.header-main #header-container {
+  width: 610px;
+  margin-left: 175px;
+  }
+ /*
+.header-main .block-boxes-os_boxes_site_logo,
+.header-main-right .block-boxes-os_boxes_site_logo {
+  padding-left: 149px;
+  background: url(../images/crest.png) no-repeat 21px 0 transparent;
+  min-height: 112px;
+}*/
 
 #scholar-shield {
  padding-top: 10px;
@@ -173,11 +225,17 @@ ul.nice-menu a,
 
 /* FOOTER */
 
-#footer a,
 #footer {
-  color: #FFF;
+  padding: 30px;
   }
 
+body.sidebar-first #footer, body.two-sidebars #footer {
+  margin-left:184px;
+  }
+
+body.sidebar-second #footer, body.two-sidebars #footer {
+  margin-right:209px;
+  }
 
 /* Nodes */
 
@@ -186,11 +244,3 @@ ul.nice-menu a,
   display:block;
   }
 
-
-.breadcrumb {
-    margin: 15px 0 0 30px;
-}
-
-.node-type-page .breadcrumb {
-    margin: 15px 0 15px 20px;
-}

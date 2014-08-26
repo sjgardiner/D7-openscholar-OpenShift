@@ -1,4 +1,5 @@
-
+<?php
+?>
   <div id="branding" class="clearfix">
     <?php print $breadcrumb; ?>
     <?php print render($title_prefix); ?>
@@ -10,9 +11,7 @@
   </div>
 
   <div id="page">
-    <?php if ($secondary_local_tasks): ?>
-      <div class="tabs-secondary clearfix"><?php print render($secondary_local_tasks); ?></div>
-    <?php endif; ?>
+    <?php print render($secondary_local_tasks); ?>
 
     <div id="content" class="clearfix">
       <div class="element-invisible"><a id="main-content"></a></div>

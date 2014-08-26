@@ -1,7 +1,8 @@
-@import url("http://fonts.googleapis.com/css?family=Headland+One");
-
 /* D6 retro css for older themes */
 #columns {padding:0 10px;}
+
+@import url(http://fonts.googleapis.com/css?family=Headland+One);
+
 
 
 body,
@@ -196,6 +197,7 @@ body.header-main-right .region-header-second {
 #menu-bar {
   width: auto;
   background: url(../images/navbar.png) 0 0 repeat-x transparent;
+  height: 48px;
   padding: 0;
   }
   
@@ -261,21 +263,23 @@ body.header-main-right .region-header-second {
 	margin-bottom:0;
 }	
 	
-#menu-bar ul.nice-menu ul {
-	background:#252A2B;
-}	
-	
 #menu-bar ul.nice-menu ul li {
 	margin-top:0;
+	background:#252A2B;
 }
 	
 #menu-bar ul.nice-menu ul li a {
 	color:#FFF;
-	background:none !important;
+	background:#353535;
 	padding:5px 15px;
 }
 
 
+#menu-bar ul.nice-menu ul li a:hover {
+	color:#FFF;
+	background:#444;
+
+} 
 
 ul.nice-menu-right li.menuparent {
     background: none;
@@ -311,14 +315,3 @@ ul.nice-menu-right a, ul.nice-menu-right ul a {
   border-bottom: 1px solid #a1b1b1;
   display:block;
   }
-  
- /* TAXO OR BOOK DISPLAYED AS NAV */ 
-.navigation ul li, .navigation ul.menu li {
-    background-color: #000;
-}
-
-
-.navigation ul li a:hover {
-  background-color: #FFF;
-color: #000;
-}

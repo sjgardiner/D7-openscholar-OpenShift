@@ -13,15 +13,6 @@ function _os_boxes_boxes_plugins() {
     ),
   );
 
-  $info['os_boxes_widget_collection'] = array(
-    'handler' => array(
-      'class' => 'os_boxes_widget_collection',
-      'file' => 'os_boxes_widget_collection.inc',
-      'path' => $path.'/os_boxes_widget_collection',
-      'parent' => 'os_boxes_default',
-    )
-  );
-
   $info['os_boxes_addthis'] = array(
     'title' => 'AddThis',
     'description' => 'Social networking links',
@@ -36,7 +27,7 @@ function _os_boxes_boxes_plugins() {
 
   $info['os_boxes_bio'] = array(
     'title' => 'Bio',
-    'description' => 'Your personal bio',
+    'description' => 'Teaser of your personal Bio',
     'tags' => array('Social'),
     'handler' => array(
       'class' => 'os_boxes_bio',
@@ -56,7 +47,6 @@ function _os_boxes_boxes_plugins() {
       'path' => $path.'/os_boxes_manual_list',
       'parent' => 'os_boxes_default',
     ),
-    'weight' => -1
   );
 
   $info['os_boxes_media'] = array(
@@ -72,7 +62,7 @@ function _os_boxes_boxes_plugins() {
   );
 
   $info['os_boxes_slideshow'] = array(
-   'title' => 'Slideshow',
+    'title' => 'Slideshow',
     'description' => 'Displays a slideshow of your uploaded pictures.',
     'module dependencies' => array('os_image_gallery'),
     'tags' => array('Media'),
@@ -195,7 +185,6 @@ function _os_boxes_boxes_plugins() {
       'path' => $path . '/os_taxonomy_fbt',
       'parent' => 'os_boxes_default',
     ),
-    'weight' => -2,
   );
 
   $info['os_boxes_tabs'] = array(
@@ -206,45 +195,20 @@ function _os_boxes_boxes_plugins() {
       'class' => 'os_boxes_tabs',
       'file' => 'os_boxes_tabs.inc',
       'path' => $path .'/os_boxes_tabs',
-      'parent' => 'os_boxes_widget_collection',
-    ),
-  );
-
-  $info['os_boxes_accordion'] = array(
-    'title' => 'Accordion',
-    'description' => 'Place several widgets into a tabbed container',
-    'tags' => array('Misc'),
-    'handler' => array(
-      'class' => 'os_boxes_accordion',
-      'file' => 'os_boxes_accordion.inc',
-      'path' => $path .'/os_boxes_accordion',
-      'parent' => 'os_boxes_widget_collection',
-    ),
-  );
-
-  $info['os_boxes_rand_widget'] = array(
-    'title' => 'Random Widget',
-    'description' => 'Randomly show one widget from a list.',
-    'tags' => array('Misc'),
-    'handler' => array(
-      'class' => 'os_boxes_rand_widget',
-      'file' => 'os_boxes_rand_widget.inc',
-      'path' => $path .'/os_boxes_rand_widget',
-      'parent' => 'os_boxes_widget_collection',
+      'parent' => 'os_boxes_default',
     ),
   );
 
   $info['os_boxes_html'] = array(
     'title' => 'Custom Text/HTML',
     'description' => 'A blank slate to fill with what',
-    'tags' => array('Content'),
+    'tags' => array('Misc'),
     'handler' => array(
       'class' => 'os_boxes_html',
       'file' => 'os_boxes_html.inc',
       'path' => $path.'/os_boxes_html',
       'parent' => 'os_boxes_default',
     ),
-    'weight' => -4
   );
 
   $info['os_boxes_rss'] = array(
@@ -284,30 +248,6 @@ function _os_boxes_boxes_plugins() {
     ),
     'factory' => false,
   );
-
-  $info['os_boxes_columns'] = array(
-    'title' => 'Columns',
-    'description' => 'Allows creation of new columns for widget placement',
-    'tags' => array('Misc'),
-    'handler' => array(
-      'class' => 'os_boxes_columns',
-      'file' => 'os_boxes_columns.inc',
-      'path' => $path . '/os_boxes_columns',
-      'parent' => 'os_boxes_default',
-    )
-  );
-
-  if (module_exists('os_search_solr')) {
-    $info['os_boxes_facetapi_vocabulary'] = array(
-      'title' => 'Faceted taxonomy',
-      'handler' => array(
-        'class' => 'os_boxes_facetapi_vocabulary',
-        'file' => 'os_boxes_facetapi_vocabulary.inc',
-        'path' => $path . '/os_boxes_facetapi_vocabulary',
-        'parent' => 'os_boxes_default',
-      ),
-    );
-  }
 
   return $info;
 }

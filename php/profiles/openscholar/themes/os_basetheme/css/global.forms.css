@@ -57,12 +57,9 @@ textarea:focus {
   margin: 0; /* Drupal core uses "0.4em 0" */
 }
 
-.form-cancel {
-}
-
-/*.form-submit  The submit button  {*/
-	/*margin-right:10px;*/
-/*}*/
+/*.form-submit  The submit button  {
+	margin-right:10px;
+}*/
 
 .container-inline div,
 .container-inline label /* Inline labels and form divs */ {
@@ -76,10 +73,6 @@ textarea:focus {
    padding: 5px;
    font-size: 12px;
    border: 1px solid #ccc;
-}
-
-.sidebar .form-type-select .form-select {
-max-width: 160px;
 }
 
 #cp-appearance-theme-picker-form .form-type-select .form-select {
@@ -163,15 +156,14 @@ input[disabled] {
 }
 
 
-#footer .footer-login {
+#footer #block-os-login a {
 -moz-box-shadow:0 1px 0 rgba(0,0,0,0.3);
 -webkit-box-shadow:0 1px 0 rgba(0,0,0,0.3);
 box-shadow:0 1px 0 rgba(0,0,0,0.3);
 background: -moz-linear-gradient(19% 75% 90deg, #E0E0E0, #FAFAFA);
 background: -webkit-gradient(linear, left top, left bottom, from(#FAFAFA), to(#E0E0E0));
 color:#4A4A4A;
-float:right;
-display:inline;
+float:left;
 font-family:helvetica,sans-serif;
 font-size:11px;
 font-weight:normal;
@@ -182,6 +174,10 @@ line-height: 18px;
 text-decoration:none;
 }
 
+#block-os-login a:hover{
+background: -moz-linear-gradient(19% 75% 90deg,#D6D6D6, #FAFAFA);
+background: -webkit-gradient(linear, left top, left bottom, from(#FAFAFA), to(#D6D6D6));
+}
 
 input.text,
 input.title {
@@ -371,7 +367,7 @@ html.js #user-login-form li.openid-link,
 
 #search-block-form .container-inline .form-item {
   width: 100%;
-}
+  }
 
 #search-block-form .spelling-suggestions{
   padding-top: 1em
@@ -424,22 +420,6 @@ html.js #user-login-form li.openid-link,
   border-radius: 0;
   }
 
-.sitewide-front #search-block-form input.form-submit,
-.sitewide-front #search-block-form #edit-submit,
-.sitewide-front #search-form #edit-submit{
-  border: medium none;
-  font-size: 10px;
-  height: 43px;
-  width: 83px;
-  margin: 0 -100% 0 70% !important;
-  padding: 0 !important;
-  text-indent: 0 !important;
-  background: url('../images/scholarbase-sprite.png') no-repeat 0 -64px;
-  -moz-border-radius: 0;
-  -webkit-border-radius: 0;
-  border-radius: 0;
-}
-
 #search-form fieldset.search-advanced {
   clear: left;
   }
@@ -486,12 +466,6 @@ fieldset#edit-advanced fieldset .fieldset-legend {
 }
 
 
-.page-search .form-item-retain-filters {
-    display: block !important;
-    margin: 5px 73px 20px;
-    padding-bottom: 10px;
-}
-
 /*
  * Drupal admin tables
  *
@@ -532,63 +506,11 @@ form table .item-list ul {
 
 
 /* TINYMCE - WYSIWYG */
-
-body#tinymce, #tinymce {
-  background:#FFF;
-  font-size:initial;
-  height: 100%;
-  width: 98%;
-  margin: 0;
-  padding: 0 1%;
-}
+#tinymce {background:#FFF;}
 
 
 .tabledrag-toggle-weight-wrapper {
   display: none;
 }
 
-/** MAILING LIST SIGNUP FORM - STYLES **/
-	
 
-.block-boxes-os_boxes_mailchimp fieldset,
-#os-mailchimp-form fieldset {
-	  background: none;
-    border: none;
-    margin: 0 2px;
-    padding: 0.35em 0.625em 0.75em;
-}
-
-.block-boxes-os_boxes_mailchimp input.form-submit,  
-#os-mailchimp-form input.form-submit {
-  cursor: pointer;
-  padding: 4px 17px;
-  margin-bottom: 1em;
-  margin-right: 1em; /* LTR */
-  color: #5a5a5a;
-  text-align: center;
-  font-weight: normal;
-  font-size: 1.077em;
-  font-family: "Lucida Grande", Verdana, sans-serif;
-  border: 1px solid #e4e4e4;
-  border-bottom: 1px solid #b4b4b4;
-  border-left-color: #d2d2d2;
-  border-right-color: #d2d2d2;
-  background: url(/themes/seven/images/buttons.png) 0 0 repeat-x;
-  -moz-border-radius: 20px;
-  -webkit-border-radius: 20px;
-  border-radius: 20px;
-}
-
-div.ctools-modal-content .block-boxes-os_boxes_mailchimp fieldset-legend,
-div.ctools-modal-content #os-mailchimp-form .fieldset-legend {
-	margin: 0;
-    padding: 0.3em 0;
-    color: #666;
-    font-size:24px;
-    font-weight: normal;
-}
-
-div.ctools-modal-content #os-mailchimp-form .form-item label {
-    float: none;
- 
-}

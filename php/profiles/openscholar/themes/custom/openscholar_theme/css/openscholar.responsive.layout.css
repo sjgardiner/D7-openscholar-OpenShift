@@ -1,4 +1,6 @@
 
+/* bigscreen three_col_grail */
+@media only screen and (min-width:1025px) {
 .container {width:100%}
 #content-column,.content-column,div.sidebar {float: left; clear: none}
 .two-sidebars .content-inner {margin-left: 200px; margin-right: 260px}
@@ -16,26 +18,4 @@
 .region-header-first {width:260px; margin-left:-100%;}
 .region-header-third {width:330px; margin-left:-330px;text-align: right;}
 .region-header-second {width:100%;}
-
-.front .content-left.content-right .at-panel .region.region-content-first, 
-.front .content-left.content-right .at-panel .region.region-content-second,
-.front .content-left.content-right .at-panel .region.region-content-bottom {
-    clear: none;
-    display: inline;
-    float: left;
-    margin: 15px 0;
-    width: 31%;
 }
-
-.front .content-left.content-right .at-panel .region.region-content-first, 
-.front .content-left.content-right .at-panel .region.region-content-second {
-  margin-right: 15px;
-  border-right: 1px solid #ABD407;
-  }
-  
-  
- .front .content-left.content-right .at-panel .region.region-content-first  {
- padding-left:10px;
-  } 
-
-

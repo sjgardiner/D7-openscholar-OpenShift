@@ -7,7 +7,8 @@
 /**
  * Implements hook_ctools_plugin_api().
  */
-function iqss_scholars_front_ctools_plugin_api($module = NULL, $api = NULL) {
+function iqss_scholars_front_ctools_plugin_api() {
+  list($module, $api) = func_get_args();
   if ($module == "boxes" && $api == "box") {
     return array("version" => "1");
   }

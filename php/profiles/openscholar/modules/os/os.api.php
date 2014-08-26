@@ -131,27 +131,14 @@ function hook_os_add_new_links_alter(&$links) {
 /**
  * Implements hook_os_app_info().
  *
- * Describes a feature.  
- * 
- * Keys:
- *   path => Path to page listing feature content.
- *   views tabs => List of views that display this feature's content.  This is used by
- *                 os_taxonomy so that terms can be applie to filter a view.
- *   nodetypes => List of content types provided by this feature.
+ * Tells os module to remove apps from "Available Apps" for some site types.
  */
 function hook_os_app_info() {
   $apps = array();
 
   // The array key should be the same as the module machine name.
-  $apps['os_software'] = array(
-    'path' => 'software',
-  	'nodetypes' => array(
-  	  'software_project',
-      'software_release',
-    ),
-    'views tabs' => array(
-      'os_software_projects' => array('page'),
-    ),
+  $apps['os_publications'] = array(
+    'path' => 'publications',
   );
 
   return $apps;
@@ -163,8 +150,8 @@ function hook_os_app_info() {
  * Makes changes to os_app_info.
  */
 function hook_os_app_info_alter(&$info) {
-  // Removes "blogpost" from appearing in the nodetypes array from my_app.
-  if (isset($info['my_app']['nodetypes']['blogpost'])) {
-    unset($info['my_app']['nodetypes']['blogpost']);
+  // Ensures my_app displays as an "Available App" on Project sites.
+  if (isset($info['my_app']['restricted site types']['project'])) {
+    unset($info['my_app']['restricted site types']['project']);
   }
 }

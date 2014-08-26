@@ -1,4 +1,4 @@
-@media (max-width: 768px) {
+@media only screen and (min-width:320px) and (max-width:800px) {
 	
 #menu-bar {
     background: none;
@@ -32,6 +32,9 @@
     margin:0;
 }
 
+.region-header-third {
+	height:60px;
+}
 
 .region-header-third #block-os-secondary-menu ul {
     float: left;
@@ -48,13 +51,14 @@
     border-radius: 0;
 }
 
-#header-container .region {text-align:left;}
 
 .view-os-image-gallery-slideshow img,
-#header-container img {max-width:100%;}
+#header-container img {width:100%;}
 
 .block-boxes-os_shields_box {
 	display:none;
 }
+
+#header-container {height:110px;}
 
 }

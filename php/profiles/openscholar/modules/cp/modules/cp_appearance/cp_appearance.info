@@ -5,5 +5,3 @@ package = "Control Panel"
 dependencies[] = "ctools"
 dependencies[] = "os"
 dependencies[] = "cp"
-
-files[] = includes/subtheme.inc

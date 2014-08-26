@@ -1,4 +1,7 @@
 <?php
+// $Id$
+
+
 /**
  * @file
  * os_booklets.box.inc
@@ -11,15 +14,16 @@ function os_booklets_default_box() {
   $export = array();
 
   $box = new stdClass();
-  $box->disabled = FALSE; /* Edit this to true to make a default box disabled initially */
+  /* Edit this to true to make a default box disabled initially */
+  $box->disabled    = FALSE;
   $box->api_version = 1;
-  $box->delta = 'os_booklets_recent_docs';
-  $box->plugin_key = 'os_sv_list_box';
-  $box->title = 'Recent Documents';
+  $box->delta       = 'os_booklets_recent_docs';
+  $box->plugin_key  = 'os_sv_list_box';
+  $box->title       = 'Recent Documents';
   $box->description = 'Recent Documents';
-  $box->options = array(
+  $box->options     = array(
     'content_type' => 'book',
-    'display' => 'title',
+    'display' => 'display_title',
     'more' => 1,
     'more_text' => 'More',
     'more_link' => 'documents',
@@ -29,20 +33,21 @@ function os_booklets_default_box() {
   );
   $export['os_booklets_recent_docs'] = $box;
 
-  $box = new stdClass();
+  $box = new stdClass;
   $box->disabled = FALSE; /* Edit this to true to make a default box disabled initially */
   $box->api_version = 1;
   $box->delta = 'os_booktoc';
   $box->plugin_key = 'os_boxes_booktoc';
-  $box->title = 'Table of Contents';
+  $box->title = '';
   $box->description = 'Active Book\'s TOC';
   $box->options = array(
     'visibility' => 'feature',
     'book_nid' => '-1',
     'toc_type' => 'full',
-    'as_nav' => FALSE,
+    'as_nav' => false,
   );
   $export['os_booktoc'] = $box;
 
   return $export;
 }
+

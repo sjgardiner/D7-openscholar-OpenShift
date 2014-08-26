@@ -1,11 +1,6 @@
 <?php
 
 /**
- * @file
- * Provides page and form content for Control Panel module.
- */
-
-/**
  * Form argument for menu item '/cp/build/apps/$app_name'.
  */
 function cp_app_settings($js, $app_name) {
@@ -89,9 +84,7 @@ function cp_app_settings_form($form, $form_state, $app_name) {
 }
 
 /**
- * After build callback for form `app_settings_form`.
- *
- * Processes specifically-structured form elements with system_settings_form().
+ * @todo Function description
  */
 function _cp_app_settings_remove_no_form($element, $form_state) {
   $keys = array('no_form', 'ok', 'form_build_id', 'form_token', 'form_id');
@@ -105,22 +98,10 @@ function _cp_app_settings_remove_no_form($element, $form_state) {
   return $element;
 }
 
-/**
- * Submit callback for form `app_settings_form`.
- *
- * @see cp_app_settings_form()
- */
 function cp_app_settings_form_submit($form, &$form_state) {
-  $mode = overlay_get_mode();
-  if ($mode== 'child') {
+  if (overlay_get_mode() == 'child') {
     overlay_close_dialog();
     $form_state['no_redirect'] = TRUE;
     $form_state['redirect'] = FALSE;
-  } elseif (($mode == 'parent') && $form_state['ajax']) {
-    $var = ($form_state['values']['os_publications_note_in_teaser']) ? 'public' : 'private';
-    $cmd[] = ctools_modal_command_dismiss();
-    $cmd[] = ajax_command_replace('#edit-7 div.description>strong>em', "<em class='placeholder'>$var</em>");
-    print ajax_render($cmd);
-    exit;
-  } 
+  }
 }

@@ -1,18 +1,9 @@
-@media (max-width: 768px) {
+@media only screen and (min-width:320px) and (max-width:800px) {
 	
 #columns {
     width: 95%;
-}
-
-
-.gpanel .region {
-	display:block !important;
-	width:100% !important;
-	clear:both !important;
-	float:left !important;
-	margin:0 !important;
 }	
-
+	
 #menu-bar {
     background: none;
     padding:0;
@@ -45,32 +36,11 @@
     margin:0;
 }
 
+#header-container img {width:100%;}
 
-
-
-#powerby-login {
-    width: 100%;
-}
-
-}
-
-
-@media (max-width: 900px) {
 .block-boxes-os_shields_box,
 .block-boxes-os_boxes_site_logo {
 	display:none;
- }
- 
- 
- }
- 
-@media (max-width: 1024px) {
-
- 
- .region-header-second,
-.region-header-first,
-.region-header-second {
-	margin-left:0 !important;
 }
- 
- }
+
+}

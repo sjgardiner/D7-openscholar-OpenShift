@@ -11,10 +11,8 @@
 
 ;----------// Stylesheets
 
+  
   stylesheets[screen][] = css/hwpi.globals.css
-
-
-   scripts[] = js/css_browser_selector.js
 
 
 ;----------// Theme Settings

@@ -3,3 +3,5 @@ description = Generates js output for google analytics globally and on a per sit
 package = "OpenScholar"
 dependencies[] = "os"
 core = 7.x
+
+scripts[] = "os_ga.js"

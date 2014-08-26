@@ -1,11 +1,18 @@
 /* D6 retro css for older themes */
 #columns {padding:0 10px;}
 
+@import url('http://fonts.googleapis.com/css?family=PT+Sans');
+@import url('http://fonts.googleapis.com/css?family=Radley');
+
+html,body {
+  background: url('../images/body-bg.jpg') repeat-x fixed 0 100% #698da2;
+  }
+  
+
+
+
 body {
 font-family: helvetica, arial, serif;
-font-size: 13px;
-line-height: 1.5;
-background: #698da2;
   }
   
 .logged-in .region-page-top .region-inner {
@@ -23,17 +30,22 @@ background: #698da2;
   }
 
 
+
 #content-column h1#page-title {
   margin-top:1em;
   }
   
-.logged-in.page-user #content-column h1#page-title {
+.page-user #content-column h1#page-title {
   margin-top:-20px;
    font-size: 1.5em;
   }
 
 #footer {
   padding-top: 5px;
+  }
+
+p.copy a.poweredby {
+  background-position: 0 -54px;
   }
 
 .section-node-edit #columns,
@@ -91,7 +103,7 @@ background: #698da2;
 .os-topheadings {
 	color:#FFF;
 	font-size:13px;
-	padding: 0 0 15px 50px;
+	padding: 6px 0 0 50px;
 }
 
 .os-topheadings a {
@@ -106,7 +118,8 @@ background: #698da2;
 
 .os-leftcol ul {
     float: right;
-    margin: 5px 0 0 20px;
+    margin-left: 20px;
+    margin-top: 30px;
 }
 
 .os-leftcol li {
@@ -129,16 +142,16 @@ background: none repeat scroll 0 0 #EDEEF1;
 .os-featuredSites {
     float: left;
     height: 19px;
-     margin: 3px 327px 0 0;
+     margin: 19px 327px 0 0;
     width: 162px;
 }
  @-moz-document url-prefix() { 
 .os-featuredSites {
-     margin: 1px 327px 0 0;
+     margin: 17px 327px 0 0;
  }
 }
 
-.os-learnmore {margin-left:5px;display:none;}
+.os-learnmore {margin-left:5px;}
 
 .os-leftcol ul li a:hover {
 background: #FE8716;
@@ -180,8 +193,7 @@ p.os-leadin {
 	height:80px;
 	background: url('../images/getsitenowButton.png')no-repeat;
 	padding: 20px 75px;
-	margin: 0 !important;
-	text-align:left;
+	margin-bottom:0;
 	}
 
 #block-vsite-register-get-your-site-block a {
@@ -238,7 +250,7 @@ p.os-leadin {
 
 body.front  {
 overflow: hidden;
-background: url('../images/startpage-bg.png') no-repeat 50% 0 #698da2 ;
+background: url('../images/startpage-bg.png') no-repeat 50% 0 transparent;
   }
   
  body.front.logged-in {
@@ -670,25 +682,24 @@ p.copy a:hover {
   border-color: #fff;
   }
   
-.front #footer #powered-by {
+.front #footer #block-os-powered-by {
+  float:right;
   position:relative;
-  top: -138px;
-  margin-right:-10px;
+  top: -146px;
   }
  
 
- .front.logged-in #footer #powered-by {
-  top: -120px;
+   .front.logged-in #footer #block-os-powered-by {
+  top: -144px;
   } 
   
 
-.front #powered-by a {
+.front #block-os-powered-by span a {
   background: url('../images/powered_by.png') 19px 37px no-repeat #234f6e;
   display:block;
   width: 119px;
   height:115px;
   text-indent: -9999px;
-  margin:0;
   }
   
 
@@ -889,6 +900,10 @@ p.copy a:hover {
 
 .page-site-register .os-scholar-header {
  display:none;
+}
+
+.page-site-register #main-content {
+    padding: 0 0 20px;
 }
 
 
@@ -1137,7 +1152,7 @@ border-right:1px solid #E8E9EB;
 }
 
 .block-os-stats dl {
-  margin: 6px 0px 12px 18px;
+  margin: -112px 0px 12px 18px;
 }
 
 .logged-in .block-os-stats dl {
@@ -1153,7 +1168,7 @@ border-right:1px solid #E8E9EB;
 }
 
 .front #footer {
-  background: #698DA2;
+  background: #436B85;
 }
 
 /* CSS fixes for frontpage header */
@@ -1163,11 +1178,6 @@ border-right:1px solid #E8E9EB;
 
 #columns {
  margin-top: -5px;
-}
-
-
-.not-front #columns {
- margin-top: 50px;
 }
 
 /* CSS fixes for pages outside of the frontpage when scholars module active */
@@ -1199,19 +1209,5 @@ border-right:1px solid #E8E9EB;
   overflow:hidden;
   font-size: 10px;
   display: block;
-}
-
-#block-vsite-register-get-your-site-block .get-your-site-button {
-    background: none;
-    border-radius: 0;
-    color: #FFFFFF;
-    font-size: 30px;
-    padding: 0;
-    text-decoration: none;
-}
-
-#block-vsite-register-get-your-site-block .get-your-site-button:hover {
-    background: none;
-  
 }
 

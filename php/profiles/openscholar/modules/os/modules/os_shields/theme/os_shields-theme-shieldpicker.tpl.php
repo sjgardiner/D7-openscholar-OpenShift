@@ -12,6 +12,6 @@
 
   $shield = t('no preview available');
   if (file_exists($file->uri)) {
-    $shield = theme('image_style', array('path' => $file->uri, 'attributes' => array(), 'style_name' => 'os_thumb_180_140'));
+    $shield = theme('image', array('path' => $file->uri, 'attributes' => array()));
   }
   print '<div class="item-shield-picker">'. $shield .'</div>';

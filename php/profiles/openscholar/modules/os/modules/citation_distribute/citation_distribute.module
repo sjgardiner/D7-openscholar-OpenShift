@@ -40,13 +40,6 @@ function citation_distribute_menu() {
       }
     }
   }
-  
-  $items['repec'] = array(
-    'title' => t(''),
-    'page callback' => 'citation_distribute_repec_page',
-    'access arguments' => array('access content'),
-  );
-  
   return $items;
 }
 
@@ -117,94 +110,6 @@ function citation_distribute_preprocess_page(&$variables) {
 
 
 /**
- * @function citation_distribute_repec_page
- * 
- * If we can't write out to a folder, render a page very much like a repec folder.
- */
-function citation_distribute_repec_page($type = NULL, $filename = NULL) {
-  $repec = _citation_distribute_load_plugin('citation_distribute_service_repec');
-  
-  //get all CD'ed nids, and their biblio types
-  $query = db_select('citation_distribute', 'cd')
-    ->condition('plugin', 'repec')
-    ->fields('cd', array('nid'));
-  $query->join('biblio', 'b', 'cd.nid = b.nid');
-  $query->join('biblio_types', 'bt', 'b.biblio_type = bt.tid');
-  $query->fields('bt', array('name'));
-  $result = $query->execute();
-  
-  $archives = array();
-  while ($row = $result->fetchObject()) {
-    $name = $repec->_map_biblio_type($row->name);
-    if ($name) { //repec only lets us do wpapers
-      $archives['wpaper'][] = $row->nid;
-    } 
-  }
-  
-  $return = array();
-  if (empty($type)) {
-    //print links to all archives, indices.
-    $arch = $repec->archive_code . 'arch.rdf';
-    $seri = $repec->archive_code . 'seri.rdf';
-    $return[] = l($arch, 'repec/'.$arch);
-    $return[] = l($seri, 'repec/'.$seri);
-    
-    foreach (array_keys($archives) as $type) {
-      $return[] = l($type.'/', 'repec/'.$type);
-    }
-  } elseif (empty($filename)) {
-    //print this index
-    if ($type == $repec->archive_code . 'arch.rdf') {
-      
-      $return[]  = 'Template-Type: ReDIF-Archive 1.0';
-      $return[] =  'Handle: RePEc:' . $repec->archive_code;
-      $return[] =  'Name: ' . $repec->inst_name;
-      $return[] =  'Maintainer-Email: ' . $repec->maintainer_email;
-      $return[] =  'Description: ' . $repec->inst_name;
-      $return[] =  'URL: ' . $repec->archive_url;
-      
-    } elseif ($type == $repec->archive_code . 'seri.rdf') {
-      $types = array(
-        'sftwre' => 'Software',
-        'journl' => 'Journal Article',
-        'bookch' => 'Book Chapter',
-        'booktm' => 'Book',
-        'wpaper' => 'Working Paper',
-      );
-      
-      foreach (array_keys($archives) as $type) {
-        $return[] = 'Template-Type: ReDIF-Series 1.0';
-        $return[] = 'Name: ' . $types[$type];
-        $return[] = 'Provider-Name: '. $repec->inst_name;
-        $return[] = 'Provider-Homepage: ' . $repec->provider_homepage;
-        $return[] = 'Provider-Institution:  ' . $repec->provider_institution;
-        $return[] = 'Maintainer-Name: ' . $repec->maintainer_name;
-        $return[] = 'Maintainer-Email: ' . $repec->maintainer_email;
-        $return[] = 'Type: ReDIF-' . array_pop(explode(' ', $types[$type]));    //only takes last word of series name...
-        $return[] = 'Handle: RePEc:' . $repec->archive_code . ':' . $type . "\n";
-        $return[] = '';
-      }
-    } else {       
-      //or this folder
-      foreach ($archives[$type] as $nid) {
-        $filename = "${type}_${nid}.rdf";
-        $return[] = l($filename, "repec/${type}/${filename}");
-      }
-    }
-    
-  } else {
-    //print this archive
-    
-    $nid = str_replace(array("${type}_", '.rdf'), '', $filename);
-    $metadata = $repec->map_metadata($nid);
-    $return[] = $repec->render($metadata);
-  }  
-  
-  print(implode("<br />\n", $return));
-  exit;
-}
-
-/**
  * Implements hook_module_implements_alter().
  *
  * citation_distribute's hook_insert and hook_update must run AFTER biblio
@@ -254,14 +159,14 @@ function _citation_distribute_node_apply_plugins($node) {
 
       if ( $node->{$plugin['name']} ) {
         //node should use this flag
-        $flag->flag('flag', $node->nid, NULL, TRUE); //flag returns if the node was flagged.  my output never gets returned.
+        $flag->flag('flag', $node->nid); //flag returns if the node was flagged.  my output never gets returned.
         $distributed[] = $plugin['name'];
       } else {
         //do NOT use this flag
         if (isset($autoflags[$plugin['class']]) && $autoflags[$plugin['class']]) { //if user has unselected an autoflag, mark noauto.
           _citation_distribute_unlist_db($plugin['name'], $node->nid);
         }
-        $flag->flag('unflag', $node->nid, NULL, TRUE); //remove old flags
+        $flag->flag('unflag', $node->nid); //remove old flags
 
       }
     }
@@ -375,7 +280,6 @@ function citation_distribute_form_biblio_node_form_alter(&$form, &$form_state, $
     '#type' => 'fieldset',
     '#title' => t('Distribute to Academic Repositories'),
     '#group' => 'additional_settings',
-    '#collapsible' => TRUE,
     '#attached' => array('js' => array(drupal_get_path('module', 'citation_distribute' ) . '/citation_distribute.js')),
     '#attributes' => array('class' => array('citation-distribute-form')),
   );
@@ -383,9 +287,10 @@ function citation_distribute_form_biblio_node_form_alter(&$form, &$form_state, $
   foreach(_citation_distribute_plugins() as $plugin) {
     if (isset($plugin['title']) && _citation_distribute_is_service_configured($plugin)) {
       $name = $plugin['name'];
+
       $form['citation_distribute'][$name] = array(
         '#type' => 'checkbox',
-        '#title' => l($plugin['title'], $plugin['href'], array('attributes' => array('target' => '_blank'))),
+        '#title' => $plugin['title'],
         '#description' => (isset($plugin['description'])) ? $plugin['description'] : '',
         '#disabled' => FALSE,
         '#default_value' => _citation_distribute_checked($plugin, $form['nid']['#value']),
@@ -432,7 +337,7 @@ function citation_distribute_form_cp_app_settings_form_alter(&$form, &$state, $i
 }
 
 /**
- * Implements hook_flag_default_flags().
+ * Implements hook_flag_default_flags
  */
 function citation_distribute_flag_default_flags() {
   foreach (_citation_distribute_plugins() as $plugin) {

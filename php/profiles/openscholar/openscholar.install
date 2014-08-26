@@ -11,38 +11,37 @@
 function openscholar_install() {
   // enable the following themes
   $enable = array(
-    'adaptivetheme',
-    'aberdeen',
-    'aglet',
-    'airstream',
-    'ballard',
-    'bigpic',
-    'bunchy',
-    'cayley',
-    'cleanblue',
-    'collector',
-    'collegiate',
-    'commodore',
-    'cp_theme',
-    'dunster',
-    'documental',
-    'eloquent',
-    'nortony',
-    'quinn',
-    'redhead',
-    'seven',
-    'stripy',
-    'weft',
-    'os_basetheme',
-    'os_default',
-    'fairbanks_center',
-    'gking',
-    'openscholar_theme',
-    'projects_harvard',
-    'rcss',
-    'scholar_department',
-    'scholars_harvard',
-    'spinker',
+  'adaptivetheme',
+  'aberdeen',
+  'aglet',
+  'airstream',
+  'ballard',
+  'bigpic',
+  'bunchy',
+  'cayley',
+  'cleanblue',
+  'collector',
+  'collegiate',
+  'commodore',
+  'cp_theme',
+  'dunster',
+  'eloquent',
+  'nortony',
+  'quinn',
+  'redhead',
+  'seven',
+  'stripy',
+  'weft',
+  'os_basetheme',
+  'os_default',
+  'fairbanks_center',
+  'gking',
+  'openscholar_theme',
+  'projects_harvard',
+  'rcss',
+  'scholar_department',
+  'scholars_harvard',
+  'spinker',
   );
   theme_enable($enable);
 
@@ -83,14 +82,4 @@ function openscholar_install() {
 
   // Disable preventing anonymous cache in biblio.
   variable_set('biblio_prevent_anon_cache', FALSE);
-
-  // Turn on the OG vocab term page access.
-  variable_set('og_vocab_term_page_access', TRUE);
-
-  // Allow accessing resource node to all users.
-  foreach (array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID) as $rid) {
-    user_role_grant_permissions($rid, array('access resource node'));
-    user_role_grant_permissions($rid, array('access resource file'));
-  }
 }
-

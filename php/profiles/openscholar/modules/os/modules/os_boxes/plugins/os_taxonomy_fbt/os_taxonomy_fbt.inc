@@ -10,10 +10,6 @@
  */
 class os_taxonomy_fbt extends os_boxes_default {
 
-  public $embed_as = array(
-    'iframe',
-  );
-
   /**
    * Implements boxes_content::options_defaults().
    */
@@ -32,7 +28,7 @@ class os_taxonomy_fbt extends os_boxes_default {
     $options['add_childs'] = FALSE;
     $options['depth'] = 0;
     $options['behavior'] = 'contextual';
-    $options['as_nav'] = FALSE;
+    $options['as_nav'] = false;
 
     return $options;
   }
@@ -97,7 +93,7 @@ class os_taxonomy_fbt extends os_boxes_default {
       '#options' => array(
         'contextual' => t("Determine for me"),
         '--all--' => t('All posts'),
-        'select' => t('Select post type'),
+        'select' => t('Select post types'),
       ),
       '#default_value' => $this->options['behavior'],
       '#description' => t('The post types that will included in the count. Determine for me will filter the content on the "current page".'),
@@ -105,10 +101,10 @@ class os_taxonomy_fbt extends os_boxes_default {
 
     $form['bundles'] = array(
       '#type' => 'select',
-      '#title' => t('Select Post type'),
+      '#title' => t('Select Post types'),
       '#options' => os_get_bundles(array(1,2)),
       '#description' => t('The post types that will be included in the count'),
-      '#multiple' => FALSE,
+      '#multiple' => TRUE,
       '#size' => count(os_get_bundles(array(1,2))) / 2,
       '#dependency' => array(
         'edit-behavior' => array('select'),
@@ -119,13 +115,12 @@ class os_taxonomy_fbt extends os_boxes_default {
       '#type' => 'textfield',
       '#title' => t('Number of terms to display'),
       '#description' => t('Maximum number of terms to display.'),
-      '#element_validate' => array('element_validate_integer_positive'),
     );
 
     $form['offset'] = array(
       '#type' => 'textfield',
-      '#title' => t('Start at'),
-      '#description' => t("By default the list of terms will start at the first one, if you specify (3) for example it will skip the first 3 terms and start the list at the fourth."),
+      '#title' => t('Offset'),
+      '#description' => t("The term location that the query start from."),
     );
 
     $form['show_empty_terms'] = array(
@@ -137,13 +132,13 @@ class os_taxonomy_fbt extends os_boxes_default {
     $form['show_term_descriptions'] = array(
       '#type' => 'checkbox',
       '#title' => t('Show term descriptions'),
-      '#description' => t('Show the description of the term if available under each term.'),
+      '#description' => t('Show the description of the term if avalible under each term.'),
     );
 
     $form['show_childs'] = array(
       '#type' => 'checkbox',
       '#title' => t('Show child terms'),
-      '#description' => t('Control whether to child terms are shown with their parent term.'),
+      '#description' => t('Controll if to show the childrens with their father term.'),
     );
 
     $form['depth'] = array(
@@ -151,7 +146,7 @@ class os_taxonomy_fbt extends os_boxes_default {
       '#title' => ('Taxonomy tree depth.'),
       '#description' => t('The maximum term level in the tree to count the tagged posts.'),
       '#options' => array(
-        -1 => t("Show all children"),
+        -1 => t("Show all childeren"),
         0 => t("Show only first level"),
         1 => t("2nd Level"),
         2 => t("3rd Level"),
@@ -169,132 +164,71 @@ class os_taxonomy_fbt extends os_boxes_default {
       '#description' => t('Show number of posts tagged to a term next to the term.'),
     );
 
+    $form['add_childs'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Add tagged children to the count'),
+      '#description' => t('Should posts tagged to childeren of a term be added to the count.'),
+      '#dependency' => array(
+        'edit-show-count' => array(1),
+      ),
+    );
+
     return $form;
-  }
-
-  /**
-   * When submitting a box we need to invalidate here.
-   */
-  public function options_submit($form, $form_state) {
-    if (module_exists('vsite') && !$vsite = vsite_get_vsite()) {
-      return;
-    }
-
-    if (isset($this->options['vocabulary'])) {
-      $id = 'vocabulary:' . $this->options['vocabulary'];
-    }
-    else {
-      $id = NULL;
-    }
-    $cid = $this->set_cache_id($id);
-
-    cache_clear_all($cid, 'cache_os_boxes', TRUE);
-    cache_clear_all('assets:' . $cid, 'cache_os_boxes', TRUE);
-
-    // Only continues the user is selecting individual types.
-    // For "All types" and "Determine for me", this value is overridden in
-    // $this::render().
-    if ($form_state['values']['behavior'] != 'select') {
-      return;
-    }
-
-    // The user can select only one bundle at a time therefore when there is
-    // multiple bundles we need to select the first one.
-    if (is_array($this->options['bundles'])) {
-      $this->options['bundles'] = reset($this->options['bundles']);
-    }
   }
 
   /**
    * Implements boxes_content::render().
    */
   public function render() {
-    if (module_exists('vsite') && !$vsite = vsite_get_vsite()) {
-      return;
-    }
-
     $block = parent::render();
     if (empty($this->options['vocabulary'])) {
       $this->options['vocabulary'] = current(array_keys(self::get_all_vocabularies()));
 
-      if (empty($this->options['vocabulary'])){
+      if(empty($this->options['vocabulary'])){
         // There are no vocabularies defined in the VSite.
         return $block;
       }
     }
-
-    ctools_include('layout', 'os');
-
-    if ($this->options['behavior'] == '--all--') {
+    // For now - display the first vocabulary terms.
+    if (empty($this->options['behavior']) || $this->options['behavior'] == '--all--') {
       $this->options['bundles'] = array();
     }
-    else if (!empty($this->options['behavior']) && $this->options['behavior'] == 'contextual' && ($feature = os_get_active_feature())) {
+
+    ctools_include('layout', 'os');
+    if (!empty($this->options['behavior']) && $this->options['behavior'] == 'contextual' && ($feature = os_get_active_feature())) {
       if (isset($feature->info['features']['node'])) {
-        // Building a list of the bundles in two ways:
-        // 1. Selected bundles from a list
-        // 2. If the widget defined as a "Determine for me" set the bundles
-        //    which related to the app.
-        $paths = os_get_app_path();
-        $menu = menu_get_item();
-
-        $this->options['bundles'] = array();
-        if ($menu['map'][0] == 'node') {
-          $this->options['bundles'] = array($menu['map'][1]->type);
-        }
-        else {
-          foreach ($paths as $bundle => $path) {
-            if ($path == $menu['original_map'][0]) {
-              $this->options['bundles'][] = $bundle;
-            }
-          }
-        }
+        $this->options['bundles'] = $feature->info['features']['node'];
       }
     }
-    else if ($this->options['behavior'] == 'select') {
-      // For specified node type behavior but non-string value, default to all
-      // and try to grab any first value of an array.
-      $bundles = $this->options['bundles'];
-      $this->options['bundles'] = FALSE;
-      if (is_array($bundles)) {
-        foreach ($bundles as $value) {
-          if (!empty($value)) {
-            $this->options['bundles'] = array($value);
-            break;
-          }
-        }
-      }
-      else if (is_string($bundles)) {
-        $this->options['bundles'] = array($bundles);
-      }
+
+    if (is_array($this->options['vocabulary'])) {
+      $t = array_filter($this->options['vocabulary']);
+      $this->options['vocabulary'] = current($t);
     }
-    $id = 'vocabulary:' . $this->options['vocabulary'];
-    $this->set_cache_id($id);
-    if (($block['content'] = $this->get_cache()) === FALSE) {
-      if (is_array($this->options['vocabulary'])) {
-        $t = array_filter($this->options['vocabulary']);
-        $this->options['vocabulary'] = current($t);
-      }
 
-      if ($this->options['as_nav']) {
-        $this->options['additional_classes'] = 'navigation';
-      }
+    $attr = array();
+    if ($this->options['as_nav']) {
+      $this->options['additional_classes'] = 'navigation';
+    }
 
-      $content = theme('os_taxonomy_vocabulary_item_list', array(
+    $block['content'] = theme('os_taxonomy_vocabulary_item_list', array(
         'vid' => $this->options['vocabulary'],
         'options' => $this->options,
       ));
-
-      $block['content'] = $content;
-      $this->set_cache($block['content']);
-    }
 
     return $block;
   }
 
   /**
-   * Get all the vocabularies id using the taxonomy terms.
+   * Return the cache parameters for this box.
+   */
+  public function cache_info() {}
+
+  /**
+   * Get all the volcabularies id using the taxonomy terms.
    */
   private function get_all_vocabularies() {
+
     ctools_include('taxonomy', 'os');
     $taxonomy_vocabularies = os_get_vocabularies();
     $vocabularies = array();
@@ -306,3 +240,4 @@ class os_taxonomy_fbt extends os_boxes_default {
     return $vocabularies;
   }
 }
+

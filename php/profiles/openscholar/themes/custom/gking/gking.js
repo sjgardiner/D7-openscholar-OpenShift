@@ -9,28 +9,22 @@
        * Prepares Bio overlay for front page header.
        */
       // Bio set to display: none by default, for browsers without js.
-      var container = $(".front .region-header-second .block-boxes-os_boxes_manual_list");
+      var container = $(".front .region-header-second .block-boxes-os_boxes_bio");
       if (container.length) {
         container.toggle();
         container.css('display','block');
-
-      if($('a.more').length == 0) {
-        // Adds necessary more/close links to show/hide bio node content.
-        // Adds the "more >" link at the end of the default-visible blurb.
-        $('<a class="more" href="#">More</a>')
-          .appendTo('.front .region-header-second .block-boxes-os_boxes_html .boxes-box-content');
-        // Adds the "close x" link on the default-hidden bio/cv overlay.
-        container.find('.node-cv')
-          .prepend('<a class="more" href="#">CLOSE X</a>');
         
-        // Gets the latest updated PDF URL from the CV node...
-        var cv_link = container.find('.node-cv .field-name-field-biocv-pdf-upload a').attr('href');
-        // Formats it to look like the link at the top of the /biocv page...
-        cv_link = '<div class="node-content"><h3 class="cv-direct-download">Full CV: <a href="' + cv_link + '">PDF</a></h3><div class="clear"></div></div>';       
-        // ...And insert this html markup as the CV node content.
-        container.find('.node-cv .node-content')
-          .replaceWith(cv_link);
-      }
+        // Adds necessary more/close links to show/hide bio node content.
+        // Ajax pager adds the "more" link each time it's paged, stop this behavior.
+        if($('a.more').length == 0) {
+          $('<a class="more" href="#">More</a>')
+            .appendTo('.front .region-header-second .block-boxes-os_boxes_html .boxes-box-content');
+          container.find('.node')
+            .prepend('<a class="more" href="#">CLOSE X</a>');
+          container.find('.node .node-content')
+            .prepend('<h3 class="cv-direct-download">Full CV: <a href="http://gking.harvard.edu/files/vitae.pdf">PDF</a></h3><div class="clear"></div>');
+        }
+        
         // Prevent the click from being bound everytime the pager is paged.
         $(".front .region-header-second a.more").unbind("click");
         // Both the "More" and "Close X" links trigger this animate event.
@@ -89,14 +83,6 @@
           .addClass('aor-processed');
       }
       
-      // Moves messages (i.e. error messages) underneath main menu.
-      if ($('.front #messages').length) {
-    	  $('.front #messages').prependTo('#header-container');
-      }
-      // Handles non-front pages a little differently from front page.
-      else if ($('#messages').length) {
-    	  $('#messages').prependTo('#columns');
-      }
       /**
        * Scrolls to the top of the page when you click the sort links
        */
@@ -109,14 +95,3 @@
     }
   };
 })(jQuery);
-
-jQuery(document).ready(function() {
-	if (jQuery('#biblio-node').find('div.biblio-upload-wrapper').length) {
-		jQuery('#citation-wrapper').addClass('has-attached');
-	}
-});
-
-
-
-
-

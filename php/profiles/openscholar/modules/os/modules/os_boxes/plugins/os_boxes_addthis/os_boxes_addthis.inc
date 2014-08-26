@@ -7,10 +7,6 @@
 
 class os_boxes_addthis extends os_boxes_default {
 
-  public $embed_as = array(
-    'iframe',
-  );
-
   /**
    * Implementation of boxes_content::options_defaults().
    */
@@ -56,15 +52,12 @@ class os_boxes_addthis extends os_boxes_default {
   /**
    * Implementation of boxes_content::render().
    */
-  public function render() {
-    if (module_exists('vsite') && !vsite_get_vsite()) {
-      return;
-    }
+  public function render(){
 
     switch ($this->options['widget_type']) {
 
       case 'buttons' :
-        $html = '<a class="addthis_button" href=" http://www.addthis.com/bookmark.php?v=250&amp;pubid=xa-4e9eeefa6983da55 "><img src="/'.drupal_get_path('module', 'os_boxes').'/plugins/os_boxes_addthis/images/addthis_smallbar.png" width="125" height="16" alt="Bookmark and Share" style="border:0"/></a>';
+        $html = '<a class="addthis_button" href="http://www.addthis.com/bookmark.php?v=250&amp;pubid=xa-4e9eeefa6983da55"><img src="http://s7.addthis.com/static/btn/v2/lg-share-en.gif" width="125" height="16" alt="Bookmark and Share" style="border:0"/></a>';
         break;
 
       case 'toolbox_small' :
@@ -101,17 +94,11 @@ class os_boxes_addthis extends os_boxes_default {
 
     $block = parent::render();
     $block['content'] = $html;
-    drupal_add_css(drupal_get_path('module', 'os_boxes') . '/plugins/os_boxes_addthis/os_boxes_addthis.css');
     drupal_add_js('http://s7.addthis.com/js/250/addthis_widget.js#pubid=xa-4e9eeefa6983da55', 'external');
 
     //after removing and readding this widget, page needs a reload.  trigger it with js
-    if (preg_match('/os\/widget\/boxes\/[^\/]*\/remove\/\w/', $_GET['q'])) {
-      $block['content'] .= '<script type="text/javascript">
-      	if (addthis) { 
-      		setTimeout(function () {
-      			addthis.toolbox(".addthis_toolbox");
-      	  },1); 
-    	} </script>';
+    if (preg_match('/os\/widget\/boxes\/os_addthis\/remove\/\w/', $_GET['q'])) {
+      $block['content'] = '<script type="text/javascript">window.parent.location.reload();</script>';
     }
     return $block;
   }

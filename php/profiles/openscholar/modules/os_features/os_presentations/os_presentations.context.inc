@@ -29,7 +29,6 @@ function os_presentations_context_default_contexts() {
       'values' => array(
         'presentations' => 'presentations',
         'presentations/*' => 'presentations/*',
-        'browse/presentations' => 'browse/presentations',
       ),
     ),
     'views' => array(

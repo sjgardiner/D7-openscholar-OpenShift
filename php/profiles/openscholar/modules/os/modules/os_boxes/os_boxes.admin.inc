@@ -13,14 +13,12 @@ function os_boxes_edit_widget($box, $source = '') {
     // @todo Multi-step form to choosen plugin type?
     return MENU_NOT_FOUND;
   }
-
-  $info = ctools_get_plugins('boxes', 'plugins', $box->plugin_key);
-
   if ($box->new) {
-    drupal_set_title(t('Add New "@plugin" Widget', array('@plugin' => $info['title'])));
+    $info = ctools_get_plugins('boxes', 'plugins', $box->plugin_key);
+    drupal_set_title(t('Add New @plugin Widget', array('@plugin' => $info['title'])));
   }
   else {
-    drupal_set_title(t('Edit "@plugin" Widget - @info', array('@plugin' => $info['title'], '@info' => $box->description)));
+    drupal_set_title(t('Edit @info', array('@info' => $box->description)));
   }
 
   $form_state = array(
@@ -57,8 +55,6 @@ function os_boxes_form_boxes_box_form_alter(&$form, &$form_state) {
  * ctools overlay_commands
  */
 function os_boxes_widget_submit($form, $form_state) {
-  global $dummy_rendering;
-
   if ($form_state['values']['op'] !== t('Cancel')) {
     $box     = boxes_box_load($form_state['box']->delta);
     $html    = '';
@@ -81,20 +77,14 @@ function os_boxes_widget_submit($form, $form_state) {
         break;
 
       default:
-        $dummy_rendering = TRUE;
-        // Coming from public view can only edit boxes from this view.
+        // coming from public view
+        // can only edit boxes from this view
         module_load_include('module', 'block', 'block');
         $b     = (object)os_boxes_os_widget($box);
         $t     = _block_render_blocks(array($b));
         $block = array_shift($t);
-        $dummy_rendering = FALSE;
-
-        // Do this or else notices will throw. absolutely nothing is done with
-        // it but whatever.
+        // do this or else notices will throw. absolutely nothing is done with it but whatever
         $block->region = 'dummy';
-        $block->module = 'dummy';
-        $block->delta = 'dummy';
-        $block->subject = 'dummy';
         $array         = array('#theme' => 'block', '#block' => $block);
         $html          = drupal_render($array);
         $target        = '#boxes-box-' . $box->delta;
@@ -199,7 +189,7 @@ function os_boxes_remove_widget($module, $delta, $target = FALSE) {
 
   // Removes the box from the contexts.
   ctools_include('layout', 'os');
-  $blocks = os_layout_get_multiple($contexts, false, true);
+  $blocks = os_layout_get_multiple($contexts);
 
   $bid = $module . '-' . $delta;
 
@@ -234,40 +224,3 @@ function os_boxes_remove_widget($module, $delta, $target = FALSE) {
   return '';
 }
 
-/**
- * Returns an embeddable version of a box
- * @param $box - a full box object
- * @param $embed_style - how the box should be embedded in the client
- *    can be inline or iframe
- */
-function os_boxes_embed_code($box, $embed_style) {
-  module_invoke_all('suppress');
-  if ($box) {
-    module_load_include('module', 'block', 'block');
-    $plugin = context_get_plugin('reaction', 'block');
-    $blocks = $plugin->get_blocks();
-    $bid = 'boxes-'.$box->delta;
-    if ($b = $blocks[$bid]) {
-      web_widgets_inside_widget(true);
-      $b->region = 'embed';
-      if ($b_out = _block_render_blocks(array($b))) {
-        $block_arr = _block_get_renderable_array($b_out);
-        $block = $block_arr['boxes_'.$box->delta];
-        $block['#attached']['js'] = array(
-          drupal_get_path('module', 'os_boxes').'/misc/os_boxes.resize_child.js',
-        );
-
-        print web_widgets_render_widget($embed_style, drupal_render($block), '');
-      }
-    }
-  }
-  print '';
-  exit;
-}
-
-/**
- * Placeholder function. Always returns a 404.
- */
-function os_boxes_placeholder() {
-  return MENU_NOT_FOUND;
-}

@@ -10,10 +10,7 @@
 body,
 #header-container, 
 #footer,
-#page,
-#tinymce,
-body#tinymce
- {
+#page {
   background: #000000;
   color:#ccffcc;
   font-family: Verdana, Arial, Helvetica, sans-serif;
@@ -134,9 +131,9 @@ body.sidebar-second #page {
   background-position: 708px 0;
   }
   
-#powered-by a {
-    background-position: -13px -546px;
-}
+p.copy a.poweredby {
+  background-position: 0 -26px;
+  }
 
 /* SIDEBAR ELEMENTS */
 

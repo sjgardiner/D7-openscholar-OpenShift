@@ -20,25 +20,6 @@ function os_classes_os_app_info() {
   	  'class',
   		'class_material',
     ),
-    'views tabs' => array(
-      'os_classes' => array('page'),
-    ),
-    'importers' => array(
-      'class' => array(
-        'csv' => 'os_classes',
-      ),
-    ),
-    'require_parent_node' => array(
-      'class_material'=> TRUE,
-    ),
-    'browse_pages' => array(
-      'class' => array(
-        'url' => 'browse/classes',
-        'title' => t('Classes'),
-        'display_mode' => 'teaser',
-        'menu_item' => 'classes',
-      ),
-    ),
   );
 
   return $apps;
@@ -137,9 +118,11 @@ function os_classes_os_add_new_links_alter(&$links) {
  * Deletes all Class Material nodes that reference a given deleted Class node.
  *
  * @param int $nid
+ *
+ * @todo not working because group ref field is missing
  */
 function _os_classes_delete_children($nid) {
-  ctools_include('node', 'os');
+  include_once drupal_get_path('module', 'os') . '/includes/node.inc';
   $query = new OSNodeFieldQuery('class_material');
   $query->fieldCondition('field_class', 'target_id', $nid);
   $result = $query->execute();
@@ -168,4 +151,3 @@ function os_classes_process_node(&$vars) {
     unset($vars['content']['os_classes_entity_view_1']);
   }
 }
-

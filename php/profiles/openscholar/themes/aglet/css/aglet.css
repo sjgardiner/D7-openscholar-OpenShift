@@ -76,7 +76,7 @@ p.copy {
 
 #footer {
   padding-top: 0;
-  min-height: 104px;
+  height: 104px;
   position: relative;
   background:#BBC6C8;
    }
@@ -116,10 +116,10 @@ padding-bottom: 2000px;
   padding-right:0;
   background: #d9e3e5;
   }
-  
+
 #columns .hg-container {
-    overflow: hidden;
-}  
+  overflow: hidden;
+  }
 
 .page-datavere #columns .hg-container {
   overflow: visible;
@@ -242,7 +242,6 @@ body.two-sidebars #columns .hg-container {
   
 #menu-bar ul.nice-menu ul {
   top: 3.2em;
-  background: #CCC;
   } 
   
 ul.nice-menu ul li {
@@ -296,13 +295,6 @@ ul.nice-menu-left li.menuparent, ul.nice-menu-left li li.menuparent {
   color: #000;
   text-decoration: none;
   }
-  
-  
-#menu-bar ul ul li a:hover,
-#menu-bar ul ul li a.active,
-#menu-bar ul ul li.active-trail a {
-  background: none;
-  }  
 
 .sidebar .book-menu ul.menu li a, .sidebar #block-book-navigation ul.menu li a, .sidebar .block-boxes-os_boxes_booktoc ul.menu li a {
     border-bottom: 1px dotted #CCCCCC;
@@ -316,11 +308,6 @@ ul.nice-menu-left li.menuparent, ul.nice-menu-left li li.menuparent {
   background:#c7d0d2;
   height:33px;
   }
-  
-  #powerby-login {
-    margin-top: 70px;
-
-}
 
 /* Nodes */
 

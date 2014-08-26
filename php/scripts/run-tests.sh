@@ -67,8 +67,6 @@ if ($args['list']) {
   exit;
 }
 
-$test_list = simpletest_script_get_test_list();
-
 // Try to allocate unlimited time to run the tests.
 drupal_set_time_limit(0);
 
@@ -124,7 +122,7 @@ All arguments are long options.
   --clean     Cleans up database tables or directories from previous, failed,
               tests and then exits (no tests are run).
 
-  --url       Immediately precedes a URL to set the host and path. You will
+  --url       Immediately preceeds a URL to set the host and path. You will
               need this parameter if Drupal is in a subdirectory on your
               localhost and you have not set \$base_url in settings.php. Tests
               can be run under SSL by including https:// in the URL.
@@ -253,14 +251,14 @@ function simpletest_script_init($server_software) {
   if (!empty($args['php'])) {
     $php = $args['php'];
   }
-  elseif ($php_env = getenv('_')) {
+  elseif (!empty($_ENV['_'])) {
     // '_' is an environment variable set by the shell. It contains the command that was executed.
-    $php = $php_env;
+    $php = $_ENV['_'];
   }
-  elseif ($sudo = getenv('SUDO_COMMAND')) {
+  elseif (!empty($_ENV['SUDO_COMMAND'])) {
     // 'SUDO_COMMAND' is an environment variable set by the sudo program.
     // Extract only the PHP interpreter, not the rest of the command.
-    list($php, ) = explode(' ', $sudo, 2);
+    list($php, ) = explode(' ', $_ENV['SUDO_COMMAND'], 2);
   }
   else {
     simpletest_script_print_error('Unable to automatically determine the path to the PHP interpreter. Supply the --php command line argument.');
@@ -268,14 +266,14 @@ function simpletest_script_init($server_software) {
     exit();
   }
 
-  // Get URL from arguments.
+  // Get url from arguments.
   if (!empty($args['url'])) {
     $parsed_url = parse_url($args['url']);
     $host = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
     $path = isset($parsed_url['path']) ? $parsed_url['path'] : '';
 
     // If the passed URL schema is 'https' then setup the $_SERVER variables
-    // properly so that testing will run under HTTPS.
+    // properly so that testing will run under https.
     if ($parsed_url['scheme'] == 'https') {
       $_SERVER['HTTPS'] = 'on';
     }
@@ -362,8 +360,6 @@ function simpletest_script_run_one_test($test_id, $test_class) {
     // Bootstrap Drupal.
     drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
-    simpletest_classloader_register();
-
     $test = new $test_class($test_id);
     $test->run();
     $info = $test->getInfo();
@@ -397,7 +393,7 @@ function simpletest_script_command($test_id, $test_class) {
   if ($args['color']) {
     $command .= ' --color';
   }
-  $command .= " --php " . escapeshellarg($php) . " --test-id $test_id --execute-test " . escapeshellarg($test_class);
+  $command .= " --php " . escapeshellarg($php) . " --test-id $test_id --execute-test $test_class";
   return $command;
 }
 
@@ -489,13 +485,12 @@ function simpletest_script_reporter_init() {
     echo "\n";
   }
 
-  echo "Test run started:\n";
-  echo " " . format_date($_SERVER['REQUEST_TIME'], 'long') . "\n";
+  echo "Test run started: " . format_date($_SERVER['REQUEST_TIME'], 'long') . "\n";
   timer_start('run-tests');
   echo "\n";
 
-  echo "Test summary\n";
-  echo "------------\n";
+  echo "Test summary:\n";
+  echo "-------------\n";
   echo "\n";
 }
 
@@ -576,7 +571,7 @@ function simpletest_script_reporter_timer_stop() {
   echo "\n";
   $end = timer_stop('run-tests');
   echo "Test run duration: " . format_interval($end['time'] / 1000);
-  echo "\n\n";
+  echo "\n";
 }
 
 /**
@@ -587,8 +582,9 @@ function simpletest_script_reporter_display_results() {
 
   if ($args['verbose']) {
     // Report results.
-    echo "Detailed test results\n";
-    echo "---------------------\n";
+    echo "Detailed test results:\n";
+    echo "----------------------\n";
+    echo "\n";
 
     $results = db_query("SELECT * FROM {simpletest} WHERE test_id = :test_id ORDER BY test_class, message_id", array(':test_id' => $test_id));
     $test_class = '';
@@ -598,10 +594,6 @@ function simpletest_script_reporter_display_results() {
           // Display test class every time results are for new test class.
           echo "\n\n---- $result->test_class ----\n\n\n";
           $test_class = $result->test_class;
-
-          // Print table header.
-          echo "Status    Group      Filename          Line Function                            \n";
-          echo "--------------------------------------------------------------------------------\n";
         }
 
         simpletest_script_format_result($result);
@@ -619,8 +611,8 @@ function simpletest_script_reporter_display_results() {
 function simpletest_script_format_result($result) {
   global $results_map, $color;
 
-  $summary = sprintf("%-9.9s %-10.10s %-17.17s %4.4s %-35.35s\n",
-    $results_map[$result->status], $result->message_group, basename($result->file), $result->line, $result->function);
+  $summary = sprintf("%-10.10s %-10.10s %-30.30s %-5.5s %-20.20s\n",
+    $results_map[$result->status], $result->message_group, basename($result->file), $result->line, $result->caller);
 
   simpletest_script_print($summary, simpletest_script_color_code($result->status));
 

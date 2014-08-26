@@ -80,6 +80,9 @@ function os_role_grant($uid, $role_name, $site_id = FALSE) {
     user_save($user);
     return TRUE;
   }
+
+  // Invalid Role.
+  return false;
 }
 
 /**

@@ -28,7 +28,6 @@ function harvard_courses_context_default_contexts() {
     'path' => array(
       'values' => array(
         'courses' => 'courses',
-        'browse/courses' => 'browse/courses',
       ),
     ),
   );

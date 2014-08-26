@@ -95,32 +95,3 @@ function cp_update_7001() {
   	}
   }
 }
-
-/**
- * Enable redirect module and revert CP module to export new permission.
- */
-function cp_update_7002() {
-  // First, enables the redirect module to prevent permission insert error.
-  $modules = array('redirect');
-  module_enable($modules);
-
-  // Last, reverts the feature to expose the newly exported redirect permission.
-  $revert = array(
-    'cp' => array(
-      'user_permission',
-    ),
-  );
-  features_revert($revert);
-}
-
-/**
- * Instantiate newly exported variable value: redirect_page_cache = 1.
- */
-function cp_update_7003() {
-  module_load_include('inc', 'os', 'includes/update');
-  $variables = array(
-    'redirect_page_cache' => 1,
-  );
-  $message = _os_update_strongarm($variables);
-  return $message;
-}

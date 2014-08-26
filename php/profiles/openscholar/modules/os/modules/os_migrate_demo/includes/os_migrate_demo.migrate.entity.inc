@@ -28,16 +28,13 @@ abstract class OsMigrate extends Migration {
       $class_name = 'MigrateDestinationNode';
     }
     elseif ($this->entityType == 'taxonomy_term') {
+      $this->addFieldMapping('name', 'name');
       $class_name = 'MigrateDestinationTerm';
 
       $csv_columns = array(
         array('id', 'ID'),
         array('name', 'Name'),
-        array('description', 'Description'),
       );
-      $this->addFieldMapping('name', 'name');
-      $this->addFieldMapping('description', 'description');
-
 
       if ($this->ogVocab) {
         $this
@@ -69,20 +66,10 @@ abstract class OsMigrate extends Migration {
   }
 
   public function prepareRow($row) {
-    // The migrate content isn't belong to any one, the default will be the
-    // admin user.
-    if (!$row->uid) {
-      $row->uid = 1;
-    }
+    $row->uid = 1;
 
     if ($this->entityType == 'taxonomy_term' && $this->ogVocab) {
       $this->prepareRowTaxonomyTerm($row);
-    }
-
-    if ($this->entityType == 'node') {
-      // Create a random timestamp from the last year.
-      $year_ago = time() - 3600 * 24 * 365;
-      $row->created = rand($year_ago, time());
     }
   }
 
@@ -111,7 +98,7 @@ abstract class OsMigrate extends Migration {
       // Create an OG-vocab entity for all group-content bundles
       // @todo: Move to "OG-Vocab" migrate.
       // We can't save OG vocab for all bundles, as it fails in Travis.
-      foreach (array_keys(os_get_bundles()) as $bundle) {
+      foreach (array('class', 'news') as $bundle) {
         $og_vocab = og_vocab_create_og_vocab($vocabulary->vid, 'node', $bundle);
         $og_vocab->save();
       }
@@ -126,18 +113,6 @@ abstract class OsMigrate extends Migration {
   private function prepareTaxonomyTerm($entity, $row) {
     $vocabulary = taxonomy_vocabulary_machine_name_load($entity->vocabulary_machine_name);
     $gid = $entity->og_group_ref['destid1'];
-
     og_vocab_relation_save($vocabulary->vid, 'node', $gid);
-  }
-
-  /**
-   * When migrating a site, check if he have a domain and insert the domain.
-   */
-  public function complete($entity, $row) {
-    if (!in_array($this->bundle, array('personal', 'project')) || empty($row->domain)) {
-      return;
-    }
-
-    os_migrate_demo_spaces_overrides('og', $entity->nid, $row->domain);
   }
 }
